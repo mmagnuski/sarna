@@ -1,0 +1,166 @@
+akwamaryna	#7FFFD4	127	255	212	"morska woda", odcień zielononiebieski, barwa szlachetnej odmiany berylu o tej samej nazwie	.
+alabastrowy	#FAFFFA	240	255	240	jedna z najczystszych bieli, kolor minerału	.
+amarantowy	#E61C66	230	28	102	szkarłatny, jasna czerwień wpadająca w róż z odcieniem fioletowym	amarantowy na fladze
+ametystowy	#9966CC	153	102	204	purpurowofioletowy, kolor ametystu	mineralogia
+antracytowy	#364135	54	65	53	szaro-czarny, kolor minerału	mineralogia
+atramentowy	#003153	0	49	83	granatowy lub ciemnoniebieski, siny	.
+bahama yellow	#F9E04B	249	224	75	ciemnożółty, wpadający w pomarańczowy	.
+bananowy	#FEFE33	254	254	51	intensywnie żółty	.
+beżowy	#C2B280	194	178	128	kawa z dodatkiem mleka	.
+biały	#FFFFFF	255	255	255	najjaśniejszy; suma wszystkich kolorów	white[1]
+biskupi	#FF0080	255	0	128	kolor szat biskupa, różowofioletowy	.
+błękit królewski	#4169E1	65	105	225	jaśniejszy niebieski	malarstwo
+błękit paryski	#0027C2	0	39	194	zimny niebieski	malarstwo
+błękit pruski	#003153	0	49	83		malarstwo
+błękit Thénarda	#0300FD	3	0	253		malarstwo
+błękit Turnbulla	#082E79	8	46	121		malarstwo
+bordowy, bordo	#800000	128	0	0	ciemnoczerwony, kolor wina z Bordeaux	.
+brązowy	#964B00	150	75	0		
+brunatny	#70201F	112	32	31	ciemnobrązowy z dodatkiem szarości	.
+brzoskwiniowy	#FFCC99	255	204	153	odcień pomarańczowego z dodatkiem kremu, kolor brzoskwini	.
+buraczkowy	#730029	98	0	44	ciemny czerwony z fioletowym odcieniem, kolor buraka	.
+burgund	#600201	96	2	1	głęboki odcień czerwieni, kolor wina	malarstwo
+bursztynowy	#FFBF00	255	191	0	kolor bursztynu	.
+bury	#6B5636	107	86	54	szarobrązowy	potocznie
+ceglasty	#E96B39	233	107	57	pomarańczowoczerwony	.
+chabrowy	#3300CC	51	0	204	niebieski wpadający w fiolet, kolor chabrów (bławatków)	.
+chamois	#FFFFD2	255	255	210	kolor specjalnego jasnożółtego papieru	.
+cielisty	#FFE5B4	255	229	180	mający barwę ciała, perłoworóżowy, brzoskwiniowy	.
+cyjan	#00FFFF	0	255	255	błękit turkusowy	aqua[1], w fotografii barwnej niebieskozielony
+cyjan (druk)	#00B7EB	0	180	247	przybliżona wartość barwnika stosowana w drukarkach <C>MYK	pigment, druk, CMYK
+cyklamen	#A2007B	162	0	123	różowy o odcieniu fioletowym	.
+cynamonowy	#9D5B03	157	91	3	odcień brązu	.
+cynobrowy, cynober	#E34234	227	66	52	minerał cynober	.
+cytrynowy	#FFFF00	255	255	0	intensywny jasnożółty	.
+czarny	#000000	0	0	0	najciemniejszy odcień; nie jest kolorem	black[1]
+czekoladowy	#8B4726	139	71	38	odcień ciemnego brązu, kolor gorzkiej czekolady	.
+czerwień wzrokowa	#FC0300	252	3	0	rodopsyna	.
+czerwień żelazowa	#801818	128	24	24	rdzawa	.
+czerwony	#FF0000	255	0	0		red[1]
+écru	#F5F5DC	245	245	220	delikatny żółtoszary, kolor niebielonego jedwabiu (z franc. écru – surowe płótno)	.
+eozyna	#C35C6F	195	92	111	odcień czerwieni, wpadający w intensywny róż	pigment
+feldgrau	#4D5D53	77	93	83	maskujący kolor niemieckich mundurów	.
+fioletowy	#B803FF	184	3	255		.
+fiołkowy	#EE82EE	238	130	238	jasny fioletowy	.
+fuksja	#FF00FF	255	0	255	fiolet z różem, magenta	fuchsia[1]
+gołębi	#C6CECE	198	206	206	szaroniebieski, jasny	.
+grafitowy	#36454F	54	69	79	szaroczarny	minerał
+granatowy	#000080	0	0	128	ciemny niebieski	navy[1]
+groszkowy	#CADC79	202	220	121	jasny, zgaszony zielony	.
+grynszpan	#00A693	0	166	147	kolor patyny miedzianej, zielononiebieski	
+heban, hebanowy	#3D2B1F	61	43	31	kolor matowego, czarnego drewna o tej samej nazwie	o drewnie
+herbaciany	#CC5D2B	204	93	43	brąz łamany pomarańczą	.
+indygo	#4B0082	75	0	130	bardzo głęboki, ciemny błękit	.
+jagodowy	#660066	128	0	128	ciemny fiolet z dodatkiem czerwieni	.
+jaśminowy	#CDEBA7	205	235	167	biel wpadająca delikatnie w jasny zielony	.
+kakaowy	#906030	144	96	48	brąz z beżem	.
+kanarkowy	#FFFF33	255	255	51	intensywnie żółty	.
+kardynalski	#FF2400	168	8	8	kolor szat kardynała, odcień purpury	.
+karmazynowy	#DC143C	220	20	60	odcień ciemnej czerwieni z niewielką domieszką błękitu	crimson
+karminowy	#841839	132	24	57	czerwony, wpadający w ciemny róż	.
+kasztanowy	#4D1F1C	77	31	28	błyszczący brąz	.
+kawowy	#2C1B01	44	27	1	ciemnokakaowy brąz	.
+khaki	#C3B091	195	176	145	wyblakły żółtobrązowy, płowy, w kolorze ziemi	.
+kobaltowy	#19247C	25	36	124		minerał
+koniakowy	#C73C07	199	60	7		.
+koralowy	#FF7F50	255	127	80	różowy wpadający w czerwień i pomarańcz, podobny nieco do łososiowego.	.
+kość słoniowa	#FFFFF0	255	255	240	żółto-biało-kremowy	.
+kremowy	#FFFDD0	255	253	208	jasny beż, lekko wpadający w szary	.
+krwisty	#CF2929	207	41	41	bardzo intensywny czerwony	.
+lawendowy	#C9A2BF	201	162	191	łagodny fiolet	.
+lapis-lazuli	#3366CC	51	102	204		.
+lazurowy	#007FFF	0	127	255		.
+lila	#C8A2C8	200	162	200	delikatny fiolet z różem	.
+lila róż	#DEB4CB	222	180	203	kolor moweiny	.
+liliowy	#DD9ECD	221	158	205		.
+limonkowy	#93F600	147	246	0	jasna jaskrawa zieleń wpadająca w żółć	.
+łososiowy	#FA8072	250	128	114	ciemnoróżowy wpadający lekko w pomarańcz	.
+magenta (HTML)	#FF00FF	255	0	255	fioletowoczerwony, ten sam kolor pod nazwą fuksja	w fotografii barwnej purpura.
+magenta (druk)	#FF0090	255	0	144	przybliżona wartość barwnika stosowana w drukarkach C<M>YK	pigment, druk, CMYK
+mahoń, mahoniowy	#C04000	192	64	0	brązowoczerwony, kolor drewna	.
+majtkowy	#E4BECF	228	190	207	wyblakły, rozbielony różowy	potoczne
+makowy	#E21E13	226	30	19	intensywna czerwień	.
+malachitowy	#006633	0	102	51	ciemna, intensywna zieleń	.
+malinowy	#EB0165	235	1	101	ciemny, intensywny różowy	.
+marchewkowy	#FFC000	255	192	0	pomarańczowy, lekko wpadający w żółty, kolor karotenu	.
+marengo	#5B5D74	91	93	116	odcień ciemnoszarego, nieco jaśniejszy niż grafitowy	.
+miedziany	#B87333	184	115	51		.
+miętowy	#BCE27F	188	226	127	jasna zieleń podchodząca pod kolor błękitny	.
+minia	#B22222	178	34	34	pigment tlenek ołowiu, ciemnoczerwony	.
+miodowy	#E3AF34	213	173	66	ciemnożółty, lekko pomarańczowy	.
+mleczny	#FFFFF0	255	255	240	białożółty, kremowy, śmietankowy	.
+modry	#4169E1	65	105	225	intensywny niebieski, błękitny	.
+morelowy	#E9967B	233	150	123	różowopomarańczowy	.
+morski	#008080	0	128	128	niebieskozielony	teal[1]
+mosiądz/-owy	#D4C279	212	194	121	lśniący żółtobrązowy	.
+mysi	#E3E7E6	227	231	230	szarobeżowy	.
+niebieski	#0000FF	0	0	255		blue[1]
+niebieskofioletowy	#9F9FDF	159	159	223	jasny kolor indygo	.
+oberżynowy	#532338	83	35	56		.
+ochra	#CC7722	204	119	34	żółty lub brunatny	malarstwo
+oliwkowy	#808000	128	128	0		olive[1]
+oranż	#FFA500	255	165	0	pomarańczowy	.
+orzechowy	#BD9460	189	148	96		.
+palisander	#532F28	83	47	40	brunatny lub ciemnofioletowy	o drewnie
+patynowy	#6EBE9F	110	190	159	jasnozielony z odcieniem niebieskiego	.
+pąsowy	#EDB5AE	237	181	174	bardzo jasnoczerwony	.
+perłowy	#FAFAE7	250	250	231	kolor masy perłowej	.
+piaskowy	#F3ECDB	243	236	219	jasny, delikatny róż	.
+pistacjowy	#9FFB88	159	251	136	jasna, delikatna zieleń	.
+jasnażółty	#FDE456	253	228	86	jasny brąz, bursztynowy	.
+platynowy	#E5E4E2	229	228	226	srebrzystobiały	.
+płowy	#E1D9AC	225	217	172	żółty z odcieniem szarości	.
+pomarańczowy	#FE7F00	255	165	0	oranż	.
+popielaty	#DBE3DE	219	227	222	Jasny szary (kolor popiołu)	.
+porcelanowy	#FAF7E5	250	247	229		.
+poziomkowy	#CF2F2F	207	47	47		.
+purpurowy	#800080	128	0	128	czerwony zmieszany z fioletowym	purple[1]
+rdzawy	#800000	128	0	0	wiśniowy	maroon[1]
+róż indyjski	#C34444	195	68	68	ciepły różowobrązowy	malarstwo
+róż pompejański	#B80000	184	0	0		malarstwo
+róż wenecki	#F3B387	243	179	135		malarstwo
+różowy	#FFC0CB	255	192	203	rozbielony czerwony	.
+rubinowy	#D41B56	212	27	86		minerał
+rudy	#CD5700	205	87	0		o włosach
+sadza angielska	#3A3431	58	52	49	najciemniejsza z matowych czerni	.
+seledynowy	#ACE1AF	172	225	174	jasna, delikatna zieleń	.
+sepia	#AC7A33	172	122	51	ciepły brązowy "fotograficzny"	.
+siarkowy	#EDFA8E	237	250	142	kolor siarki	.
+siny	#8AA4B7	138	164	183	niebieski, wpadający w szarość	.
+siwy	#DED5D0	222	213	208	szary, jasny	o włosach
+sjena palona	#E97451	233	116	81	jasnobrązowy	malarstwo
+słomkowy	#FFFF99	255	255	153	jasny, zgaszony żółty	.
+smolisty	#0C2419	12	36	25	najciemniejsza z błyszczących czerni	.
+spiżowy	#CD7F32	205	127	50	brąz cynowo-cynkowo-ołowiowy	.
+srebrny	#C0C0C0	192	192	192	szary błyszczący	silver[1]
+stalowy	#7A7D80	122	125	128	szary o chłodnym odcieniu	.
+stare złoto	#CFB53B	207	181	59	ciemnożółty z siwym odcieniem	.
+szafirowy	#082567	8	37	103	intensywny kolor ciemnoniebieski	minerał
+szafranowy	#F4C430	244	196	48	zbliżony do złotego, kolor barwnika krocyna	.
+szary	#808080	128	128	128	dokładnie w połowie między czarnym a białym	grey[1]
+szkarłatny żołądź	#AD1111	173	17	17	ciemnoczerwony	.
+szmaragdowy	#19A56F	25	165	111	pomiędzy zielonym a morskim	minerał
+śliwkowy	#50344F	80	52	79	brązowofioletowy	.
+świniowy	#FFE1BE	255	225	190	kolor skóry świni	.
+tabaczkowy	#866423	134	100	35		.
+tango	#870121	135	1	33	odcień ciepłej i brudnej rudej czerwieni	.
+truskawkowy	#CF2942	207	41	66		.
+turkusowy	#30D5C8	48	213	200	niebieskozielony	minerał
+tycjan	#FF8000	255	128	0	złotorudy	o włosach
+ugier	#DA7C20	218	124	32	jasny brązowy	malarstwo
+ultramaryna	#002D6E	0	45	110	ciemny niebieski	pigment
+umbra	#73542F	115	84	47		.
+winny	#660033	102	0	51		.
+wiśniowy	#800000	128	0	0	rdzawy	.
+woskowy	#E2E1A3	226	225	163		.
+wrzosowy	#DBB0EF	219	176	239	jasny fiolet (kwiat wrzosu)	.
+zieleń butelkowa	#326647	50	102	71	ciemnozielony, kolor zielonych butelek od piwa	.
+zieleń jaskrawa	#00FF00	0	255	0		lime[1]
+zieleń Veronese’a	#33CC66	51	204	102	głęboka zieleń	.
+zieleń wiosenna	#C0D727	192	215	39	żółtozielony	.
+zieleń zgniła	#6E6F2F	110	111	47	ciemny żółtozielony	.
+zielony	#008000	0	128	0		green[1]
+złocisty	#FFC125	255	193	37		.
+złoty	#FFD700	255	215	0		.
+żółty	#FFFF00	255	255	0		yellow[1]
+żółty (druk)	#FFEF00	255	239	0	przybliżona wartość barwnika stosowanego w drukarkach CM<Y>K	pigment, druk, CMYK
