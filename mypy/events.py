@@ -35,7 +35,7 @@ def din_dataframe(eeg):
 	# regroup into an array:
 	din_types = np.array(sorted(lat.keys()))
 	evt = [[[l, t] for l in lat[t]] for t in din_types]
-	evt = np.concatenate(evnts, axis=0)
+	evt = np.concatenate(evt, axis=0)
 
 	# sort and add fake row to unify loop
 	ind = evt[:,0].argsort(axis=0)
