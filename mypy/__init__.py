@@ -11,7 +11,8 @@ def do_not_warn():
     try:
         from exceptions import DeprecationWarning # py2
     except ImportError:
-        pass # py3
+        global DeprecationWarning
+        # from warnings import DeprecationWarning
     warnings.filterwarnings("ignore", category=DeprecationWarning)
     # warnings.filterwarnings('ignore', category=DeprecationWarning, message='.*use @default decorator instead.*')
     # warnings.filterwarnings('ignore', category=DeprecationWarning, module='.*/IPython/.*')

@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
-from matplotlib.color import hex2color 
+from matplotlib.colors import hex2color
 
 
 # TODOs:
