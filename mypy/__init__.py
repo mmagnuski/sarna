@@ -24,3 +24,15 @@ def rld(pkg):
     '''fast reaload (no need to type much)'''
     import importlib
     importlib.reload(pkg)
+
+
+def whos():
+    """Print the local variables in the caller's frame.
+    Copied from stack overflow:
+    http://stackoverflow.com/questions/6618795/get-locals-from-calling-namespace-in-python"""
+    import inspect
+    frame = inspect.currentframe()
+    try:
+        print(frame.f_back.f_locals) # here the locals should be inspected and pretty-printed
+    finally:
+        del frame
