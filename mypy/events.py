@@ -2,6 +2,10 @@ import numpy as np
 import pandas as pd
 
 
+# TODOs:
+# - [ ] correct channel names - sep fun or in din2event
+
+
 def din_dataframe(eeg):
 	'''
 	Turns DIN1, DIN2, ... channels of an egi file
@@ -67,7 +71,6 @@ def din_dataframe(eeg):
 
 def din2event(eeg):
 	# assert isinstance(mne.Raw) etc?
-	eeg = eeg.copy()
 	df = din_dataframe(eeg)
 	n_evnt = df.shape[0]
 	events = np.zeros([n_evnt, 3])
@@ -81,3 +84,48 @@ def din2event(eeg):
 						if not ch.startswith('D')]
 	eeg.pick_channels(non_din_chans)
 	return eeg
+
+
+def reject_events_in_bad_segments(events, bad_segments, around_event=(-10,10), remove_types=None):
+    '''removes events that coincide with bad segments
+
+    parameters
+    ----------
+    events - mne events matrix
+    bad_segments - N by 2 matrix with bad segment info
+        each row is a bad segment, first column is the
+        bad segment onset and the second column is the
+        bad segment offset (in samples)
+    around_event - ...
+    remove_types - ...
+
+    returns
+    -------
+    events - corrected events
+    '''
+    if remove_types is None:
+        test_events = np.arange(events.shape[0])
+    else:
+        test_events = np.vstack([events[:,2] == x for x in remove_types])
+        test_events = np.where(np.any(test_events, axis=0))
+
+    ev = events[test_events, 0]
+    ev = np.vstack([ev + x for x in around_event]).T
+    remove = np.zeros(ev.shape[0], dtype='bool')
+    for ii in range(ev.shape[0]):
+        if np.any(np.logical_and(ev[ii,0] >= bad_segments[:,0],
+            ev[ii,0] < bad_segments[:,1])):
+            remove[ii] = True
+            continue
+        if np.any(np.logical_and(ev[ii,1] > bad_segments[:,0],
+            ev[ii,1] <= bad_segments[:,1])):
+            remove[ii] = True
+            continue
+        if np.any(np.logical_and(bad_segments[:,0] >= ev[ii,0],
+            bad_segments[:,0] < ev[ii,1])):
+            remove[ii] = True
+    # remove events
+    remove_ind = test_events[remove]
+    if remove_ind.shape[0] > 0:
+        events = np.delete(events, remove_ind, axis=0)
+    return events
