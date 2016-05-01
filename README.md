@@ -15,3 +15,13 @@ git clone https://github.com/mmagnuski/mypy.git
 cd mypy
 python setup.py develop
 ```
+
+## Dependencies
+You need to have these packages:
+* `numpy`
+* `matplotlib`
+* `pandas`
+
+Additionally, parts of the code rely on:
+* `seaborn`
+* `mne`
