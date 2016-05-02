@@ -142,3 +142,17 @@ def reject_events_in_bad_segments(events, bad_segments, around_event=(-10,10), r
     if remove_ind.shape[0] > 0:
         events = np.delete(events, remove_ind, axis=0)
     return events
+
+
+def correct_egi_channel_names(eeg):
+	# define function correcting channel names:
+	def corr_ch_names(name):
+		if name.startswith('EEG'):
+			if name == 'EEG 65':
+				return 'Cz'
+			else:
+				return 'E' + str(int(name[-3:]))
+		else:
+			return name
+	# change channel names
+	eeg.rename_channels(corr_ch_names)
