@@ -77,7 +77,7 @@ def din2event(eeg):
 	# assert isinstance(mne.Raw) etc?
 	df = din_dataframe(eeg)
 	n_evnt = df.shape[0]
-	events = np.zeros([n_evnt, 3])
+	events = np.zeros([n_evnt, 3], dtype='int')
 	dins = np.tile(df.columns.values, [n_evnt, 1])
 	events[:, 2] = np.sum(df.values * dins, axis=1)
 	events[:, 0] = df.index.values 
@@ -85,7 +85,8 @@ def din2event(eeg):
 
 	# pick non-din channels:
 	non_din_chans = [ch for ch in eeg.info['ch_names']
-						if not ch.startswith('D')]
+						if not ch.startswith('D')
+						and not ch == 'STI 014']
 	eeg.pick_channels(non_din_chans)
 	return eeg
 
