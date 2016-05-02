@@ -3,7 +3,8 @@ import pandas as pd
 
 
 # TODOs:
-# - [ ] correct channel names - sep fun or in din2event
+# - [ ] correct_egi_channel_names could live in a separate module
+# - [x] correct channel names - sep fun or in din2event
 
 
 def din_dataframe(eeg):
@@ -20,11 +21,11 @@ def din_dataframe(eeg):
 	output
 	------
 	df - dataframe with latency as index and DIN numbers as
-	columns. Values of the dataframe are booleans. 
-	If df.loc[120, 4] is True for example - then at latency
-	120 DIN4 is active.
-	df.loc[250, :] on the other hand is the full binary re-
-	presentation of the LPT signal at latency 250.
+		 columns. Values of the dataframe are booleans. 
+		 If df.loc[120, 4] is True for example - then at latency
+		 120 DIN4 is active.
+		 df.loc[250, :] on the other hand is the full binary re-
+		 presentation of the LPT signal at latency 250.
 	'''
 	 # find DIN-channels
 	din_chans = [(ch, i) for i, ch in enumerate(eeg.info['ch_names'])
@@ -70,6 +71,9 @@ def din_dataframe(eeg):
 
 
 def din2event(eeg):
+	'''Turn DIN1, DIN2, ... etc. event channels
+	to mne event array.
+	'''
 	# assert isinstance(mne.Raw) etc?
 	df = din_dataframe(eeg)
 	n_evnt = df.shape[0]
@@ -91,17 +95,25 @@ def reject_events_in_bad_segments(events, bad_segments, around_event=(-10,10), r
 
     parameters
     ----------
-    events - mne events matrix
+    events 		 - mne events array
     bad_segments - N by 2 matrix with bad segment info
-        each row is a bad segment, first column is the
-        bad segment onset and the second column is the
-        bad segment offset (in samples)
-    around_event - ...
-    remove_types - ...
+        		   each row is a bad segment, first column is the
+        		   bad segment onset and the second column is the
+        		   bad segment offset (in samples)
+    around_event - (lowerlim, higherlim) box limits around
+    			   each event. If a bad segment overlaps
+    			   with the box, the event is rejected.
+    			   Box limits are in samples.
+    			   (-500, 1000) means 500 samples before
+    			   up to 1000 samples after, but one can
+    			   create box that does not contain the
+    			   event like (250, 500)
+    remove_types - list or numpy array of event types (int)
+    			   that should be checked for removal
 
     returns
     -------
-    events - corrected events
+    events - corrected events array
     '''
     if remove_types is None:
         test_events = np.arange(events.shape[0])
