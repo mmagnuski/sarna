@@ -42,6 +42,6 @@ if __name__ == "__main__":
                        'Operating System :: Unix',
                        'Operating System :: MacOS'],
           platforms='any',
-          packages=['mypy'],
+          packages=['mypy', 'mypy.colors'],
           package_data={'mypy': [os.path.join('colors', 'colors_pl.txt')]}
           )
