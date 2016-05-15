@@ -2,6 +2,97 @@ import numpy as np
 
 # TODOs:
 # - [ ] adapt set_axes_equal to use map()
+# MultiDimView:
+# - [ ] add colorbar
+# - [ ] add topo view
+# - [ ] clickable topo view
+# - [ ] cickable (blockable) color bar
+# - [ ] add window select
+
+
+def masked_image(img, mask, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
+    **imshow_kwargs):
+    defaults = {'interpolation': 'none', 'origin': 'lower'}
+    defaults.update(imshow_kwargs)
+
+    # create RGBA mask:
+    mask_img = np.array(list(mask_color) + [0.]).reshape([1,1,4])
+    mask_img = np.tile(mask_img, list(img.shape) + [1])
+
+    # set alpha
+    mask_img[np.logical_not(mask), -1] = alpha
+
+    # plot images
+    plt.imshow(img, **defaults)
+    plt.imshow(mask_img, **defaults)
+
+
+class MultiDimView(object):
+    def __init__(self, data, axislist=None):
+        self.data = data
+        if isinstance(axislist, list):
+            assert len(axislist) == len(data.shape)
+            for i, ax in enumerate(axislist):
+                assert len(ax) == data.shape[i]
+        self.axlist = axislist
+        self.fig, self.ax = plt.subplots()
+        self.chan_ind = 0
+        self.epoch_ind = 0
+
+        self.launch()
+        cid = self.fig.canvas.mpl_connect('key_press_event', self.onclick)
+
+    def launch(self):
+        # plt.ion()
+        data_to_show = self.get_slice()
+        self.im = self.ax.imshow(data_to_show, cmap='hot', interpolation='none',
+            origin='lower')
+
+        # set x ticks
+        xtck = [int(x) for x in self.im.axes.get_xticks()[1:-1]]
+        lfreq = self.axlist[1][xtck]
+        self.im.axes.set_xticks(xtck)
+        self.im.axes.set_xticklabels(lfreq)
+
+        # set y ticks
+        ytck = [int(x) for x in self.im.axes.get_yticks()[1:-1]]
+        hfreq = self.axlist[0][ytck]
+        self.im.axes.set_yticks(ytck)
+        self.im.axes.set_yticklabels(hfreq);
+
+        self.ax.set_title('{}'.format(self.axlist[2][self.chan_ind]))
+        self.fig.show()
+
+    def get_slice(self):
+        if self.data.ndim == 3:
+            data_to_show = self.data[:, :, self.chan_ind]
+        elif self.data.ndim == 4:
+            data_to_show = self.data[:, :, self.chan_ind, self.epoch_ind]
+        return data_to_show
+
+    def refresh(self):
+        self.ax.set_title('{}'.format(self.axlist[2][self.chan_ind]))
+        self.im.set_data(self.get_slice())
+        self.fig.canvas.draw()
+
+    def onclick(self, event):
+        if event.key == 'up':
+            self.chan_ind += 1
+            self.chan_ind = min(self.chan_ind, self.data.shape[2]-1)
+            self.refresh()
+        elif event.key == 'down':
+            self.chan_ind -= 1
+            self.chan_ind = max(0, self.chan_ind)
+            self.refresh()
+        elif event.key == 'left':
+            self.epoch_ind -= 1
+            self.chan_ind = max(0, self.epoch_ind)
+            self.refresh()
+        elif event.key == 'right':
+            self.epoch_ind += 1
+            self.chan_ind = min(self.epoch_ind, self.data.shape[3]-1)
+            self.refresh()
+
 
 def set_axes_equal(ax):
     '''Make axes of 3D plot have equal scale so that spheres appear as spheres,
