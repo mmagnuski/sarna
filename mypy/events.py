@@ -4,7 +4,7 @@ import pandas as pd
 
 # TODOs:
 # - [ ] correct_egi_channel_names could live in a separate module
-# - [x] correct channel names - sep fun or in din2event
+# - [ ] create_middle_events should be made more universal
 
 
 def din_dataframe(eeg):
@@ -156,3 +156,16 @@ def correct_egi_channel_names(eeg):
 			return name
 	# change channel names
 	eeg.rename_channels(corr_ch_names)
+
+	
+def create_middle_events(events, min_time=14., sfreq=250):
+    '''Put raven events in the trial centre,
+    deleting events that begin trials shorter than
+    min_time.'''
+    ep_start = np.logical_or(events[:,2] == 1, events[:,2] == 0)
+    ep_end = np.logical_or(events[:,2] == 10, events[:,2] == 11)
+    ep_len = events[ep_end, 0] - events[ep_start, 0]
+    long_enough = ep_len > int(min_time * sfreq)
+    new_events = events[ep_start,:]
+    new_events[:,0] += np.round(ep_len / 2).astype('int')
+    return new_events[long_enough, :]
