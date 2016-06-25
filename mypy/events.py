@@ -21,7 +21,7 @@ def din_dataframe(eeg):
 	output
 	------
 	df - dataframe with latency as index and DIN numbers as
-		 columns. Values of the dataframe are booleans. 
+		 columns. Values of the dataframe are booleans.
 		 If df.loc[120, 4] is True for example - then at latency
 		 120 DIN4 is active.
 		 df.loc[250, :] on the other hand is the full binary re-
@@ -80,7 +80,7 @@ def din2event(eeg):
 	events = np.zeros([n_evnt, 3], dtype='int')
 	dins = np.tile(df.columns.values, [n_evnt, 1])
 	events[:, 2] = np.sum(df.values * dins, axis=1)
-	events[:, 0] = df.index.values 
+	events[:, 0] = df.index.values
 	eeg.info['events'] = events
 
 	# pick non-din channels:
@@ -148,7 +148,7 @@ def correct_egi_channel_names(eeg):
 	# define function correcting channel names:
 	def corr_ch_names(name):
 		if name.startswith('EEG'):
-			if name == 'EEG 65':
+			if name == 'EEG 065':
 				return 'Cz'
 			else:
 				return 'E' + str(int(name[-3:]))
@@ -157,7 +157,7 @@ def correct_egi_channel_names(eeg):
 	# change channel names
 	eeg.rename_channels(corr_ch_names)
 
-	
+
 def create_middle_events(events, min_time=14., sfreq=250):
     '''Put raven events in the trial centre,
     deleting events that begin trials shorter than
