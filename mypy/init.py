@@ -16,3 +16,9 @@ try:
 except ImportError:
   pass
 # import seaborn as sns
+
+from mypy import dB, whos, find_index
+
+def pwd():
+    return os.getcwd()
+cwd = pwd

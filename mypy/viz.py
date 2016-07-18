@@ -23,10 +23,14 @@ def masked_image(img, mask, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
     mask_img[np.logical_not(mask), -1] = alpha
 
     # plot images
-    plt.imshow(img, **defaults)
-    plt.imshow(mask_img, **defaults)
+    main_img = plt.imshow(img, **defaults)
+    mask_img = plt.imshow(mask_img, **defaults)
+    return main_img, mask_img
 
 
+# TODO
+# - [ ] lasso selection from mne SelectFromCollection
+# - [ ] better support for time-like dim when matrix is freq-freq
 class MultiDimView(object):
     def __init__(self, data, axislist=None):
         self.data = data

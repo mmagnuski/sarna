@@ -1,6 +1,10 @@
 # some imports
+import numpy as np
+
 from . import events
 from .colors import colors
+# import freq
+from . import viz
 
 
 # later move these to utils:
@@ -36,3 +40,9 @@ def whos():
         print(frame.f_back.f_locals) # here the locals should be inspected and pretty-printed
     finally:
         del frame
+
+
+def find_index(vec, vals):
+    if not isinstance(vals, list):
+        vals = [vals]
+    return [np.abs(vec - x).argmin() for x in vals]
