@@ -148,7 +148,7 @@ def correct_egi_channel_names(eeg):
 	# define function correcting channel names:
 	def corr_ch_names(name):
 		if name.startswith('EEG'):
-			if name == 'EEG 65':
+			if name == 'EEG 065':
 				return 'Cz'
 			else:
 				return 'E' + str(int(name[-3:]))
