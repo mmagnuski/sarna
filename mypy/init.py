@@ -17,7 +17,8 @@ except ImportError:
   pass
 # import seaborn as sns
 
-from mypy import dB, whos, find_index
+from mypy import whos, find_index
+from mypy.freq import dB
 
 def pwd():
     return os.getcwd()
