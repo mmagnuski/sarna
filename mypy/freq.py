@@ -9,6 +9,7 @@
 # TFR1 = tfr._cwt(signal, W)
 # ...
 import numpy as np
+from numba import jit
 
 
 def dB(x):
@@ -115,33 +116,33 @@ def _my_cwt(inst, Ws, times=None, picks=None, fast_dot=True):
         w_time_lims.append(np.where(good_times)[0][[0, -1]])
     w_time_lims = np.vstack(w_time_lims)
 
-    # reshape data, prepare output
+    # reshape data
     if not is_raw:
         X = X.reshape((n_epochs * n_channels, n_times))
-        tfr = np.empty((n_freqs, n_epochs * n_channels, n_times_out),
-                       dtype=np.complex128)
-    else:
-        tfr = np.empty((n_freqs, n_channels, n_times_out),
-                       dtype=np.complex128)
-    tfr.fill(np.nan)
 
-    # get dot operator:
-    if fast_dot:
-        dot = _get_fast_dot()
-    else:
-        dot = np.dot
-
-    # Loop across wavelets, compute power
-    for ii, W in enumerate(Ws):
-        l, r = map(int, np.floor(W_sizes[ii] / 2. * np.array([-1, 1])))   
-        t_start, t_end = w_time_lims[ii, :] + [0, 1]
-        # loop across time windows
-        for ti, tind in enumerate(times_ind[t_start:t_end]):
-            tfr[ii, :, ti + t_start] = dot(X[:, tind + l:tind + r], W)
+    # specialized loop
+    tfr = _cwt_loop(X, times_ind, Ws, W_sizes, w_time_lims)
 
     if is_raw:
         tfr = np.transpose(tfr, (1, 0, 2))
     else:
         tfr = np.transpose(tfr.reshape((n_freqs, n_epochs, n_channels,
             n_times_out)), (1, 2, 0, 3))
+    return tfr
+
+@jit
+def _cwt_loop(X, times_ind, Ws, W_sizes, w_time_lims):
+    # allocate output
+    n_freqs = len(Ws)
+    tfr = np.empty([n_freqs] + [X.shape[0]] + [len(times_ind)],
+                   dtype=np.complex128)
+    tfr.fill(np.nan)
+
+    # Loop across wavelets, compute power
+    for ii, W in enumerate(Ws):
+        l, r = map(int, np.floor(W_sizes[ii] / 2. * np.array([-1, 1])))
+        t_start, t_end = w_time_lims[ii, :] + [0, 1]
+        # loop across time windows
+        for ti, tind in enumerate(times_ind[t_start:t_end]):
+            tfr[ii, :, ti + t_start] = np.dot(X[:, tind + l:tind + r], W)
     return tfr
