@@ -16,19 +16,21 @@ def din_dataframe(eeg):
 	DIN numbers as columns. Each row of the dataframe is
 	therefore a reconstruction of the LPT digital signal
 
-	arguments
-	---------
+	Parameters
+	----------
 	eeg - mne Raw created with `read_raw_egi`
 
-	output
-	------
-	df - dataframe with latency as index and DIN numbers as
-		 columns. Values of the dataframe are booleans.
-		 If df.loc[120, 4] is True for example - then at latency
-		 120 DIN4 is active.
-		 df.loc[250, :] on the other hand is the full binary re-
-		 presentation of the LPT signal at latency 250.
+	Returns
+	-------
+	df : pandas DataFrame
+		Dataframe with latency as index and DIN numbers as
+		columns. Values of the dataframe are booleans.
+		If df.loc[120, 4] is True for example - then at latency
+		120 DIN4 is active.
+		df.loc[250, :] on the other hand is the full binary re-
+		presentation of the LPT signal at latency 250.
 	'''
+
 	 # find DIN-channels
 	din_chans = [(ch, i) for i, ch in enumerate(eeg.info['ch_names'])
 				 if ch.startswith('D')]
@@ -69,12 +71,22 @@ def din_dataframe(eeg):
 
 	# return as a dataframe
 	return pd.DataFrame(index=latency, columns=din_types,
-	                	data=ifdinactive[:current_row, :])
+						data=ifdinactive[:current_row, :])
 
 
-def din2event(eeg):
-	'''Turn DIN1, DIN2, ... etc. event channels
-	to mne event array.
+def get_events_from_din(eeg):
+	'''Turn DIN1, DIN2, ... etc. event channels to mne-python event array.
+
+	Parameters
+	----------
+	eeg : Raw
+		Instance of mne-python raw file.
+
+	Returns
+	-------
+	events : array
+		Numpy array of size (n_events, 3). Complies to mne-python
+		convention of event arrays.
 	'''
 	# assert isinstance(mne.Raw) etc?
 	df = din_dataframe(eeg)
