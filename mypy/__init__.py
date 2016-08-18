@@ -2,7 +2,9 @@
 import numpy as np
 
 from . import events
+from . import proj
 from .colors import colors
+
 # import freq
 from . import viz
 
@@ -30,6 +32,8 @@ def rld(pkg):
     importlib.reload(pkg)
 
 
+# TODO:
+# - [ ] should check type and size of the vars (check how mne-python does it)
 def whos():
     """Print the local variables in the caller's frame.
     Copied from stack overflow:
