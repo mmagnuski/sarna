@@ -1,0 +1,7 @@
+# Olga N170 project
+
+# file path cannot contain: \ / : ? * " < > |
+# we can use <text> for path-tags etc.
+
+data: ['a', 'b']
+fig: ['a', 'b']
