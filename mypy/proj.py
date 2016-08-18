@@ -1,14 +1,16 @@
 import os
 import json
+import yaml
 
 # add Project class - can read yaml project setup info
 #                   - governs path etc.
-# basic project structure:
+# basic project structure(?):
 #   code
 #   notebooks
 #   data
-#   fig
+#   report (/fig)
 #
+
 
 def find_dropbox():
     app = os.getenv('APPDATA')
@@ -19,3 +21,14 @@ def find_dropbox():
         with open(info_file) as f:
             info = json.load(f)
         return info['personal']['path']
+
+
+def get_valid_path(pth_list):
+    for pth in pth_list:
+        if os.path.exists(pth):
+            return pth
+    raise ValueError('could not find valid path')
+
+
+def read_paths(fname):
+    paths = yaml.load(fname)
