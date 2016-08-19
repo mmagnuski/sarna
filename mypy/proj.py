@@ -11,6 +11,14 @@ import yaml
 #   report (/fig)
 #
 
+# dropping stuff into global workspace:
+# globals()['var'] = "an object"
+#
+# def insert_into_namespace(name_space, name, value=None):
+#     name_space[name] = value
+#
+# insert_into_namespace(globals(), "var", "an object")
+
 
 def find_dropbox():
     app = os.getenv('APPDATA')
