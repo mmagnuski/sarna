@@ -40,3 +40,15 @@ def apply_regr(data, pred, along=0):
     pvals = pvals.T.reshape(new_shp)
 
     return tvals, pvals
+
+
+# goodness of fit
+def log_likelihood(data, distrib, params=None, binomial=False):
+    if params is None:
+        params = distrib.fit(data)
+    if not binomial:
+        return np.sum(np.log(distrib.pdf(data, *params)))
+    else:
+        prediction = distrib.pdf(data, *params)
+        return np.sum(np.log(prediction) * data +
+                      np.log(1 - prediction) * (1 - data))
