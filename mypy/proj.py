@@ -22,8 +22,9 @@ import yaml
 
 def find_dropbox():
     app = os.getenv('APPDATA')
-    drp_pth = app[:3] + os.path.join(*app[3:].split('\\')[:-1],
-                                     'Local', 'Dropbox')
+    path_list = app[3:].split('\\')[:-1]
+    path_list.extend(['Local', 'Dropbox'])
+    drp_pth = app[:3] + os.path.join(*path_list)
     if os.path.exists(drp_pth):
         info_file = os.path.join(drp_pth, 'info.json')
         with open(info_file) as f:
