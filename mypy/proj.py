@@ -18,13 +18,16 @@ import yaml
 #     name_space[name] = value
 #
 # insert_into_namespace(globals(), "var", "an object")
+from sys import platform
 
 
 def find_dropbox():
-    app = os.getenv('APPDATA')
-    path_list = app[3:].split('\\')[:-1]
-    path_list.extend(['Local', 'Dropbox'])
-    drp_pth = app[:3] + os.path.join(*path_list)
+    if platform == "linux" or platform == "linux2":
+        drp_pth = os.path.expanduser('~/.dropbox')
+    # elif platform == "darwin":
+    #     # dropbox on OS X?
+    elif platform == "win32":
+        drp_pth = os.path.join(os.getenv('APPDATA')[:-8], 'Local', 'Dropbox')
     if os.path.exists(drp_pth):
         info_file = os.path.join(drp_pth, 'info.json')
         with open(info_file) as f:
