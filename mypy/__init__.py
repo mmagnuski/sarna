@@ -50,3 +50,42 @@ def find_index(vec, vals):
     if not isinstance(vals, list):
         vals = [vals]
     return [np.abs(vec - x).argmin() for x in vals]
+
+
+def find_range(vec, ranges):
+    '''
+    Parameters
+    ----------
+    vec : numpy array
+        Vector of sorted values.
+    ranges: list of tuples/lists or two-element list/tuple
+    '''
+    assert isinstance(ranges, (list, tuple))
+    assert len(ranges) > 0
+    one_in = False
+    if not isinstance(ranges[0], (list, tuple)) and len(ranges) == 2:
+        one_in = True
+        ranges = [ranges]
+
+    slices = list()
+    for rng in ranges:
+        start, stop = [np.abs(vec - x).argmin() for x in rng]
+        slices.append(slice(start, stop + 1)) # including last index
+    if one_in:
+        slices = slices[0]
+    return slices
+
+
+# join inds
+def group(vec):
+    in_grp = False
+    group_lims = list()
+    vec = np.append(vec, False)
+    for ii, el in enumerate(vec):
+        if in_grp and not el:
+            in_grp = False
+            group_lims.append([start_ind, ii-1])
+        elif not in_grp and el:
+            in_grp = True
+            start_ind = ii
+    return np.array(group_lims)
