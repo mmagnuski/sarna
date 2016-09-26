@@ -6,8 +6,6 @@ from scipy import sparse
 from scipy.io import loadmat
 # import matplotlib.pyplot as plt
 
-from mne.stats.cluster_level import _find_clusters
-
 
 base_dir = split(split(__file__)[0])[0]
 chan_path = os.path.join(base_dir, 'data', 'chan')
@@ -18,11 +16,98 @@ def get_chan_conn():
     pth = os.path.join(chan_path, 'BioSemi64_chanconn.mat')
     return loadmat(pth)['chan_conn'].astype('bool')
 
-# plt.imshow(chan_conn, interpolation='none')
-# plt.show()
+
+def get_neighbours(captype):
+    assert isinstance(captype, str), 'captype must be a string.'
+    fls = [f for f in os.listdir(chan_path) if f.endswith('.mat') and
+            '_neighbours' in f]
+    good_file = [f for f in fls if captype in f]
+    if len(good_file) > 0:
+        return loadmat(os.path.join(chan_path, good_file[0]),
+                       squeeze_me=True)['neighbours']
+    else:
+        raise ValueError('Could not find specified cap type.')
 
 
+def construct_adjacency_matrix(ch_names, neighbours, sparse=False):
+    # check input
+    assert isinstance(ch_names, list), 'ch_names must be a list.'
+    assert all(map(lambda x: isinstance(x, str), ch_names)), \
+        'ch_names must be a list of strings'
+
+    from scipy import sparse as sprs
+
+    if isinstance(neighbours, str):
+        neighbours = get_neighbours(neighbours)
+    n_channels = len(ch_names)
+    conn = np.zeros((n_channels, n_channels), dtype='bool')
+
+    for ii, chan in enumerate(ch_names):
+        ngb_ind = np.where(neighbours['label'] == chan)[0]
+
+        # safty checks:
+        if len(ngb_ind) == 0:
+            raise ValueError('channel {} was not found in neighbours.'.format(
+                             chan))
+        elif len(ngb_ind) == 1:
+            ngb_ind = ngb_ind[0]
+        else:
+            raise ValueError('found more than one neighbours entry for '
+                             'channel name {}.'.format(chan))
+
+        # find connections and fill up adjacency matrix
+        connections = [ch_names.index(ch) for ch in neighbours['neighblabel']
+                       [ngb_ind] if ch in ch_names]
+        chan_ind = ch_names.index(chan)
+        conn[chan_ind, connections] = True
+    if sparse:
+        return sprs.coo_matrix(conn)
+    else:
+        return conn
+
+# another approach to random colors:
+# plt.cm.viridis(np.linspace(0., 1., num=15) , alpha=0.5)
+def plot_neighbours(inst, adj_matrix, color='gray'):
+    '''Plot channel adjacency.
+
+    Parameters
+    ----------
+    inst : mne Raw or Epochs
+        mne-python data container
+    adj_matrix : boolean numpy array
+        Defines which channels are adjacent to each other.
+    color : matplotlib color or 'random'
+        Color to plot the web of adjacency relations with.
+
+    Returns
+    -------
+    fig : matplotlib figure
+        Figure.
+    '''
+    from mne.io import _BaseRaw
+    from mne.epochs import _BaseEpochs
+    from .viz import set_3d_axes_equal
+    assert isinstance(inst, (_BaseRaw, _BaseEpochs))
+
+    fig = inst.plot_sensors(kind='3d')
+    set_3d_axes_equal(fig.axes[0])
+    pos = np.array([x['loc'][:3] for x in inst.info['chs']])
+    for ch in range(adj_matrix.shape[0]):
+        ngb = np.where(adj_matrix[ch, :])[0]
+        for n in ngb:
+            this_pos = pos[[ch, n], :]
+            if not color == 'random':
+                fig.axes[0].plot(this_pos[:, 0], this_pos[:, 1],
+                                 this_pos[:, 2], color=color)
+            else:
+                fig.axes[0].plot(this_pos[:, 0], this_pos[:, 1],
+                                 this_pos[:, 2])
+    return fig
+
+
+# TODO: do not convert to sparse if already sparse
 def cluster_1d(data, connectivity=None):
+    from mne.stats.cluster_level import _find_clusters
     if connectivity is not None:
         connectivity = sparse.coo_matrix(connectivity)
     return _find_clusters(data, 0.5, connectivity=connectivity)
