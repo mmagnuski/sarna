@@ -1,5 +1,4 @@
 import numpy as np
-import statsmodels.api as sm
 
 
 # - [ ] pred -> data; data + pred -> y
@@ -10,6 +9,7 @@ def apply_regr(data, pred, along=0):
     apply ordinary least squares regression along specified
     dimension of the data.
     """
+    import statsmodels.api as sm
     pred = sm.add_constant(pred)
 
     # reshape data to ease up regression

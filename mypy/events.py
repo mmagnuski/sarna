@@ -1,8 +1,6 @@
 import numpy as np
 import pandas as pd
-
 from scipy.io import loadmat
-
 
 # TODOs:
 # - [ ] correct_egi_channel_names could live in a separate module

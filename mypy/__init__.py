@@ -1,12 +1,8 @@
 # some imports
 import numpy as np
 
-from . import events
-from . import proj
+from . import events, proj, cluster, chans, stats, viz
 from .colors import colors
-
-# import freq
-from . import viz
 
 
 # later move these to utils:
