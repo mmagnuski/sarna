@@ -5,10 +5,8 @@ from sys import platform
 
 
 def find_dropbox():
-    if platform == "linux" or platform == "linux2":
+    if any([platform == plt for plt in ["linux", "linux2", "darwin"]]):
         drp_pth = os.path.expanduser('~/.dropbox')
-    # elif platform == "darwin":
-    #     # dropbox on OS X?
     elif platform == "win32":
         drp_pth = os.path.join(os.getenv('APPDATA')[:-8], 'Local', 'Dropbox')
     if os.path.exists(drp_pth):
