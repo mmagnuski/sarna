@@ -219,3 +219,47 @@ def read_set_events(filename, ignore_fields=None):
 	take_fields.extend([col for col in df.columns if not
 					 (col in take_fields or col in ignore_fields)])
 	return df.loc[:, take_fields]
+
+
+def mark_reject_peak2peak(raw, reject={'eeg': 23e-5}, window_length=1.,
+						  label='bad p2p'):
+	import mne
+	from mne.utils import _reject_data_segments
+	from mypy import group
+	_, inds = _reject_data_segments(raw._data, reject, {'eeg': 0.},
+									window_length, raw.info, 0.5)
+
+	# turn inds to time, join
+	time_segments = np.array(inds) / raw.info['sfreq']
+	time_segments = join_segments(time_segments)
+
+	segment_duration = np.diff(time_segments, axis=-1).ravel()
+	return mne.Annotations(time_segments[:, 0], segment_duration, label)
+
+
+def join_segments(time_segments):
+	# check which should be joined
+	join_segments = (time_segments[:-1, 1] - time_segments[1:, 0]) == 0
+	segment_groups = group(join_segments)
+	segment_groups[:, 1] += 1
+
+	# join segments
+	final_segments = np.vstack([time_segments[segment_groups[:, 0], 0],
+	                            time_segments[segment_groups[:, 1], 1]]).T
+
+	# we missed single-segments, search for them
+	prev = 0
+	missed_segments = list()
+	for row in segment_groups:
+	    if not row[0] == prev:
+	        missed_segments.extend(list(range(prev + 1, row[0])))
+	    prev = row[1]
+	if prev < len(time_segments):
+	    missed_segments.extend(list(range(prev + 1, len(time_segments))))
+
+	# append missed single segments to multi-segments and sort
+	final_segments = np.vstack(
+		[final_segments, time_segments[missed_segments, :]])
+	final_segments = final_segments[final_segments[:, 0].argsort(), :]
+
+	return final_segments
