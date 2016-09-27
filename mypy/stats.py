@@ -1,4 +1,16 @@
 import numpy as np
+from scipy.stats import ttest_ind, ttest_rel
+
+
+# TODO: compute t's without p (less computation time)
+def ttest_ind_no_p(*args):
+	t, p = ttest_ind(*args)
+	return t
+
+
+def ttest_rel_no_p(*args):
+	t, p = ttest_rel(*args)
+	return t
 
 
 # - [ ] pred -> data; data + pred -> y
