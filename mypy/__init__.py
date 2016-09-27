@@ -2,7 +2,7 @@
 import numpy as np
 
 from . import events, proj, cluster, chans, stats, viz
-from .colors import colors
+# from .colors import colors
 
 
 # later move these to utils:
