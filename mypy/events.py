@@ -223,7 +223,6 @@ def mark_reject_peak2peak(raw, reject={'eeg': 23e-5}, window_length=1.,
 						  label='bad p2p'):
 	import mne
 	from mne.utils import _reject_data_segments
-	from mypy import group
 	_, inds = _reject_data_segments(raw._data, reject, {'eeg': 0.},
 									window_length, raw.info, 0.5)
 
@@ -236,6 +235,8 @@ def mark_reject_peak2peak(raw, reject={'eeg': 23e-5}, window_length=1.,
 
 
 def join_segments(time_segments):
+	from mypy import group
+
 	# check which should be joined
 	join_segments = (time_segments[:-1, 1] - time_segments[1:, 0]) == 0
 	segment_groups = group(join_segments)
