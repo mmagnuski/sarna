@@ -12,9 +12,8 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 from scipy.io import loadmat, savemat
-from scipy import stats
+from scipy import stats, signal
 # from scipy.stats import distributions as dist
-# from scipy import signal
 # from scipy import fftpack
 
 try:
@@ -23,7 +22,7 @@ except ImportError:
   pass
 # import seaborn as sns
 
-from mypy import whos, find_index
+from mypy.utils import whos, find_index
 from mypy.freq import dB
 
 # def pwd():
