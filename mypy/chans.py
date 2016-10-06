@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from .utils import time_range
 
 
 def select_channels(chan_vals, N=5, connectivity=None,
@@ -44,9 +45,20 @@ def select_channels(chan_vals, N=5, connectivity=None,
     return clst
 
 
-def time_range(inst, time_window):
-    from mypy import find_range
-    return find_range(inst.times, time_window)
+# TODO: generalize to Evoked (maybe Raw...) and put in mypy
+def z_score_channels(eeg):
+    from scipy.stats import zscore
+    from mne.epochs import _BaseEpochs
+    from mne.utils import _get_inst_data
+    assert isinstance(eeg, _BaseEpochs)
+
+    data = _get_inst_data(eeg)
+    n_epoch, n_chan, n_sample = data.shape
+    data = data.transpose((1, 0, 2)).reshape((n_chan, n_epoch * n_sample))
+    eeg._data = zscore(data, axis=1).reshape(
+        (n_chan, n_epoch, n_sample)).transpose((1, 0, 2))
+    return eeg
+
 
 
 modes = dict(N170=[(0.145, 0.21), 5, 'min'],
