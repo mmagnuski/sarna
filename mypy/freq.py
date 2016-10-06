@@ -1,3 +1,6 @@
+# this module is currently way more messy than it should be
+# but this should change pretty soon, hopfully
+
 # test
 # ----
 # from mne import time_frequency.tfr as tfr
@@ -8,8 +11,9 @@
 # W = trf.morlet(sfreq, freqs, n_cycles=freqs)
 # TFR1 = tfr._cwt(signal, W)
 # ...
+
 import numpy as np
-from numba import jit
+# from numba import jit
 
 
 def dB(x):
@@ -130,7 +134,7 @@ def _my_cwt(inst, Ws, times=None, picks=None, fast_dot=True):
             n_times_out)), (1, 2, 0, 3))
     return tfr
 
-@jit
+# @jit
 def _cwt_loop(X, times_ind, Ws, W_sizes, w_time_lims):
     # allocate output
     n_freqs = len(Ws)
