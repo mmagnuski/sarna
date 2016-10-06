@@ -42,6 +42,69 @@ def transform_spectrum(spectrum, dB=False, normalize=False, detrend=False):
     return spectrum
 
 
+# - [?] figure out a good way of including rej
+#       (currently - don't include)
+# - [ ] switch to scipy.signal.welch ?
+def segments_freq(eeg, win_len=2., win_step=0.5, n_fft=None,
+                  n_overlap=None, picks=None, progress=True):
+    from mne.io import _BaseRaw
+    from mne.epochs import _BaseEpochs
+    from mne.utils import _get_inst_data
+    from mne.time_frequency import psd_welch
+
+    sfreq = eeg.info['sfreq']
+    t_min = eeg.times[0]
+    time_length = len(eeg.times) / eeg.info['sfreq']
+    n_win = int(np.floor((time_length - win_len) / win_step) + 1.)
+    win_samples = int(np.floor(win_len * sfreq))
+
+    # check and set n_fft and n_overlap
+    if n_fft is None:
+        n_fft = int(np.floor(sfreq))
+    if n_overlap is None:
+        n_overlap = int(np.floor(n_fft / 4.))
+    if n_fft > win_samples:
+        n_fft = win_samples
+        n_overlap = 0
+    if picks is None:
+        picks = range(_get_inst_data(eeg).shape[-2])
+
+    n_freqs = int(np.floor(n_fft / 2)) + 1
+    if isinstance(eeg, _BaseRaw):
+        n_channels, _ = _get_inst_data(eeg).shape
+        psd = np.zeros((n_win, len(picks), n_freqs))
+    elif isinstance(eeg, _BaseEpochs):
+        n_epochs, n_channels, _ = _get_inst_data(eeg).shape
+        psd = np.zeros((n_win, n_epochs, len(picks), n_freqs))
+    else:
+        raise TypeError('unsupported data type - has to be epochs or '
+                        'raw, got {}.'.format(type(eeg)))
+
+    # BTW: doing this with n_jobs=2 is about 100 times slower than with one job
+    p_bar = progressbar.ProgressBar(max_value=n_win)
+    for w in range(n_win):
+        psd_temp, freqs = psd_welch(
+            eeg, tmin=t_min + w * win_step,
+            tmax=t_min + w * win_step + win_len,
+            n_fft=n_fft, n_overlap=n_overlap, n_jobs=1,
+            picks=picks, verbose=False, proj=True)
+        psd[w, :] = psd_temp
+        if progress:
+            p_bar.update(w)
+    return psd.swapaxes(0, 1), freqs
+
+
+def window_steps(window_length, window_step, signal_len, sfreq=None):
+    if sfreq is not None: # maybe check for int (samples) vs float (time in s.)
+        window_length = int(np.round(window_length * sfreq))
+        window_step = int(np.round(window_step * sfreq))
+        signal_len = int(np.round(signal_len * sfreq))
+
+    num_steps = int(np.floor((signal_len - window_length) / window_step)) + 1
+    for w in range(num_steps):
+        yield slice(w * window_step, window_length + w * window_step)
+
+
 def plot_topo_and_psd(inst, mean_psd, freqs, channels):
     from matplotlib import gridspec
     import matplotlib.pyplot as plt
