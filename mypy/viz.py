@@ -125,3 +125,48 @@ def set_3d_axes_equal(ax):
     ax.set_xlim3d([x_mean - plot_radius, x_mean + plot_radius])
     ax.set_ylim3d([y_mean - plot_radius, y_mean + plot_radius])
     ax.set_zlim3d([z_mean - plot_radius, z_mean + plot_radius])
+
+
+class Topo(object):
+    def __init__(self, values, info):
+        from mne.viz.topomap import plot_topomap
+        import matplotlib as mpl
+
+        self.info = info
+        self.values = values
+
+        # plot topomap
+        im, lines = plot_topomap(values, info)
+
+        self.fig = im.figure
+        self.img = im
+        self.lines = lines
+        self.marks = list()
+        self.chans = im.axes.findobj(mpl.patches.Circle)
+        self.chan_pos = np.array([ch.center for ch in self.chans])
+
+    def remove_level(self, lvl):
+        if not isinstance(lvl, list):
+            lvl = [lvl]
+        for l in lvl:
+            remove_lines = np.where(self.lines.levels == l)[0]
+            for rem_ln in remove_lines:
+                self.lines.collections[rem_ln].remove()
+            for pop_ln in np.flipud(np.sort(remove_lines)):
+                self.lines.collections.pop(pop_ln)
+
+    def solid_lines(self):
+        for ln in self.lines.collections:
+            ln.set_linestyle('-')
+
+    def mark_channels(self, chans, **marker_params):
+        default_marker = dict(marker='o', markerfacecolor='w',
+                              markeredgecolor='k', linewidth=0, markersize=4)
+        for k in marker_params.keys():
+            default_marker[k] = marker_params[k]
+
+        # mark
+        marks = self.img.axes.plot(self.chan_pos[chans, 0],
+                                   self.chan_pos[chans, 1], **default_marker)
+        self.marks.append(marks)
+
