@@ -200,6 +200,51 @@ def cluster_spread(cluster, connectivity):
     return spread
 
 
+# - [x] add min_channel_neighbours
+# - [ ] include_channels
+# - [ ] min_neighbours as a 0-1 float
+def filter(mat, min_neighbours=4, min_channels=0, connectivity=None):
+    from scipy import signal
+
+    kernel = np.array([[1, 1, 1], [1, 0, 1], [1, 1, 1]])
+    mat = mat.copy()
+    size = mat.shape
+    if mat.ndim == 2:
+        mat = mat[np.newaxis, :, :]
+        size = mat.shape
+
+    for ch in range(size[0]):
+        mat[ch, :, :] = mat[ch, :, :] & (signal.convolve2d(mat[ch, :, :],
+                                         kernel, mode='same') >= min_neighbours)
+    if min_channels > 0:
+        assert connectivity is not None
+        for ch in range(size[0]):
+            ngb = np.where(connectivity[ch, :])[0]
+            mat[ch, :, :] = mat[ch, :, :] & (mat[ngb, :, :].sum(
+                axis=0) >= min_channels)
+    return mat
+
+
+def remove_links(mat, min_pixels=5):
+    '''Remove clusters that are smaller than min_pixels within any given
+    slice (channel) of the matrix. These small blobs often/sometimes create
+    weak links of otherwise strong clusters.'''
+    from skimage.measure import label
+
+    # label each channel separately
+    n_chan = mat.shape[0]
+    mat = mat.copy()
+    for ch in range(n_chan):
+        clusters = label(mat[ch, :, :], connectivity=1, background=False)
+        n_clusters = clusters.max()
+        for c in range(n_clusters):
+            msk = clusters == (c + 1)
+            if (msk).sum() < min_pixels:
+                clusters[msk] = 0
+        mat[ch, clusters == 0] = False
+    return mat
+
+
 def relabel_mat(mat, label_map):
     '''change values in a matrix of integers such that mapping given
     in label_map dict is fulfilled
@@ -217,3 +262,15 @@ def relabel_mat(mat, label_map):
     for k, v in label_map.items():
         mat_relab[mat == k] = v
     return mat_relab
+
+
+def smooth(matrix, sd=2.):
+    from scipy.ndimage.filters import gaussian_filter
+    matrix = matrix.copy()
+    if matrix.ndim > 2:
+        n_chan = matrix.shape[0]
+        for ch in range(n_chan):
+            matrix[ch,:] = gaussian_filter(matrix[ch,:], sd)
+    else:
+        matrix = gaussian_filter(matrix, sd)
+    return matrix
