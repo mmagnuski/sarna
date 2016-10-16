@@ -152,20 +152,20 @@ def cluster_3d(matrix, chan_conn):
 
         # relabel so that layers do not have same cluster ids
         num_clusters = clusters[ch, :, :].max()
-        clusters[ch, clusters[ch,:]>0] += max_cluster_id
+        clusters[ch, clusters[ch,:] > 0] += max_cluster_id
         max_cluster_id += num_clusters
 
     # unrolled views into clusters for ease of channel comparison:
     unrolled = [clusters[ch, :].ravel() for ch in range(n_chan)]
     # check channel neighbours and merge clusters across channels
-    for ch in range(n_chan-1): # last chan will be already checked
+    for ch in range(n_chan - 1): # last chan will be already checked
         ch1 = unrolled[ch]
         ch1_ind = np.where(ch1)[0]
         if ch1_ind.shape[0] == 0:
             continue # no clusters, no fun...
 
         # get unchecked neighbours
-        neighbours = np.where(chan_conn[ch+1:, ch])[0]
+        neighbours = np.where(chan_conn[ch + 1:, ch])[0]
         if neighbours.shape[0] > 0:
             neighbours += ch + 1
 
@@ -176,7 +176,7 @@ def cluster_3d(matrix, chan_conn):
                     if ch2[ind] and not (ch1[ind] == ch2[ind]):
                         c1 = min(ch1[ind], ch2[ind])
                         c2 = max(ch1[ind], ch2[ind])
-                        clusters[clusters==c2] = c1
+                        clusters[clusters == c2] = c1
     return clusters
 
 
