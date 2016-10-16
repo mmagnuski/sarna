@@ -89,6 +89,15 @@ def plot_neighbours(inst, adj_matrix, color='gray'):
     from .viz import set_3d_axes_equal
     assert isinstance(inst, (_BaseRaw, _BaseEpochs))
 
+    if adj_matrix.dtype == 'int':
+        max_lw = 10.
+        max_conn = adj_matrix.max()
+        def get_lw():
+            return adj_matrix[ch, n] / max_conn * max_lw
+    elif adj_matrix.dtype == 'bool':
+        def get_lw():
+            return 2.
+
     fig = inst.plot_sensors(kind='3d')
     set_3d_axes_equal(fig.axes[0])
     pos = np.array([x['loc'][:3] for x in inst.info['chs']])
@@ -98,10 +107,11 @@ def plot_neighbours(inst, adj_matrix, color='gray'):
             this_pos = pos[[ch, n], :]
             if not color == 'random':
                 fig.axes[0].plot(this_pos[:, 0], this_pos[:, 1],
-                                 this_pos[:, 2], color=color)
+                                 this_pos[:, 2], color=color,
+                                 lw=get_lw())
             else:
                 fig.axes[0].plot(this_pos[:, 0], this_pos[:, 1],
-                                 this_pos[:, 2])
+                                 this_pos[:, 2], lw=get_lw())
     return fig
 
 
@@ -168,6 +178,26 @@ def cluster_3d(matrix, chan_conn):
                         c2 = max(ch1[ind], ch2[ind])
                         clusters[clusters==c2] = c1
     return clusters
+
+
+def cluster_spread(cluster, connectivity):
+    n_chan = connectivity.shape[0]
+    spread = np.zeros((n_chan, n_chan), 'int')
+    unrolled = [cluster[ch, :].ravel() for ch in range(n_chan)]
+    for ch in range(n_chan - 1): # last chan will be already checked
+        ch1 = unrolled[ch]
+
+        # get unchecked neighbours
+        neighbours = np.where(connectivity[ch + 1:, ch])[0]
+        if neighbours.shape[0] > 0:
+            neighbours += ch + 1
+
+            for ngb in neighbours:
+                ch2 = unrolled[ngb]
+                num_connected = (ch1 & ch2).sum()
+                spread[ch, ngb] = num_connected
+                spread[ngb, ch] = num_connected
+    return spread
 
 
 def relabel_mat(mat, label_map):
