@@ -11,9 +11,12 @@ import matplotlib.pyplot as plt
 
 
 def masked_image(img, mask, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
-    **imshow_kwargs):
+    axis=None, **imshow_kwargs):
     defaults = {'interpolation': 'none', 'origin': 'lower'}
     defaults.update(imshow_kwargs)
+
+    if axis is None:
+        fig, axis = plt.subplots()
 
     # create RGBA mask:
     mask_img = np.array(list(mask_color) + [0.]).reshape([1,1,4])
@@ -23,8 +26,8 @@ def masked_image(img, mask, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
     mask_img[np.logical_not(mask), -1] = alpha
 
     # plot images
-    main_img = plt.imshow(img, **defaults)
-    mask_img = plt.imshow(mask_img, **defaults)
+    main_img = axis.imshow(img, **defaults)
+    mask_img = axis.imshow(mask_img, **defaults)
     return main_img, mask_img
 
 
@@ -170,3 +173,48 @@ class Topo(object):
                                    self.chan_pos[chans, 1], **default_marker)
         self.marks.append(marks)
 
+# other experiments:
+# ------------------
+# # getting pos of chan mask:
+# add_chans = list()
+# test_lines = im.axes.findobj(mpl.lines.Line2D)
+# for l in test_lines:
+#     if l.get_marker() is not 'None':
+#         add_chans.append(l)
+#
+# x, y = add_chans[0].get_data()
+#
+# from mne.viz.topomap import _prepare_topo_plot
+# _, pos, _, _, _ = _prepare_topo_plot(eeg, 'eeg', layout=None)
+# pos
+
+
+# ClusterViewer
+# on init:
+# inst -> info
+# fig, sel = eeg.plot_sensors(kind='select')
+#
+# def pacplot(ch_ind=None, fig=fig):
+#     if ch_ind is None:
+#         ch_ind = [eeg.ch_names.index(ch) for ch in fig.lasso.selection]
+#     im = t_effect[ch_ind, :, :].mean(axis=0).T
+#     mask = cluster_id[ch_ind, :, :].mean(axis=0).T > 0.5
+#     fig, ax = plt.subplots()
+#     masked_image(im, mask, origin='lower', vmin=-5, vmax=5)
+#
+#     ax.set_xticks(f_l)
+#     ax.set_xticklabels(f_low[f_l])
+#     ax.set_yticks(f_h)
+#     ax.set_yticklabels(f_high[f_h])
+#     ax.figure.canvas.draw()
+#
+# def on_pick(event, fig=fig):
+#     if event.mouseevent.key == 'control' and fig.lasso is not None:
+#          for ind in event.ind:
+#              fig.lasso.select_one(event.ind)
+#
+#          return
+#     pacplot(ch_ind=event.ind)
+#
+# fig.canvas.mpl_connect('pick_event', on_pick)
+# fig.canvas.mpl_connect('lasso_event', pacplot)

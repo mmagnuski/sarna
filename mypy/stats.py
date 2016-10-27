@@ -54,6 +54,40 @@ def apply_regr(data, pred, along=0):
     return tvals, pvals
 
 
+# TODO:
+# - [ ] should the default be along -1?
+# - [ ] check whether n_preds is there in inverse_transform
+class Reshaper(object):
+    def __init__(self):
+        self.shape = None
+        self.along = None
+        self.todims = False
+
+    def fit(self, X, along=-1):
+        # reshape data to ease up regression
+        if along == -1:
+            along = X.ndim - 1
+        if not along == 0:
+            dims = list(range(data.ndim))
+            dims.remove(along)
+            self.todims = [along] + dims
+        self.along = along
+        self.shape = list(data.shape)
+
+    def transform(self, X):
+        if not self.along == 0:
+            X = np.transpose(X, self.todims)
+        if X.ndim > 2:
+            this_shape = X.shape
+            X = X.reshape([this_shape[0], np.prod(this_shape[1:])])
+        return X.T # may not be necessary if no diff in performance
+
+    def inverse_transform(self, X):
+        n_preds = X.shape[-1]
+        new_shp = [n_preds] + self.shape[1:]
+        return X.T.reshape(new_shp)
+
+
 # goodness of fit
 def log_likelihood(data, distrib, params=None, binomial=False):
     if params is None:

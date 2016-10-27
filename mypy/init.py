@@ -20,7 +20,8 @@ try:
   from showit import image
 except ImportError:
   pass
-# import seaborn as sns
+# import seaborn as sns?
+# maybe seaborn.apionly?
 
 from mypy.utils import whos, find_index
 from mypy.freq import dB

@@ -235,7 +235,7 @@ def mark_reject_peak2peak(raw, reject={'eeg': 23e-5}, window_length=1.,
 
 
 def join_segments(time_segments):
-	from mypy import group
+	from mypy.utils import group
 
 	# check which should be joined
 	join_segments = (time_segments[:-1, 1] - time_segments[1:, 0]) == 0
