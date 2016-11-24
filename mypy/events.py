@@ -226,6 +226,7 @@ def read_set_events(filename, ignore_fields=None):
 	return df.loc[:, take_fields]
 
 
+# - [ ] develop this function a little better
 def mark_reject_peak2peak(raw, reject={'eeg': 23e-5}, window_length=1.,
 						  label='bad p2p'):
 	import mne
@@ -241,6 +242,7 @@ def mark_reject_peak2peak(raw, reject={'eeg': 23e-5}, window_length=1.,
 	return mne.Annotations(time_segments[:, 0], segment_duration, label)
 
 
+# - [ ] maybe move to utils
 def join_segments(time_segments):
 	from mypy.utils import group
 

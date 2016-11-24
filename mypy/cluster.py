@@ -66,6 +66,8 @@ def construct_adjacency_matrix(ch_names, neighbours, sparse=False):
     else:
         return conn
 
+
+# - [ ] add edit option (runs in interactive mode only)
 # another approach to random colors:
 # plt.cm.viridis(np.linspace(0., 1., num=15) , alpha=0.5)
 def plot_neighbours(inst, adj_matrix, color='gray'):
@@ -73,7 +75,7 @@ def plot_neighbours(inst, adj_matrix, color='gray'):
 
     Parameters
     ----------
-    inst : mne Raw or Epochs
+    inst : mne Raw, Epochs or info
         mne-python data container
     adj_matrix : boolean numpy array
         Defines which channels are adjacent to each other.
@@ -209,7 +211,7 @@ def cluster_spread(cluster, connectivity):
 
 
 # - [x] add min_channel_neighbours
-# - [ ] include_channels
+# - [ ] include_channels (what was the idea here?)
 # - [ ] min_neighbours as a 0-1 float
 def filter(mat, min_neighbours=4, min_channels=0, connectivity=None):
     from scipy import signal

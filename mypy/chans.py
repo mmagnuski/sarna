@@ -81,9 +81,9 @@ modes = dict(N170=[(0.145, 0.21), 5, 'min'],
              P300=[(0.3, 0.5), 5, 'maxmean'])
 
 # TODO:
+# - [ ] make less erp-peak dependent - support other data types (freq)
 # fit (add option to fix latency)
 # transform # average=True, average_channels?
-# plot_topomap
 # channel_names, channel_inds ? get_channels('names')
 class Peakachu(object):
     '''Find peaks, select channels...

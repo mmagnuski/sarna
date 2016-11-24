@@ -209,6 +209,7 @@ def _my_cwt(inst, Ws, times=None, picks=None, fast_dot=True):
             n_times_out)), (1, 2, 0, 3))
     return tfr
 
+
 # @jit
 def _cwt_loop(X, times_ind, Ws, W_sizes, w_time_lims):
     # allocate output

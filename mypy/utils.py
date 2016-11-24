@@ -17,6 +17,7 @@ def do_not_warn():
     # warnings.filterwarnings('default', category=DeprecationWarning, module='.*/mypackage/.*')
 
 
+# - [ ] convenient reloading will require much more work
 def rld(pkg):
     '''fast reaload (no need to type much)'''
     import importlib
@@ -139,7 +140,17 @@ def group(vec, diff=False, return_slice=False):
 
 def subselect_keys(key, mapping, sep='/'):
     '''select keys with subselection by a separator.
-    This code was shared by Dennis Engemann on github.'''
+    This code was shared by Dennis Engemann on github.
+
+    Parameters
+    ----------
+    key : string | list of strings
+        Keys to subselect with.
+    mapping : dict
+        Dictionary that is being selected.
+    sep : string
+        Separator to use in subselection.
+    '''
 
     if isinstance(key, str):
         key = [key]
