@@ -3,7 +3,6 @@ import pandas as pd
 from scipy.io import loadmat
 
 # TODOs:
-# - [ ] correct_egi_channel_names could live in a separate module
 # - [ ] create_middle_events should be made more universal
 
 
@@ -102,20 +101,6 @@ def remove_din_channels(eeg):
 						if not ch.startswith('D')
 						and not ch == 'STI 014']
 	eeg.pick_channels(non_din_chans)
-
-
-def correct_egi_channel_names(eeg):
-	# define function correcting channel names:
-	def corr_ch_names(name):
-		if name.startswith('EEG'):
-			if name == 'EEG 065':
-				return 'Cz'
-			else:
-				return 'E' + str(int(name[-3:]))
-		else:
-			return name
-	# change channel names
-	eeg.rename_channels(corr_ch_names)
 
 
 def reject_events_in_bad_segments(events, bad_segments, around_event=(-10,10),

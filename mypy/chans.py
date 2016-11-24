@@ -1,6 +1,36 @@
 import numpy as np
+from scipy.stats import zscore
 import matplotlib.pyplot as plt
 from .utils import time_range
+
+
+
+def correct_egi_channel_names(eeg):
+	# define function correcting channel names:
+	def corr_ch_names(name):
+		if name.startswith('EEG'):
+			if name == 'EEG 065':
+				return 'Cz'
+			else:
+				return 'E' + str(int(name[-3:]))
+		else:
+			return name
+	# change channel names
+	eeg.rename_channels(corr_ch_names)
+
+
+# TODO: generalize to Evoked (maybe Raw...)
+def z_score_channels(eeg):
+    from mne.epochs import _BaseEpochs
+    from mne.utils import _get_inst_data
+    assert isinstance(eeg, _BaseEpochs)
+
+    data = _get_inst_data(eeg)
+    n_epoch, n_chan, n_sample = data.shape
+    data = data.transpose((1, 0, 2)).reshape((n_chan, n_epoch * n_sample))
+    eeg._data = zscore(data, axis=1).reshape(
+        (n_chan, n_epoch, n_sample)).transpose((1, 0, 2))
+    return eeg
 
 
 def select_channels(chan_vals, N=5, connectivity=None,
@@ -43,21 +73,6 @@ def select_channels(chan_vals, N=5, connectivity=None,
         clst = np.hstack([clst, add_chans])
         need_chans = N - clst.shape[0]
     return clst
-
-
-# TODO: generalize to Evoked (maybe Raw...) and put in mypy
-def z_score_channels(eeg):
-    from scipy.stats import zscore
-    from mne.epochs import _BaseEpochs
-    from mne.utils import _get_inst_data
-    assert isinstance(eeg, _BaseEpochs)
-
-    data = _get_inst_data(eeg)
-    n_epoch, n_chan, n_sample = data.shape
-    data = data.transpose((1, 0, 2)).reshape((n_chan, n_epoch * n_sample))
-    eeg._data = zscore(data, axis=1).reshape(
-        (n_chan, n_epoch, n_sample)).transpose((1, 0, 2))
-    return eeg
 
 
 
