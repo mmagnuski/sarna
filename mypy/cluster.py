@@ -12,21 +12,22 @@ chan_path = os.path.join(base_dir, 'data', 'chan')
 
 
 # read channel connectivity
-def get_chan_conn():
-    pth = os.path.join(chan_path, 'BioSemi64_chanconn.mat')
-    return loadmat(pth)['chan_conn'].astype('bool')
-
-
+# consider renaming to read_neighbours
 def get_neighbours(captype):
     assert isinstance(captype, str), 'captype must be a string.'
-    fls = [f for f in os.listdir(chan_path) if f.endswith('.mat') and
-            '_neighbours' in f]
-    good_file = [f for f in fls if captype in f]
-    if len(good_file) > 0:
-        return loadmat(os.path.join(chan_path, good_file[0]),
-                       squeeze_me=True)['neighbours']
+    if os.path.exists(captype):
+        # file path was given
+        file_name = captype
     else:
-        raise ValueError('Could not find specified cap type.')
+        # cap type was given
+        fls = [f for f in os.listdir(chan_path) if f.endswith('.mat') and
+                '_neighbours' in f]
+        good_file = [f for f in fls if captype in f]
+        if len(good_file) > 0:
+            file_name = os.path.join(chan_path, good_file[0])
+        else:
+            raise ValueError('Could not find specified cap type.')
+    return loadmat(file_name, squeeze_me=True)['neighbours']
 
 
 def construct_adjacency_matrix(ch_names, neighbours, sparse=False):
@@ -86,8 +87,9 @@ def plot_neighbours(inst, adj_matrix, color='gray'):
     '''
     from mne.io import _BaseRaw
     from mne.epochs import _BaseEpochs
+    from mne.io.meas_info import Info
     from .viz import set_3d_axes_equal
-    assert isinstance(inst, (_BaseRaw, _BaseEpochs))
+    assert isinstance(inst, (_BaseRaw, _BaseEpochs, Info))
 
     if adj_matrix.dtype == 'int':
         max_lw = 10.
@@ -98,9 +100,15 @@ def plot_neighbours(inst, adj_matrix, color='gray'):
         def get_lw():
             return 2.
 
-    fig = inst.plot_sensors(kind='3d')
+    if isinstance(inst, Info):
+        from mne.viz import plot_sensors
+        fig = plot_sensors(inst, kind='3d', show=False)
+        pos = np.array([x['loc'][:3] for x in inst['chs']])
+    else:
+        fig = inst.plot_sensors(kind='3d', show=False)
+        pos = np.array([x['loc'][:3] for x in inst.info['chs']])
     set_3d_axes_equal(fig.axes[0])
-    pos = np.array([x['loc'][:3] for x in inst.info['chs']])
+
     for ch in range(adj_matrix.shape[0]):
         ngb = np.where(adj_matrix[ch, :])[0]
         for n in ngb:
