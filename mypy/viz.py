@@ -10,25 +10,46 @@ import matplotlib.pyplot as plt
 # - [ ] add window select
 
 
+def get_spatial_colors(inst):
+    from mne.viz.evoked import _rgb
+    info = get_info(inst)
+
+    # this should be get_channel_pos or sth like this
+    locs3d = np.array([info['chs'][i]['loc'][:3] \
+                       for i in range(len(info['ch_names']))])
+    x, y, z = locs3d.T
+    return _rgb(info, x, y, z)
+
+
 def masked_image(img, mask, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
-    axis=None, **imshow_kwargs):
+                 axis=None, **imshow_kwargs):
     defaults = {'interpolation': 'none', 'origin': 'lower'}
     defaults.update(imshow_kwargs)
 
     if axis is None:
         fig, axis = plt.subplots()
 
+    # plot images
+    main_img = axis.imshow(img, **defaults)
+    mask_img = add_image_mask(mask, alpha=alpha, mask_color=mask_color,
+                              axis=axis, **defaults)
+    return main_img, mask_img
+
+
+def add_image_mask(mask, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
+                   axis=None, **imshow_kwargs):
+    if axis is None:
+        axis = plt.gca()
+
     # create RGBA mask:
-    mask_img = np.array(list(mask_color) + [0.]).reshape([1,1,4])
-    mask_img = np.tile(mask_img, list(img.shape) + [1])
+    mask_img = np.array(list(mask_color) + [0.]).reshape((1, 1, 4))
+    mask_img = np.tile(mask_img, list(mask.shape) + [1])
 
     # set alpha
     mask_img[np.logical_not(mask), -1] = alpha
 
     # plot images
-    main_img = axis.imshow(img, **defaults)
-    mask_img = axis.imshow(mask_img, **defaults)
-    return main_img, mask_img
+    return axis.imshow(mask_img, **imshow_kwargs)
 
 
 # TODO

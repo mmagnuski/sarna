@@ -25,20 +25,38 @@ def rld(pkg):
 
 # TODO:
 # - [ ] should check type and size of the vars (check how mne-python does it)
+# - [ ] detect if in notebook/qtconsole and ignore 'Out' and similar vars
+# - [ ] display numpy arrays as "5 x 2 int array"
+#       lists as "list of strings" etc.
 def whos():
     """Print the local variables in the caller's frame.
     Copied from stack overflow:
     http://stackoverflow.com/questions/6618795/get-locals-from-calling-namespace-in-python"""
     import inspect
     frame = inspect.currentframe()
+    ignore_vars = []
+    ignore_starting = ['__']
     try:
-        print(frame.f_back.f_locals) # here the locals should be inspected and pretty-printed
+        lcls = frame.f_back.f_locals
+        # test if ipython
+        ipy_vars = ['In', 'Out', 'get_ipython', '_oh', '_sh']
+        in_ipython = all([var in lcls for var in ipy_vars])
+        if in_ipython:
+            ignore_vars = ipy_vars + ['_']
+            ignore_starting += ['_i']
+        for name, var in lcls.items():
+            if name in ignore_vars:
+                continue
+            if any([name.startswith(s) for s in ignore_starting]):
+                continue
+            print(name, type(var), var)
     finally:
         del frame
 
 
+# - [ ] if np.ndarray try to format output in the right shape
 def find_index(vec, vals):
-    if not isinstance(vals, list):
+    if not isinstance(vals, (list, np.ndarray)):
         vals = [vals]
     return [np.abs(vec - x).argmin() for x in vals]
 
@@ -69,6 +87,19 @@ def find_range(vec, ranges):
 
 def time_range(inst, time_window):
     return find_range(inst.times, time_window)
+
+
+def extend_slice(slc, val, maxind):
+    start, stop, step = slc.start, slc.stop, slc.step
+    if not start == 0:
+        start -= val
+        if start < 0:
+            start = 0
+    if not stop == maxind:
+        stop += val
+        if stop > maxind:
+            stop = maxind
+    return slice(start, stop, step)
 
 
 # join inds
@@ -132,3 +163,13 @@ def subselect_keys(key, mapping, sep='/'):
     else:
         raise ValueError('Your keys are bad formatted.')
     return mapping
+
+
+# - [ ] more checks for mne type
+# - [ ] maybe move to mneutils ?
+def get_info(inst):
+    from mne.io.meas_info import Info
+    if isinstance(inst, Info):
+        return inst
+    else:
+        return inst.info

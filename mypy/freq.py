@@ -93,12 +93,24 @@ def segments_freq(eeg, win_len=2., win_step=0.5, n_fft=None,
             p_bar.update(w)
     return psd.swapaxes(0, 1), freqs
 
-
+# - [ ] consider moving to utils
+# - [x] warn if sfreq not given and some values are float
+# - [x] treat floats as time and int as samples
+# - [ ] maybe a smarter API or a class...
 def window_steps(window_length, window_step, signal_len, sfreq=None):
-    if sfreq is not None: # maybe check for int (samples) vs float (time in s.)
-        window_length = int(np.round(window_length * sfreq))
-        window_step = int(np.round(window_step * sfreq))
-        signal_len = int(np.round(signal_len * sfreq))
+    is_float = [isinstance(x, float) for x in \
+                [window_length, window_step, signal_len]]
+    any_float = any(is_float)
+    if any_float and sfreq is None:
+        raise TypeError('Some variables are float but sfreq was not given.')
+
+    if any_float and sfreq is not None:
+        if is_float[0]:
+            window_length = int(np.round(window_length * sfreq))
+        if is_float[1]:
+            window_step = int(np.round(window_step * sfreq))
+        if is_float[2]:
+            signal_len = int(np.round(signal_len * sfreq))
 
     num_steps = int(np.floor((signal_len - window_length) / window_step)) + 1
     for w in range(num_steps):

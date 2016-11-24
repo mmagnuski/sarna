@@ -157,6 +157,28 @@ def reject_events_in_bad_segments(events, bad_segments, around_event=(-10,10),
 	return events
 
 
+def extend_bads(rej_win, extend):
+    n_samples = rej_win.shape[1]
+    bad_inds = np.any(rej_win, axis=1).nonzero()[0]
+    for bad in bad_inds:
+        slices = group(rej_win[bad, :], return_slice=True)
+        for slc in slices:
+            slc = extend_slice(slc, extend, n_samples)
+            rej_win[bad, slc] = True
+    return rej_win
+
+
+def apply_artifacts_to_tfr(tfr, artif, orig_time, fillval=np.nan):
+    n_items, n_samples = artif.shape
+    bad_inds = np.any(artif, axis=1).nonzero()[0]
+    for bad in bad_inds:
+        limits = group(rej_win[bad, :])
+        for lim in limits:
+            slc = find_range(tfr.times, list(orig_time[lim]))
+            tfr.data[bad, :, :, slc] = fillval
+
+
+# - [ ] make sure this is universal
 def create_middle_events(events, min_time=14., sfreq=250):
 	'''Put raven events in the trial centre,
 	deleting events that begin trials shorter than

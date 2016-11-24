@@ -13,8 +13,37 @@ def ttest_rel_no_p(*args):
     return t
 
 
+def corr(x, y, method='Pearson'):
+    '''correlate two vectors/matrices.
+    This function can be useful because scipy.stats.pearsonr does too little
+    (takes only vectors) and scipy.stats.spearmanr does too much (calculates
+    all possible correlations when given two matrices - instead of correlating
+    only pairs of variables where one is from the first and the other from  the
+    second matrix)
+    '''
+    x_size = x.shape
+    y_size = y.shape
+    if len(x_size) == 1:
+        x = x[:, np.newaxis]
+        x_size = x.shape
+
+    if method == 'Pearson':
+        from scipy.stats import pearsonr as cor
+    elif method == 'Spearman':
+        from scipy.stats import spearmanr as cor
+
+    rs = list()
+    ps = list()
+    for col in range(x_size[1]):
+        r, p = cor(x[:, col], y)
+        rs.append(r)
+        ps.append(p)
+    return np.array(rs), np.array(ps)
+
+
 # - [ ] pred -> data; data + pred -> y
 # - [ ] progressbar
+# - [ ] use faster function for ols
 # - [ ] apply model - statsmodels or sklearn
 def apply_regr(data, pred, along=0):
     """
