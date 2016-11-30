@@ -184,3 +184,22 @@ def get_info(inst):
         return inst
     else:
         return inst.info
+
+
+def mne_types():
+    import mne
+    types = dict()
+    isdev = mne.__version__.startswith('0.14.dev')
+    from mne.io.meas_info import Info
+    try:
+        from mne.io import _BaseRaw
+        from mne.epochs import _BaseEpochs
+        types['raw'] = _BaseRaw
+        types['epochs'] = _BaseEpochs
+    except ImportError:
+        from mne.io import BaseRaw
+        from mne.epochs import BaseEpochs
+        types['raw'] = BaseRaw
+        types['epochs'] = BaseEpochs
+    types['info'] = Info
+    return types
