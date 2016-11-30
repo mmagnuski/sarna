@@ -6,17 +6,17 @@ from .utils import time_range, mne_types
 
 
 def correct_egi_channel_names(eeg):
-	# define function correcting channel names:
-	def corr_ch_names(name):
-		if name.startswith('EEG'):
-			if name == 'EEG 065':
-				return 'Cz'
-			else:
-				return 'E' + str(int(name[-3:]))
-		else:
-			return name
-	# change channel names
-	eeg.rename_channels(corr_ch_names)
+    # define function correcting channel names:
+    def corr_ch_names(name):
+        if name.startswith('EEG'):
+            if name == 'EEG 065':
+                return 'Cz'
+            else:
+                return 'E' + str(int(name[-3:]))
+        else:
+            return name
+    # change channel names
+    eeg.rename_channels(corr_ch_names)
 
 
 # TODO: generalize to Evoked (maybe Raw...)
