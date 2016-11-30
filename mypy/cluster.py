@@ -4,6 +4,8 @@ from os.path import split
 import numpy as np
 from scipy import sparse
 from scipy.io import loadmat
+
+from mypy import utils
 # import matplotlib.pyplot as plt
 
 
@@ -87,11 +89,9 @@ def plot_neighbours(inst, adj_matrix, color='gray'):
     fig : matplotlib figure
         Figure.
     '''
-    from mne.io import _BaseRaw
-    from mne.epochs import _BaseEpochs
-    from mne.io.meas_info import Info
+    tps = utils.mne_types()
     from .viz import set_3d_axes_equal
-    assert isinstance(inst, (_BaseRaw, _BaseEpochs, Info))
+    assert isinstance(inst, (tps['raw'], tps['epochs'], tps['info']))
 
     if adj_matrix.dtype == 'int':
         max_lw = 10.
@@ -102,7 +102,7 @@ def plot_neighbours(inst, adj_matrix, color='gray'):
         def get_lw():
             return 2.
 
-    if isinstance(inst, Info):
+    if isinstance(inst, tps['info']):
         from mne.viz import plot_sensors
         fig = plot_sensors(inst, kind='3d', show=False)
         pos = np.array([x['loc'][:3] for x in inst['chs']])

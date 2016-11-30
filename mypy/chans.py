@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.stats import zscore
 import matplotlib.pyplot as plt
-from .utils import time_range
+from .utils import time_range, mne_types
 
 
 
@@ -21,9 +21,9 @@ def correct_egi_channel_names(eeg):
 
 # TODO: generalize to Evoked (maybe Raw...)
 def z_score_channels(eeg):
-    from mne.epochs import _BaseEpochs
+    tps = mne_types()
     from mne.utils import _get_inst_data
-    assert isinstance(eeg, _BaseEpochs)
+    assert isinstance(eeg, tps['epochs'])
 
     data = _get_inst_data(eeg)
     n_epoch, n_chan, n_sample = data.shape
@@ -163,9 +163,9 @@ class Peakachu(object):
 
     def transform(self, inst, average_channels=True):
         from mne.evoked import Evoked
-        from mne.epochs import _BaseEpochs
+        tps = mne_types()
 
-        assert isinstance(inst, (Evoked, _BaseEpochs))
+        assert isinstance(inst, (Evoked, tps['epochs']))
         peak_val, peak_ind = self._get_peaks(inst, select=True)
 
         if 'mean' in self.select:
@@ -248,11 +248,11 @@ class Peakachu(object):
         return peak_val, peak_ind
 
     def plot_erp(self, inst):
-        from mne.epochs import _BaseEpochs
+        tps = mne_types()
         from mne.viz import plot_compare_evokeds
 
         picks = [inst.ch_names.index(ch) for ch in self._chan_names]
-        if isinstance(inst, _BaseEpochs):
+        if isinstance(inst, tps['epochs']):
             erps = {c: inst[c].average() for c in inst.event_id.keys()}
             fig = plot_compare_evokeds(erps, picks=picks)
         else:
