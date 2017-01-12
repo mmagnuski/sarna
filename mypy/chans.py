@@ -143,21 +143,25 @@ class Peakachu(object):
 
     def fit(self, inst):
         from mne.evoked import Evoked
+        from mne.io.pick import _pick_data_channels, pick_info
         assert isinstance(inst, (Evoked, np.ndarray)), 'inst must be either' \
             ' Evoked or numpy array, got {}.'.format(type(inst))
 
-        self._info = inst.info
-        self._all_ch_names = inst.ch_names
+        # deal with bad channels and non-data channels
+        picks = _pick_data_channels(inst.info)
+
+        self._info = pick_info(inst.info, picks)
+        self._all_ch_names = [inst.ch_names[i] for i in picks]
 
         # get peaks
-        peak_val, peak_ind = self._get_peaks(inst)
+        peak_val, peak_ind = self._get_peaks(inst, select=picks)
 
         # select n_channels
         vals = peak_val if 'max' in self.select else -peak_val
         chan_ind = select_channels(vals, N=self.n_channels,
                         connectivity=self.connectivity)
-        self._chan_ind = chan_ind
-        self._chan_names = [inst.ch_names[ch] for ch in chan_ind]
+        self._chan_ind = [picks[i] for i in chan_ind]
+        self._chan_names = [inst.ch_names[ch] for ch in self._chan_ind]
         self._peak_vals = peak_val
         return self
 
@@ -166,7 +170,8 @@ class Peakachu(object):
         tps = mne_types()
 
         assert isinstance(inst, (Evoked, tps['epochs']))
-        peak_val, peak_ind = self._get_peaks(inst, select=True)
+        select = [inst.ch_names.index(ch) for ch in self._chan_names]
+        peak_val, peak_ind = self._get_peaks(inst, select=select)
 
         if 'mean' in self.select:
             peak_times = np.empty(peak_ind.shape)
@@ -193,7 +198,8 @@ class Peakachu(object):
         #       (something like a Topomap object or just mark_topomap_channels)
         # highligh channels
         chans = fig.axes[0].findobj(mpl.patches.Circle)
-        for ch in self._chan_ind:
+        ch_ind = [info['ch_names'].index(ch) for ch in self._chan_names]
+        for ch in ch_ind:
             chans[ch].set_color('white')
             chans[ch].set_radius(0.01)
             chans[ch].set_zorder(4)
@@ -222,8 +228,10 @@ class Peakachu(object):
         else:
             data_segment = data[:, t_rng]
 
-        if select:
+        if select is True:
             data_segment = data_segment[self._chan_ind, :]
+        elif isinstance(select, (list, np.ndarray)):
+            data_segment = data_segment[select, :]
         n_channels = data_segment.shape[0]
 
         if data_segment.ndim == 1:
