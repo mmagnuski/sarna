@@ -127,3 +127,14 @@ def log_likelihood(data, distrib, params=None, binomial=False):
         prediction = distrib.pdf(data, *params)
         return np.sum(np.log(prediction) * data +
                       np.log(1 - prediction) * (1 - data))
+
+def format_pvalue(pvalue):
+    if pvalue > .001:
+        return 'p = {:.3f}'.format(pvalue)
+    else:
+        powers = 10 ** np.arange(-3, -101, -1, dtype='float')
+        which_power = np.where(pvalue < powers)[0][-1]
+        if which_power < 2:
+            return 'p < {}'.format(['0.001', '0.0001'][which_power])
+        else:
+            return 'p < {}'.format(str(powers[which_power]))
