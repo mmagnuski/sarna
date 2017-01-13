@@ -44,5 +44,5 @@ if __name__ == "__main__":
           platforms='any',
           packages=['mypy', 'mypy.colors'],
           package_data={'mypy': [os.path.join('colors', 'colors_pl.txt'),
-                                 os.path.join('..', 'data')]}
+                                 os.path.join('data')]}
           )
