@@ -2,7 +2,9 @@ import numpy as np
 from scipy.stats import ttest_ind, ttest_rel
 
 
-# TODO: compute t's without p (less computation time)
+# TODO:
+# - [ ] avoid calculating p, not just throw it away
+#       (less computation time)
 def ttest_ind_no_p(*args):
     t, p = ttest_ind(*args)
     return t
@@ -43,7 +45,7 @@ def corr(x, y, method='Pearson'):
 
 # - [ ] pred -> data; data + pred -> y
 # - [ ] progressbar
-# - [ ] use faster function for ols
+# - [ ] use faster function for ols (a wrapper around np.linalg.lstsq)
 # - [ ] apply model - statsmodels or sklearn
 def apply_regr(data, pred, along=0):
     """
@@ -70,7 +72,7 @@ def apply_regr(data, pred, along=0):
     tvals = np.zeros((n_comps, n_preds))
     pvals = np.zeros((n_comps, n_preds))
 
-    # perform refression for each
+    # perform regression for each (using np.linalg.lstsq would be faster)
     for ii, dt in enumerate(data):
         mdl = sm.OLS(dt, pred).fit()
         tvals[ii, :] = mdl.tvalues
@@ -86,6 +88,9 @@ def apply_regr(data, pred, along=0):
 # TODO:
 # - [ ] should the default be along -1?
 # - [ ] check whether n_preds is there in inverse_transform
+# - [ ] use rollaxis if not along default
+# - [ ] rename along to retain
+# - [ ] allow more than one dim in retain?
 class Reshaper(object):
     def __init__(self):
         self.shape = None
