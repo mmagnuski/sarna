@@ -9,9 +9,7 @@ from mypy import utils
 # import matplotlib.pyplot as plt
 
 
-base_dir = split(__file__)[0]
-if not os.path.isdir(base_dir):
-    base_dir = split(base_dir)[0]
+base_dir = split(split(__file__)[0])[0]
 chan_path = os.path.join(base_dir, 'data', 'chan')
 
 
