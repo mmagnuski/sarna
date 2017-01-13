@@ -43,5 +43,6 @@ if __name__ == "__main__":
                        'Operating System :: MacOS'],
           platforms='any',
           packages=['mypy', 'mypy.colors'],
-          package_data={'mypy': [os.path.join('colors', 'colors_pl.txt')]}
+          package_data={'mypy': [os.path.join('colors', 'colors_pl.txt'),
+                                 os.path.join('..', 'data')]}
           )
