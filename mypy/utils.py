@@ -91,16 +91,34 @@ def time_range(inst, time_window):
     return find_range(inst.times, time_window)
 
 
-def extend_slice(slc, val, maxind):
+def extend_slice(slc, val, maxval, minval=0):
+    '''Extend slice `slc` by `val` but not exceeding `maxval`.
+
+    Parameters
+    ----------
+    slc : slice
+        Slice to extend.
+    val : int or float
+        Value by which to extend the slice.
+    maxval : int or float
+        Maximum value that cannot be exceeded.
+
+    Returns
+    -------
+    slc : slice
+        New, extended slice.
+    '''
     start, stop, step = slc.start, slc.stop, slc.step
-    if not start == 0:
+    # start
+    if not start == minval:
         start -= val
-        if start < 0:
-            start = 0
-    if not stop == maxind:
+        if start < minval:
+            start = minval
+    # stop
+    if not stop == maxval:
         stop += val
-        if stop > maxind:
-            stop = maxind
+        if stop > maxval:
+            stop = maxval
     return slice(start, stop, step)
 
 
