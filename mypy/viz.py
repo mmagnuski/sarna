@@ -181,8 +181,15 @@ class Topo(object):
                 self.lines.collections.pop(pop_ln)
 
     def solid_lines(self):
+        self.set_linestyle('-')
+
+    def set_linestyle(self, *args, **kwargs):
         for ln in self.lines.collections:
-            ln.set_linestyle('-')
+            ln.set_linestyle(*args, **kwargs)
+
+    def set_linewidht(self, lw):
+        for ln in self.lines.collections:
+            ln.set_linewidths(lw)
 
     def mark_channels(self, chans, **marker_params):
         default_marker = dict(marker='o', markerfacecolor='w',
