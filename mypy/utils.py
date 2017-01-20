@@ -204,3 +204,20 @@ def get_info(inst):
         return inst
     else:
         return inst.info
+
+
+class AtribDict(dict):
+    """Just like a dictionary, except that you can access keys with obj.key.
+
+    Copied from psychopy.data.TrialType
+    """
+
+    def __getattribute__(self, name):
+        try:  # to get attr from dict in normal way (passing self)
+            return dict.__getattribute__(self, name)
+        except AttributeError:
+            try:
+                return self[name]
+            except KeyError:
+                msg = "TrialType has no attribute (or key) \'%s\'"
+                raise AttributeError(msg % name)
