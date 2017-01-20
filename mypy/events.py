@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 from scipy.io import loadmat
 
+from mypy.utils import group, extend_slice, find_range
+
 # TODOs:
 # - [ ] create_middle_events should be made more universal
 
@@ -96,6 +98,7 @@ def get_events_from_din(eeg):
 
 
 def remove_din_channels(eeg):
+	'''Remove channels starting with 'D' like 'DIN2' or 'DI16'.'''
 	# pick non-din channels:
 	non_din_chans = [ch for ch in eeg.info['ch_names']
 						if not ch.startswith('D')
@@ -105,9 +108,9 @@ def remove_din_channels(eeg):
 
 def reject_events_in_bad_segments(events, bad_segments, around_event=(-10,10),
 								  remove_types=None):
-	'''removes events that coincide with bad segments
+	'''Remove events that coincide with bad segments.
 
-	parameters
+	Parameters
 	----------
 	events 		 - mne events array
 	bad_segments - N by 2 matrix with bad segment info
@@ -125,7 +128,7 @@ def reject_events_in_bad_segments(events, bad_segments, around_event=(-10,10),
 	remove_types - list or numpy array of event types (int)
 				   that should be checked for removal
 
-	returns
+	Returns
 	-------
 	events - corrected events array
 	'''
@@ -157,25 +160,31 @@ def reject_events_in_bad_segments(events, bad_segments, around_event=(-10,10),
 	return events
 
 
-def extend_bads(rej_win, extend):
-    n_samples = rej_win.shape[1]
-    bad_inds = np.any(rej_win, axis=1).nonzero()[0]
-    for bad in bad_inds:
-        slices = group(rej_win[bad, :], return_slice=True)
-        for slc in slices:
-            slc = extend_slice(slc, extend, n_samples)
-            rej_win[bad, slc] = True
-    return rej_win
+def extend_bads(rej_win, extend, copy=True):
+	'''Extend rejection periods by specfied number of samples.'''
+	if copy:
+		rej_win = rej_win.copy()
+	n_samples = rej_win.shape[1]
+	bad_inds = np.any(rej_win, axis=1).nonzero()[0]
+	for bad in bad_inds:
+		slices = group(rej_win[bad, :], return_slice=True)
+		for slc in slices:
+			slc = extend_slice(slc, extend, n_samples)
+			rej_win[bad, slc] = True
+	return rej_win
 
 
 def apply_artifacts_to_tfr(tfr, artif, orig_time, fillval=np.nan):
-    n_items, n_samples = artif.shape
-    bad_inds = np.any(artif, axis=1).nonzero()[0]
-    for bad in bad_inds:
-        limits = group(rej_win[bad, :])
-        for lim in limits:
-            slc = find_range(tfr.times, list(orig_time[lim]))
-            tfr.data[bad, :, :, slc] = fillval
+	'''Fill tfr data with `fillval` according to `artif`.
+	Operates in-place.'''
+	n_items, n_samples = artif.shape
+	bad_inds = np.any(artif, axis=1).nonzero()[0]
+	for bad in bad_inds:
+		limits = group(artif[bad, :])
+		for lim in limits:
+			slc = find_range(tfr.times, list(orig_time[lim]))
+			tfr.data[bad, :, :, slc] = fillval
+	return tfr
 
 
 # - [ ] make sure this is universal
@@ -193,20 +202,21 @@ def create_middle_events(events, min_time=14., sfreq=250):
 
 
 # TODO:
+# - [ ] adapt this to use numpy structured datasets (?)
 # - [ ] currently reads set events, should check epoch field...
 def read_set_events(filename, ignore_fields=None):
-	'''Open set file, read epoch events and turn them into a dataframe
+	'''Open set file, read epoch events and turn them into a dataframe.
 
 	Parameters
 	----------
 	filename: str
 		Name of the set file to read (can be absolute or relative path)
 	ignore_fields: list of str | None
-		Epoch event fields to ignore
+		Epoch event fields to ignore (these fields are note included in the df)
 
 	Returns
 	-------
-	df: pandas.DatFrame
+	df: pandas.DataFrame
 		Events read into dataframe
 	'''
 	EEG = loadmat(filename, uint16_codec='latin1',
@@ -227,6 +237,7 @@ def read_set_events(filename, ignore_fields=None):
 
 
 # - [ ] develop this function a little better
+# - [ ] check what is used by raw.reject_bads() when no inds given
 def mark_reject_peak2peak(raw, reject={'eeg': 23e-5}, window_length=1.,
 						  label='bad p2p'):
 	import mne
@@ -259,11 +270,11 @@ def join_segments(time_segments):
 	prev = 0
 	missed_segments = list()
 	for row in segment_groups:
-	    if not row[0] == prev:
-	        missed_segments.extend(list(range(prev + 1, row[0])))
-	    prev = row[1]
+		if not row[0] == prev:
+			missed_segments.extend(list(range(prev + 1, row[0])))
+		prev = row[1]
 	if prev < len(time_segments):
-	    missed_segments.extend(list(range(prev + 1, len(time_segments))))
+		missed_segments.extend(list(range(prev + 1, len(time_segments))))
 
 	# append missed single segments to multi-segments and sort
 	final_segments = np.vstack(

@@ -1,9 +1,10 @@
 import numpy as np
 
 
+# - [ ] may not be necessary any longer...
 def do_not_warn():
-    '''turns off DeprecationWarnings as they can be
-    painful in the current jupyter notebook'''
+    '''turns off DeprecationWarnings as they can be (were)
+    painful in the current (older) jupyter notebook'''
     import warnings
     try:
         from exceptions import DeprecationWarning # py2
@@ -57,7 +58,7 @@ def whos():
 
 # - [ ] if np.ndarray try to format output in the right shape
 def find_index(vec, vals):
-    if not isinstance(vals, (list, np.ndarray)):
+    if not isinstance(vals, (list, tuple, np.ndarray)):
         vals = [vals]
     return [np.abs(vec - x).argmin() for x in vals]
 
@@ -105,6 +106,7 @@ def extend_slice(slc, val, maxind):
 
 # join inds
 # TODO:
+# - [ ] docs!
 # - [ ] diff mode
 # - [ ] option to return slice
 def group(vec, diff=False, return_slice=False):

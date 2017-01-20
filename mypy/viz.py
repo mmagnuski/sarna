@@ -153,7 +153,7 @@ def set_3d_axes_equal(ax):
 
 
 class Topo(object):
-    def __init__(self, values, info):
+    def __init__(self, values, info, **kwargs):
         from mne.viz.topomap import plot_topomap
         import matplotlib as mpl
 
@@ -161,7 +161,7 @@ class Topo(object):
         self.values = values
 
         # plot topomap
-        im, lines = plot_topomap(values, info)
+        im, lines = plot_topomap(values, info, **kwargs)
 
         self.fig = im.figure
         self.img = im
