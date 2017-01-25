@@ -1,9 +1,10 @@
 import numpy as np
 
 
+# - [ ] may not be necessary any longer...
 def do_not_warn():
-    '''turns off DeprecationWarnings as they can be
-    painful in the current jupyter notebook'''
+    '''turns off DeprecationWarnings as they can be (were)
+    painful in the current (older) jupyter notebook'''
     import warnings
     try:
         from exceptions import DeprecationWarning # py2
@@ -57,7 +58,7 @@ def whos():
 
 # - [ ] if np.ndarray try to format output in the right shape
 def find_index(vec, vals):
-    if not isinstance(vals, (list, np.ndarray)):
+    if not isinstance(vals, (list, tuple, np.ndarray)):
         vals = [vals]
     return [np.abs(vec - x).argmin() for x in vals]
 
@@ -90,21 +91,40 @@ def time_range(inst, time_window):
     return find_range(inst.times, time_window)
 
 
-def extend_slice(slc, val, maxind):
+def extend_slice(slc, val, maxval, minval=0):
+    '''Extend slice `slc` by `val` but not exceeding `maxval`.
+
+    Parameters
+    ----------
+    slc : slice
+        Slice to extend.
+    val : int or float
+        Value by which to extend the slice.
+    maxval : int or float
+        Maximum value that cannot be exceeded.
+
+    Returns
+    -------
+    slc : slice
+        New, extended slice.
+    '''
     start, stop, step = slc.start, slc.stop, slc.step
-    if not start == 0:
+    # start
+    if not start == minval:
         start -= val
-        if start < 0:
-            start = 0
-    if not stop == maxind:
+        if start < minval:
+            start = minval
+    # stop
+    if not stop == maxval:
         stop += val
-        if stop > maxind:
-            stop = maxind
+        if stop > maxval:
+            stop = maxval
     return slice(start, stop, step)
 
 
 # join inds
 # TODO:
+# - [ ] docs!
 # - [ ] diff mode
 # - [ ] option to return slice
 def group(vec, diff=False, return_slice=False):
@@ -203,3 +223,20 @@ def mne_types():
         types['epochs'] = BaseEpochs
     types['info'] = Info
     return types
+
+
+class AtribDict(dict):
+    """Just like a dictionary, except that you can access keys with obj.key.
+
+    Copied from psychopy.data.TrialType
+    """
+
+    def __getattribute__(self, name):
+        try:  # to get attr from dict in normal way (passing self)
+            return dict.__getattribute__(self, name)
+        except AttributeError:
+            try:
+                return self[name]
+            except KeyError:
+                msg = "TrialType has no attribute (or key) \'%s\'"
+                raise AttributeError(msg % name)

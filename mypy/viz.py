@@ -153,7 +153,7 @@ def set_3d_axes_equal(ax):
 
 
 class Topo(object):
-    def __init__(self, values, info):
+    def __init__(self, values, info, **kwargs):
         from mne.viz.topomap import plot_topomap
         import matplotlib as mpl
 
@@ -161,7 +161,7 @@ class Topo(object):
         self.values = values
 
         # plot topomap
-        im, lines = plot_topomap(values, info)
+        im, lines = plot_topomap(values, info, **kwargs)
 
         self.fig = im.figure
         self.img = im
@@ -181,8 +181,15 @@ class Topo(object):
                 self.lines.collections.pop(pop_ln)
 
     def solid_lines(self):
+        self.set_linestyle('-')
+
+    def set_linestyle(self, *args, **kwargs):
         for ln in self.lines.collections:
-            ln.set_linestyle('-')
+            ln.set_linestyle(*args, **kwargs)
+
+    def set_linewidht(self, lw):
+        for ln in self.lines.collections:
+            ln.set_linewidths(lw)
 
     def mark_channels(self, chans, **marker_params):
         default_marker = dict(marker='o', markerfacecolor='w',
@@ -195,48 +202,76 @@ class Topo(object):
                                    self.chan_pos[chans, 1], **default_marker)
         self.marks.append(marks)
 
-# other experiments:
-# ------------------
-# # getting pos of chan mask:
-# add_chans = list()
-# test_lines = im.axes.findobj(mpl.lines.Line2D)
-# for l in test_lines:
-#     if l.get_marker() is not 'None':
-#         add_chans.append(l)
-#
-# x, y = add_chans[0].get_data()
-#
-# from mne.viz.topomap import _prepare_topo_plot
-# _, pos, _, _, _ = _prepare_topo_plot(eeg, 'eeg', layout=None)
-# pos
 
+# TODOs:
+# - [ ] fix issue with shapes that touch matrix edge
+# - [ ] let it work for all the shapes (not only the first one completed)
+# - [ ] docstring
+# - [ ] cluster mode (returns a list or dict mapping cluster ids to list of
+#       cluster contours) - so that each cluster can be marked by a different
+#       color.
+# - [ ] one convolution for all clusters
+def create_cluster_contour(mask):
+    from scipy.ndimage import convolve #, label
 
-# ClusterViewer
-# on init:
-# inst -> info
-# fig, sel = eeg.plot_sensors(kind='select')
-#
-# def pacplot(ch_ind=None, fig=fig):
-#     if ch_ind is None:
-#         ch_ind = [eeg.ch_names.index(ch) for ch in fig.lasso.selection]
-#     im = t_effect[ch_ind, :, :].mean(axis=0).T
-#     mask = cluster_id[ch_ind, :, :].mean(axis=0).T > 0.5
-#     fig, ax = plt.subplots()
-#     masked_image(im, mask, origin='lower', vmin=-5, vmax=5)
-#
-#     ax.set_xticks(f_l)
-#     ax.set_xticklabels(f_low[f_l])
-#     ax.set_yticks(f_h)
-#     ax.set_yticklabels(f_high[f_h])
-#     ax.figure.canvas.draw()
-#
-# def on_pick(event, fig=fig):
-#     if event.mouseevent.key == 'control' and fig.lasso is not None:
-#          for ind in event.ind:
-#              fig.lasso.select_one(event.ind)
-#
-#          return
-#     pacplot(ch_ind=event.ind)
-#
-# fig.canvas.mpl_connect('pick_event', on_pick)
-# fig.canvas.mpl_connect('lasso_event', pacplot)
+    mask_int = mask.astype('int')
+    kernels = {'upper': [[-1], [1], [0]],
+               'lower': [[0], [1], [-1]],
+               'left': [[-1, 1, 0]],
+               'right': [[0, 1, -1]]}
+    kernels = {k: np.array(v) for k, v in kernels.items()}
+    lines = {k: (convolve(mask_int, v[::-1, ::-1]) == 1).astype('int')
+             for k, v in kernels.items()}
+
+    search_order = {'upper': ['right', 'left', 'upper'],
+                    'right': ['lower', 'upper', 'right'],
+                    'lower': ['left', 'right', 'lower'],
+                    'left': ['upper', 'lower', 'left']}
+    movement_direction = {'upper': [0, 1], 'right': [1, 0],
+                          'lower': [0, -1], 'left': [-1, 0]}
+    search_modifiers = {'upper_left': [-1, 1], 'right_upper': [1, 1],
+                        'lower_right': [1, -1], 'left_lower': [-1, -1]}
+    finish_modifiers = {'upper': [-0.5, 0.5], 'right': [0.5, 0.5],
+                        'lower': [0.5, -0.5], 'left': [-0.5, -0.5]}
+
+    # current index - upmost upper line
+    current_index = np.array([x[0] for x in np.where(lines['upper'])])
+    closed_shape = False
+    current_edge = 'upper'
+    edge_points = [tuple(current_index + [-0.5, -0.5])]
+    direction = movement_direction[current_edge]
+
+    while not closed_shape:
+        ind = tuple(current_index)
+        new_edge = None
+
+        # check the next edge
+        for edge in search_order[current_edge]:
+            modifier = '_'.join([current_edge, edge])
+            has_modifier = modifier in search_modifiers
+            if has_modifier:
+                modifier_value = search_modifiers[modifier]
+                test_ind = tuple(current_index + modifier_value)
+            else:
+                test_ind = ind
+
+            if lines[edge][test_ind] == 1:
+                new_edge = edge
+                lines[current_edge][ind] = -1
+                break
+            elif lines[edge][test_ind] == -1: # -1 means 'visited'
+                closed_shape = True
+                new_edge = 'finish'
+                lines[current_edge][ind] = -1
+                break
+
+        if not new_edge == current_edge:
+            edge_points.append(tuple(
+                current_index + finish_modifiers[current_edge]))
+            direction = modifier_value if has_modifier else [0, 0]
+            current_edge = new_edge
+        else:
+            direction = movement_direction[current_edge]
+
+        current_index += direction
+    return edge_points
