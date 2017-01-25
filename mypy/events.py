@@ -206,7 +206,7 @@ def read_set_events(filename, ignore_fields=None):
 
 	Returns
 	-------
-	df: pandas.DatFrame
+	df: pandas.DataFrame
 		Events read into dataframe
 	'''
 	EEG = loadmat(filename, uint16_codec='latin1',
@@ -271,3 +271,16 @@ def join_segments(time_segments):
 	final_segments = final_segments[final_segments[:, 0].argsort(), :]
 
 	return final_segments
+
+
+def get_dropped_epoch_index(epochs):
+	current_epoch = 0
+	removed_epochs = list()
+
+	for info in epochs_clean.drop_log:
+	    if 'IGNORED' not in info:
+	        if 'USER' in info:
+	            removed_epochs.append(current_epoch)
+	        current_epoch += 1
+
+	return removed_epochs
