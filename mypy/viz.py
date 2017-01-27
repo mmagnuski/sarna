@@ -275,3 +275,35 @@ def create_cluster_contour(mask):
 
         current_index += direction
     return edge_points
+
+
+def highlight(x_values, which_highligh, kind='patch', color=None,
+              alpha=0.3, axis=None, level=0.04, height=0.03):
+    '''Highlight ranges along x axis.
+
+    Parameters
+    ----------
+    x_values : numpy array
+        Values specifying x axis points along which which_highligh operates.
+    which_highligh : numpy array of bool
+        Boolean values - each entry specifies whether corresponding value for
+        x_values belongs to highlighted ranges.
+    '''
+    from matplotlib.patches import Rectangle
+    from mypy.utils import group
+
+    if color is None:
+        color = 'orange' if kind == 'patch' else 'k'
+    axis = plt.gca() if axis is None else axis
+
+    ylims = axis.get_ylim()
+    y_rng = np.diff(ylims)
+    hlf_dist = np.diff(x_values).mean() / 2
+    grp = group(which_highligh, return_slice=True)
+    for slc in grp:
+        this_x = x_values[slc]
+        start = this_x[0] - hlf_dist
+        length = np.diff(this_x[[0, -1]]) + hlf_dist * 2
+        ptch = Rectangle((start, ylims[0]), length, y_rng, lw=0,
+                         facecolor=color, alpha=alpha)
+        axis.add_patch(ptch)
