@@ -16,7 +16,7 @@ MAINTAINER_EMAIL = 'mmagnuski@swps.edu.pl'
 URL = 'https://github.com/mmagnuski/mypy'
 LICENSE = 'MIT'
 DOWNLOAD_URL = 'https://github.com/mmagnuski/mypy'
-VERSION = 'unstable'
+VERSION = '0.1dev1'
 
 
 if __name__ == "__main__":
