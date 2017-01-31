@@ -203,7 +203,6 @@ def create_middle_events(events, min_time=14., sfreq=250):
 
 # TODO:
 # - [ ] adapt this to use numpy structured datasets (?)
-# - [ ] currently reads set events, should check epoch field...
 def read_set_events(filename, ignore_fields=None):
 	'''Open set file, read epoch events and turn them into a dataframe.
 
@@ -295,3 +294,33 @@ def get_dropped_epoch_index(epochs):
 	        current_epoch += 1
 
 	return removed_epochs
+
+
+def align_events(ev1, ev2):
+	common_events = set(ev1).intersection(set(ev2))
+	ind1 = np.where(np.in1d(ev1, common_events))[0]
+	ind2 = np.where(np.in1d(ev2, common_events))[0]
+
+	len1 = len(ind1)
+	len2 = len(ind2)
+	if len1 == len2:
+		return ind1, ind2
+	elif len1 > len2:
+		longer, shorter = ev1[ind1], ev2[ind2]
+	else:
+		longer, shorter = ev2[ind2], ev1[ind1]
+
+	# roll shorter along longer
+	lng_len = len(longer)
+	shrt_len = len(shorter)
+	n_steps = lng_len - shrt_len + 1
+	scores = np.zeros(n_steps, dtype='int')
+	for offset in range(n_steps):
+		scores[offset] = np.sum(longer[offset:offset + shrt_len] == shorter)
+	best_offset = scores.argmax()
+
+	elif len1 > len2:
+		ind1 = ind1[best_offset:best_offset + shrt_len]
+	else:
+		ind2 = ind2[best_offset:best_offset + shrt_len]
+	return ind1, ind2
