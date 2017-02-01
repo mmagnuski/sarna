@@ -297,12 +297,11 @@ def get_dropped_epoch_index(epochs):
 
 
 def align_events(ev1, ev2):
-	common_events = set(ev1).intersection(set(ev2))
+	common_events = list(set(ev1).intersection(set(ev2)))
 	ind1 = np.where(np.in1d(ev1, common_events))[0]
 	ind2 = np.where(np.in1d(ev2, common_events))[0]
 
-	len1 = len(ind1)
-	len2 = len(ind2)
+	len1, len2 = len(ind1), len(ind2)
 	if len1 == len2:
 		return ind1, ind2
 	elif len1 > len2:
@@ -311,8 +310,7 @@ def align_events(ev1, ev2):
 		longer, shorter = ev2[ind2], ev1[ind1]
 
 	# roll shorter along longer
-	lng_len = len(longer)
-	shrt_len = len(shorter)
+	lng_len, shrt_len = len(longer), len(shorter)
 	n_steps = lng_len - shrt_len + 1
 	scores = np.zeros(n_steps, dtype='int')
 	for offset in range(n_steps):
