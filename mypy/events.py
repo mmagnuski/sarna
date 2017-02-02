@@ -317,7 +317,7 @@ def align_events(ev1, ev2):
 		scores[offset] = np.sum(longer[offset:offset + shrt_len] == shorter)
 	best_offset = scores.argmax()
 
-	elif len1 > len2:
+	if len1 > len2:
 		ind1 = ind1[best_offset:best_offset + shrt_len]
 	else:
 		ind2 = ind2[best_offset:best_offset + shrt_len]
