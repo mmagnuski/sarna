@@ -152,6 +152,8 @@ def set_3d_axes_equal(ax):
     ax.set_zlim3d([z_mean - plot_radius, z_mean + plot_radius])
 
 
+# TODO:
+# - [ ] check out psychic.scalpplot.plot_scalp for slightly different topo plots
 class Topo(object):
     def __init__(self, values, info, **kwargs):
         from mne.viz.topomap import plot_topomap
@@ -187,13 +189,13 @@ class Topo(object):
         for ln in self.lines.collections:
             ln.set_linestyle(*args, **kwargs)
 
-    def set_linewidht(self, lw):
+    def set_linewidth(self, lw):
         for ln in self.lines.collections:
             ln.set_linewidths(lw)
 
     def mark_channels(self, chans, **marker_params):
         default_marker = dict(marker='o', markerfacecolor='w',
-                              markeredgecolor='k', linewidth=0, markersize=4)
+                              markeredgecolor='k', linewidth=0, markersize=8)
         for k in marker_params.keys():
             default_marker[k] = marker_params[k]
 
@@ -201,6 +203,13 @@ class Topo(object):
         marks = self.img.axes.plot(self.chan_pos[chans, 0],
                                    self.chan_pos[chans, 1], **default_marker)
         self.marks.append(marks)
+
+# # for Topo, setting channel props:
+# for ch in ch_ind:
+#     self.chans[ch].set_color('white')
+#     self.chans[ch].set_radius(0.01)
+#     self.chans[ch].set_zorder(4)
+
 
 
 # TODOs:
