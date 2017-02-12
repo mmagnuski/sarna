@@ -156,13 +156,11 @@ def set_3d_axes_equal(ax):
     ax.set_zlim3d([z_mean - plot_radius, z_mean + plot_radius])
 
 
-<<<<<<< HEAD
-# [ ] add docs
-# add support for vectors of topographies
-=======
 # TODO:
+# [ ] add docs
+# - [ ] add support for vectors of topographies
 # - [ ] check out psychic.scalpplot.plot_scalp for slightly different topo plots
->>>>>>> 6b2db107d2d1ad22f3561bcb637f65f9c631f97c
+#       https://github.com/wmvanvliet/psychic/blob/master/psychic/scalpplot.py
 class Topo(object):
     '''High-level object that allows for convenient topographic plotting.
     * FIXME *
