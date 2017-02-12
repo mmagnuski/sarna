@@ -186,34 +186,50 @@ class Peakachu(object):
 
     def plot_topomap(self, info=None):
         import matplotlib as mpl
-        from mne.viz import plot_topomap
+        from .viz import Topo
 
+        original_info = False
+        remove_level_0 = False
         if info is None:
+            original_info = True
             info = self._info
 
-        fig, ax = plt.subplots()
-        axim, _ = plot_topomap(self._peak_vals, info)
+        # if a different info is passed - compare and
+        # fill unused channels with 0
+        if not original_info:
+            # compare given and original info 
+            ch_num = len(info['ch_names'])
+            vals = np.zeros(ch_num)
+            overlapping = list()
+            orig_inds = list()
+            for ch in info['ch_names']:
+                has_chan = ch in self._info['ch_names']
+                overlapping.append(has_chan)
+                if has_chan:
+                    orig_inds.append(self._info['ch_names'].index(ch))
+            vals[np.array(overlapping)] = self._peak_vals[orig_inds]
+            remove_level_0 = np.sum(overlapping) < ch_num
+        else:
+            vals = self._peak_vals
 
-        # TODO: move the code below to mypy
-        #       (something like a Topomap object or just mark_topomap_channels)
+
+        # topoplot
+        tp = Topo(vals, info, show=False)
+
         # highligh channels
-        chans = fig.axes[0].findobj(mpl.patches.Circle)
-        ch_ind = [info['ch_names'].index(ch) for ch in self._chan_names]
-        for ch in ch_ind:
-            chans[ch].set_color('white')
-            chans[ch].set_radius(0.01)
-            chans[ch].set_zorder(4)
+        mark_ch_inds = [info['ch_names'].index(ch) for ch in self._chan_names
+                        if ch in info['ch_names']]
+        tp.mark_channels(mark_ch_inds)
 
         # make all topography lines solid
-        chld = fig.axes[0].get_children()
-        topo_lines = chld[:6] # change into finding obj elements
-        for l in topo_lines:
-            l.set_linestyle('-')
+        tp.solid_lines()
+
+        if remove_level_0:
+            tp.remove_level(0.)
 
         # final touches
-        fig = plt.gcf()
-        fig.set_facecolor('white')
-        return fig
+        tp.fig.set_facecolor('white')
+        return tp.fig
 
     def _get_peaks(self, inst, select=False):
         from mne.utils import _get_inst_data

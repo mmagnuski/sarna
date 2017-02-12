@@ -156,8 +156,13 @@ def set_3d_axes_equal(ax):
     ax.set_zlim3d([z_mean - plot_radius, z_mean + plot_radius])
 
 
+<<<<<<< HEAD
 # [ ] add docs
 # add support for vectors of topographies
+=======
+# TODO:
+# - [ ] check out psychic.scalpplot.plot_scalp for slightly different topo plots
+>>>>>>> 6b2db107d2d1ad22f3561bcb637f65f9c631f97c
 class Topo(object):
     '''High-level object that allows for convenient topographic plotting.
     * FIXME *
@@ -218,7 +223,7 @@ class Topo(object):
 
     def mark_channels(self, chans, **marker_params):
         default_marker = dict(marker='o', markerfacecolor='w',
-                              markeredgecolor='k', linewidth=0, markersize=4)
+                              markeredgecolor='k', linewidth=0, markersize=8)
         for k in marker_params.keys():
             default_marker[k] = marker_params[k]
 
@@ -226,6 +231,13 @@ class Topo(object):
         marks = self.axis.plot(self.chan_pos[chans, 0],
                                    self.chan_pos[chans, 1], **default_marker)
         self.marks.append(marks)
+
+# # for Topo, setting channel props:
+# for ch in ch_ind:
+#     self.chans[ch].set_color('white')
+#     self.chans[ch].set_radius(0.01)
+#     self.chans[ch].set_zorder(4)
+
 
 
 # TODOs:
