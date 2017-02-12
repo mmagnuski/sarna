@@ -152,7 +152,21 @@ def set_3d_axes_equal(ax):
     ax.set_zlim3d([z_mean - plot_radius, z_mean + plot_radius])
 
 
+# [ ] add docs
+# add support for vectors of topographies
 class Topo(object):
+    '''High-level object that allows for convenient topographic plotting.
+    * FIXME *
+
+    Example
+    -------
+    topo = Topo(values, info, axis=ax)
+    topo.remove_levels(0)
+    topo.solid_lines()
+    topo.set_linewidth(1.5)
+    topo.mark_channels([4, 5, 6], markerfacecolor='r', markersize=12)
+    '''
+
     def __init__(self, values, info, **kwargs):
         from mne.viz.topomap import plot_topomap
         import matplotlib as mpl
@@ -160,17 +174,24 @@ class Topo(object):
         self.info = info
         self.values = values
 
-        # plot topomap
+        has_axis = 'axis' in kwargs.keys():
+        if has_axis:
+            self.axis = kwargs['axis']
+            plt.sca(self.axis)
+
+        # plot using mne's topomap
         im, lines = plot_topomap(values, info, **kwargs)
 
         self.fig = im.figure
+        if not has_axis:
+            self.axis = im.axes
         self.img = im
         self.lines = lines
         self.marks = list()
         self.chans = im.axes.findobj(mpl.patches.Circle)
         self.chan_pos = np.array([ch.center for ch in self.chans])
 
-    def remove_level(self, lvl):
+    def remove_levels(self, lvl):
         if not isinstance(lvl, list):
             lvl = [lvl]
         for l in lvl:
@@ -187,7 +208,7 @@ class Topo(object):
         for ln in self.lines.collections:
             ln.set_linestyle(*args, **kwargs)
 
-    def set_linewidht(self, lw):
+    def set_linewidth(self, lw):
         for ln in self.lines.collections:
             ln.set_linewidths(lw)
 
@@ -198,7 +219,7 @@ class Topo(object):
             default_marker[k] = marker_params[k]
 
         # mark
-        marks = self.img.axes.plot(self.chan_pos[chans, 0],
+        marks = self.axis.plot(self.chan_pos[chans, 0],
                                    self.chan_pos[chans, 1], **default_marker)
         self.marks.append(marks)
 
