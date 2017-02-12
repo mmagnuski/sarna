@@ -9,6 +9,9 @@ from mypy.utils import get_info
 # - [ ] clickable topo view
 # - [ ] cickable (blockable) color bar
 # - [ ] add window select
+# SignalPlotter:
+# - [ ] design object API (similar to fastplot)
+# - [ ] continuous and epoched signal support
 
 
 def get_spatial_colors(inst):
@@ -56,6 +59,7 @@ def add_image_mask(mask, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
 # TODO
 # - [ ] lasso selection from mne SelectFromCollection
 # - [ ] better support for time-like dim when matrix is freq-freq
+# - [ ] add pyqt (+pyqtgraph) backend
 class MultiDimView(object):
     def __init__(self, data, axislist=None):
         self.data = data
