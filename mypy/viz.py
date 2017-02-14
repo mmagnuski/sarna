@@ -181,7 +181,7 @@ class Topo(object):
         self.info = info
         self.values = values
 
-        has_axis = 'axis' in kwargs.keys():
+        has_axis = 'axis' in kwargs.keys()
         if has_axis:
             self.axis = kwargs['axis']
             plt.sca(self.axis)
