@@ -36,7 +36,8 @@ def test_system():
 def is_git_installed(module):
     '''simple check for whether module is git-installed - tests for presence
     of .git directory and relevant git subdirectories'''
-    module_dir = '\\'.join(module.__file__.split('\\')[:-2])
+    sep = os.path.sep
+    module_dir = sep.join(module.__file__.split(sep)[:-2])
     has_all_dirs = False
     if '.git' in os.listdir(module_dir):
         subdirs = ['hooks', 'info', 'logs', 'objects', 'refs']
