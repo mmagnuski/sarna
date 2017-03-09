@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from mypy.utils import get_info
+from mypy.utils import get_info, find_index
 
 # TODOs:
 # MultiDimView:
@@ -342,3 +342,53 @@ def highlight(x_values, which_highligh, kind='patch', color=None,
         ptch = Rectangle((start, ylims[0]), length, y_rng, lw=0,
                          facecolor=color, alpha=alpha)
         axis.add_patch(ptch)
+
+
+def plot_topomap_raw(raw, times=None):
+    '''plot_topomap for raw mne objects
+
+    Parameters
+    ----------
+    raw : mne Raw object
+        mne Raw object instance
+    times : list of ints or floats (or just int/flot)
+        Times to plot topomaps for.
+
+    returns
+    -------
+    fig : matplotlib figure
+        Figure handle
+    '''
+    import mne
+    import matplotlib.pyplot as plt
+
+    if times is None:
+        raise TypeError('times must be a list of real values.')
+    elif not isinstance(times, list):
+        times = [times]
+
+    # ADD a check for channel pos
+
+    # pick only data channels (currently only eeg)
+    picks = mne.pick_types(raw.info, eeg=True, meg=False)
+    info = mne.pick_info(raw.info, sel=picks)
+
+    # find relevant time samples
+    time_samples = find_index(raw.times, times)
+
+    # pick only data channels (currently only eeg)
+    picks = mne.pick_types(raw.info, eeg=True, meg=False)
+    info = mne.pick_info(raw.info, sel=picks)
+
+    # find relevant time samples and select data
+    time_samples = np.array(find_index(raw.times, times))
+    data_slices = raw._data[picks[:, np.newaxis], time_samples[np.newaxis, :]] - \
+        raw._data[picks, :].mean(axis=1)[:, np.newaxis] # remove DC by default
+
+    fig, axes = plt.subplots(ncols=len(times), squeeze=False)
+    minmax = np.abs([data_slices.min(), data_slices.max()]).max()
+    for i, ax in enumerate(axes.ravel()):
+        mne.viz.plot_topomap(data_slices[:, i], info, axes=ax,
+                             vmin=-minmax, vmax=minmax)
+        ax.set_title('{} s'.format(times[i]))
+    return fig
