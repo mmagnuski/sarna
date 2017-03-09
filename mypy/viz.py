@@ -40,6 +40,7 @@ def masked_image(img, mask, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
     return main_img, mask_img
 
 
+# - [ ] should check for image extent, origin etc.
 def add_image_mask(mask, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
                    axis=None, **imshow_kwargs):
     if axis is None:
