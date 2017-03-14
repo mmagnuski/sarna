@@ -284,6 +284,7 @@ def join_segments(time_segments):
 
 
 def get_dropped_epoch_index(epochs):
+	'''get indices of dropped epochs'''
 	current_epoch = 0
 	removed_epochs = list()
 
@@ -296,18 +297,19 @@ def get_dropped_epoch_index(epochs):
 	return removed_epochs
 
 
-def align_events(ev1, ev2):
-	common_events = list(set(ev1).intersection(set(ev2)))
-	ind1 = np.where(np.in1d(ev1, common_events))[0]
-	ind2 = np.where(np.in1d(ev2, common_events))[0]
+def align_events(events1, events2):
+	'''Return indices for each of the two event trains that give best match.'''
+	common_events = list(set(events1).intersection(set(events2)))
+	ind1, ind2 = [np.where(np.in1d(events, common_events))[0]
+		      for events in [events1, events2]]
 
 	len1, len2 = len(ind1), len(ind2)
 	if len1 == len2:
 		return ind1, ind2
 	elif len1 > len2:
-		longer, shorter = ev1[ind1], ev2[ind2]
+		longer, shorter = events1[ind1], events2[ind2]
 	else:
-		longer, shorter = ev2[ind2], ev1[ind1]
+		longer, shorter = events2[ind2], events1[ind1]
 
 	# roll shorter along longer
 	lng_len, shrt_len = len(longer), len(shorter)
