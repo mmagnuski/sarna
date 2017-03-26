@@ -287,7 +287,7 @@ def get_dropped_epoch_index(epochs):
 	current_epoch = 0
 	removed_epochs = list()
 
-	for info in epochs_clean.drop_log:
+	for info in epochs.drop_log:
 	    if 'IGNORED' not in info:
 	        if 'USER' in info:
 	            removed_epochs.append(current_epoch)
