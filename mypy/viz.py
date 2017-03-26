@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from mypy.utils import get_info
+from mypy.utils import get_info, find_index
 
 # TODOs:
 # MultiDimView:
@@ -9,6 +9,9 @@ from mypy.utils import get_info
 # - [ ] clickable topo view
 # - [ ] cickable (blockable) color bar
 # - [ ] add window select
+# SignalPlotter:
+# - [ ] design object API (similar to fastplot)
+# - [ ] continuous and epoched signal support
 
 
 def get_spatial_colors(inst):
@@ -37,6 +40,7 @@ def masked_image(img, mask, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
     return main_img, mask_img
 
 
+# - [ ] should check for image extent, origin etc.
 def add_image_mask(mask, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
                    axis=None, **imshow_kwargs):
     if axis is None:
@@ -56,6 +60,7 @@ def add_image_mask(mask, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
 # TODO
 # - [ ] lasso selection from mne SelectFromCollection
 # - [ ] better support for time-like dim when matrix is freq-freq
+# - [ ] add pyqt (+pyqtgraph) backend
 class MultiDimView(object):
     def __init__(self, data, axislist=None):
         self.data = data
@@ -153,8 +158,23 @@ def set_3d_axes_equal(ax):
 
 
 # TODO:
+# [ ] add docs
+# - [ ] add support for vectors of topographies
 # - [ ] check out psychic.scalpplot.plot_scalp for slightly different topo plots
+#       https://github.com/wmvanvliet/psychic/blob/master/psychic/scalpplot.py
 class Topo(object):
+    '''High-level object that allows for convenient topographic plotting.
+    * FIXME *
+
+    Example
+    -------
+    topo = Topo(values, info, axis=ax)
+    topo.remove_levels(0)
+    topo.solid_lines()
+    topo.set_linewidth(1.5)
+    topo.mark_channels([4, 5, 6], markerfacecolor='r', markersize=12)
+    '''
+
     def __init__(self, values, info, **kwargs):
         from mne.viz.topomap import plot_topomap
         import matplotlib as mpl
@@ -162,17 +182,24 @@ class Topo(object):
         self.info = info
         self.values = values
 
-        # plot topomap
+        has_axis = 'axis' in kwargs.keys()
+        if has_axis:
+            self.axis = kwargs['axis']
+            plt.sca(self.axis)
+
+        # plot using mne's topomap
         im, lines = plot_topomap(values, info, **kwargs)
 
         self.fig = im.figure
+        if not has_axis:
+            self.axis = im.axes
         self.img = im
         self.lines = lines
         self.marks = list()
         self.chans = im.axes.findobj(mpl.patches.Circle)
         self.chan_pos = np.array([ch.center for ch in self.chans])
 
-    def remove_level(self, lvl):
+    def remove_levels(self, lvl):
         if not isinstance(lvl, list):
             lvl = [lvl]
         for l in lvl:
@@ -200,7 +227,7 @@ class Topo(object):
             default_marker[k] = marker_params[k]
 
         # mark
-        marks = self.img.axes.plot(self.chan_pos[chans, 0],
+        marks = self.axis.plot(self.chan_pos[chans, 0],
                                    self.chan_pos[chans, 1], **default_marker)
         self.marks.append(marks)
 
@@ -316,3 +343,53 @@ def highlight(x_values, which_highligh, kind='patch', color=None,
         ptch = Rectangle((start, ylims[0]), length, y_rng, lw=0,
                          facecolor=color, alpha=alpha)
         axis.add_patch(ptch)
+
+
+def plot_topomap_raw(raw, times=None):
+    '''plot_topomap for raw mne objects
+
+    Parameters
+    ----------
+    raw : mne Raw object
+        mne Raw object instance
+    times : list of ints or floats (or just int/flot)
+        Times to plot topomaps for.
+
+    returns
+    -------
+    fig : matplotlib figure
+        Figure handle
+    '''
+    import mne
+    import matplotlib.pyplot as plt
+
+    if times is None:
+        raise TypeError('times must be a list of real values.')
+    elif not isinstance(times, list):
+        times = [times]
+
+    # ADD a check for channel pos
+
+    # pick only data channels (currently only eeg)
+    picks = mne.pick_types(raw.info, eeg=True, meg=False)
+    info = mne.pick_info(raw.info, sel=picks)
+
+    # find relevant time samples
+    time_samples = find_index(raw.times, times)
+
+    # pick only data channels (currently only eeg)
+    picks = mne.pick_types(raw.info, eeg=True, meg=False)
+    info = mne.pick_info(raw.info, sel=picks)
+
+    # find relevant time samples and select data
+    time_samples = np.array(find_index(raw.times, times))
+    data_slices = raw._data[picks[:, np.newaxis], time_samples[np.newaxis, :]] - \
+        raw._data[picks, :].mean(axis=1)[:, np.newaxis] # remove DC by default
+
+    fig, axes = plt.subplots(ncols=len(times), squeeze=False)
+    minmax = np.abs([data_slices.min(), data_slices.max()]).max()
+    for i, ax in enumerate(axes.ravel()):
+        mne.viz.plot_topomap(data_slices[:, i], info, axes=ax,
+                             vmin=-minmax, vmax=minmax)
+        ax.set_title('{} s'.format(times[i]))
+    return fig
