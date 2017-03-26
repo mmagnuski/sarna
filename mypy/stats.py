@@ -15,8 +15,11 @@ def ttest_rel_no_p(*args):
     return t
 
 
+# TODO:
+# - [ ] seems that y has to be a vector now, adapt for matrix - matrix
 def corr(x, y, method='Pearson'):
     '''correlate two vectors/matrices.
+
     This function can be useful because scipy.stats.pearsonr does too little
     (takes only vectors) and scipy.stats.spearmanr does too much (calculates
     all possible correlations when given two matrices - instead of correlating

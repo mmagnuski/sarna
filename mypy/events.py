@@ -235,6 +235,15 @@ def read_set_events(filename, ignore_fields=None):
 	return df.loc[:, take_fields]
 
 
+def read_rej(fname, sfreq, bad_types=['reject']):
+	rej = pd.read_table(fname)
+	rej.loc[:, ['start', 'end']] = rej.loc[:, ['start', 'end']] / sfreq
+	onset, duration = rej.start.values, (rej.end - rej.start).values
+    description = ['BAD ' + val if val in bad_types else val
+				   for val in rej.type.tolist()]
+    return mne.Annotations(onset, duration, description)
+
+
 # - [ ] develop this function a little better
 # - [ ] check what is used by raw.reject_bads() when no inds given
 def mark_reject_peak2peak(raw, reject={'eeg': 23e-5}, window_length=1.,
