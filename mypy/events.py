@@ -239,9 +239,9 @@ def read_rej(fname, sfreq, bad_types=['reject']):
 	rej = pd.read_table(fname)
 	rej.loc[:, ['start', 'end']] = rej.loc[:, ['start', 'end']] / sfreq
 	onset, duration = rej.start.values, (rej.end - rej.start).values
-    description = ['BAD ' + val if val in bad_types else val
+	description = ['BAD ' + val if val in bad_types else val
 				   for val in rej.type.tolist()]
-    return mne.Annotations(onset, duration, description)
+	return mne.Annotations(onset, duration, description)
 
 
 # - [ ] develop this function a little better
