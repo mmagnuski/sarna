@@ -240,3 +240,9 @@ class AtribDict(dict):
             except KeyError:
                 msg = "TrialType has no attribute (or key) \'%s\'"
                 raise AttributeError(msg % name)
+
+
+def get_chan_pos(inst):
+    info = get_info(inst)
+    chan_pos = [info['chs'][i]['loc'][:3] for i in range(len(info['chs']))]
+    return np.array(chan_pos)

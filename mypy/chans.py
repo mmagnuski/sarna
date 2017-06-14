@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.stats import zscore
 import matplotlib.pyplot as plt
-from .utils import time_range, mne_types
+from .utils import time_range, mne_types, get_chan_pos
 
 
 
@@ -197,7 +197,7 @@ class Peakachu(object):
         # if a different info is passed - compare and
         # fill unused channels with 0
         if not original_info:
-            # compare given and original info 
+            # compare given and original info
             ch_num = len(info['ch_names'])
             vals = np.zeros(ch_num)
             overlapping = list()
