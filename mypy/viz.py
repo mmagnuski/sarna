@@ -383,8 +383,8 @@ def plot_topomap_raw(raw, times=None):
 
     # find relevant time samples and select data
     time_samples = np.array(find_index(raw.times, times))
-    data_slices = raw._data[picks[:, np.newaxis], time_samples[np.newaxis, :]] - \
-        raw._data[picks, :].mean(axis=1)[:, np.newaxis] # remove DC by default
+    data_slices = raw._data[picks[:, np.newaxis], time_samples[np.newaxis, :]]
+    #- raw._data[picks, :].mean(axis=1)[:, np.newaxis] # remove DC by default
 
     fig, axes = plt.subplots(ncols=len(times), squeeze=False)
     minmax = np.abs([data_slices.min(), data_slices.max()]).max()

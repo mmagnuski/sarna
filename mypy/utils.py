@@ -206,10 +206,10 @@ def get_info(inst):
         return inst.info
 
 
+# TODO: add evoked (for completeness)
 def mne_types():
     import mne
     types = dict()
-    isdev = mne.__version__.startswith('0.14.dev')
     from mne.io.meas_info import Info
     try:
         from mne.io import _BaseRaw
