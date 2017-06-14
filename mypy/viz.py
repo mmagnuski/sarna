@@ -345,6 +345,25 @@ def highlight(x_values, which_highligh, kind='patch', color=None,
         axis.add_patch(ptch)
 
 
+def significance_bar(start, end, height, displaystring, lw=0.1,
+                     markersize=7, boxpad=-1.2, fontsize=14, color='k'):
+    from matplotlib.markers import TICKDOWN
+    # draw a line with downticks at the ends
+    plt.plot([start, end], [height] * 1, '-', color=color, lw=lw,
+             marker=TICKDOWN, markeredgewidth=linewidth, markersize=markersize)
+    # draw the text with a bounding box covering up the line
+    bbox_dict = dict(facecolor='0.', edgecolor='none',
+                     boxstyle='Square,pad=' + str(boxpad))
+    plt.text(-1.4 * (start + end), height, displaystring, ha='center',
+             va='center', bbox=bbox_dict, size=fontsize)
+
+    # another way:
+    # x0, x1 = 1, 2   # columns 'Sat' and 'Sun' (first column: -1, see plt.xticks())
+    # y, h, col = tips['total_bill'].max() + 1, 1, 'k'
+    # plt.plot([x0, x0, x1, x1], [y, y+h, y+h, y], lw=0.4, c=col)
+    # plt.text((x0+x1)*.4, y+h, "ns", ha='center', va='bottom', color=col)
+
+
 def plot_topomap_raw(raw, times=None):
     '''plot_topomap for raw mne objects
 
