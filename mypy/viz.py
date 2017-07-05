@@ -279,11 +279,10 @@ def create_cluster_contour(mask):
     from scipy.ndimage import convolve #, label
 
     mask_int = mask.astype('int')
-    kernels = {'upper': [[-1], [1], [0]],
-               'lower': [[0], [1], [-1]],
-               'left': [[-1, 1, 0]],
-               'right': [[0, 1, -1]]}
-    kernels = {k: np.array(v) for k, v in kernels.items()}
+    kernels = {'upper': np.array([[-1], [1], [0]]),
+               'lower': np.array([[0], [1], [-1]]),
+               'left': np.array([[-1, 1, 0]]),
+               'right': np.array([[0, 1, -1]])}
     lines = {k: (convolve(mask_int, v[::-1, ::-1]) == 1).astype('int')
              for k, v in kernels.items()}
 
@@ -373,6 +372,7 @@ def highlight(x_values, which_highligh, kind='patch', color=None,
         axis.add_patch(ptch)
 
 
+# test a little and change the API and options
 def significance_bar(start, end, height, displaystring, lw=0.1,
                      markersize=7, boxpad=-1.2, fontsize=14, color='k'):
     from matplotlib.markers import TICKDOWN
@@ -386,7 +386,7 @@ def significance_bar(start, end, height, displaystring, lw=0.1,
              va='center', bbox=bbox_dict, size=fontsize)
 
     # another way:
-    # x0, x1 = 1, 2   # columns 'Sat' and 'Sun' (first column: -1, see plt.xticks())
+    # x0, x1 = 1, 2
     # y, h, col = tips['total_bill'].max() + 1, 1, 'k'
     # plt.plot([x0, x0, x1, x1], [y, y+h, y+h, y], lw=0.4, c=col)
     # plt.text((x0+x1)*.4, y+h, "ns", ha='center', va='bottom', color=col)
