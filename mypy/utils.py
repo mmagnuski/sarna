@@ -1,21 +1,13 @@
 import numpy as np
+from contextlib import contextmanager
 
 
-# - [ ] may not be necessary any longer...
-def do_not_warn():
-    '''turns off DeprecationWarnings as they can be (were)
-    painful in the current (older) jupyter notebook'''
-    import warnings
-    try:
-        from exceptions import DeprecationWarning # py2
-    except ImportError:
-        global DeprecationWarning
-        # from warnings import DeprecationWarning
-    warnings.filterwarnings("ignore", category=DeprecationWarning)
-    # warnings.filterwarnings('ignore', category=DeprecationWarning, message='.*use @default decorator instead.*')
-    # warnings.filterwarnings('ignore', category=DeprecationWarning, module='.*/IPython/.*')
-    # another way, turn only deprecation wornings for a specific package (like mne):
-    # warnings.filterwarnings('default', category=DeprecationWarning, module='.*/mypackage/.*')
+@contextmanager
+def silent_mne():
+    import mne
+    log_level = mne.set_log_level(verbose=False, return_old_level=True)
+    yield
+    mne.set_log_level(log_level)
 
 
 # - [ ] convenient reloading will require much more work
