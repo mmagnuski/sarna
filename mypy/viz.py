@@ -221,6 +221,18 @@ class Topo(object):
             ln.set_linewidths(lw)
 
     def mark_channels(self, chans, **marker_params):
+        '''Highlight specified channels with markers.
+
+        Parameters
+        ----------
+        chans : numpy array
+            Channels to highlight. Integer array with channel indices or
+            boolean array of shape (n_channels, ).
+        **kwargs
+            Any additional keyword arguments are passed as arguments to
+            plt.plot. It is useful for defining marker properties like
+            `markerfacecolor` or `markersize`.
+        '''
         default_marker = dict(marker='o', markerfacecolor='w',
                               markeredgecolor='k', linewidth=0, markersize=8)
         for k in marker_params.keys():

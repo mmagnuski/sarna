@@ -35,6 +35,22 @@ def z_score_channels(eeg):
 
 def select_channels(chan_vals, N=5, connectivity=None,
                     select_clusters=None):
+    '''select N indices (channels) that maximize mean of chan_vals.
+
+    Parameters
+    ----------
+    chan_vals : numpy array of shape (n_channels, )
+        One dimensional array of channel values.
+    N : int
+        Number of channels to select.
+    connectivity : boolean numpy array of shape (n_channels, n_channels)
+        Channel adjacency matrix. If passed then channel groups are selected
+        with adjacency constraint.
+    select_clusters : numpy array of shape (n_channels, )
+        Additional values to bias cluster selection. `select_clusters` is used
+        only when connectivity was passed and initial channel selection
+        returned more than one group of adjacent channels.
+    '''
     from . import cluster
 
     # step 1, select N channels
@@ -81,7 +97,7 @@ modes = dict(N170=[(0.145, 0.21), 5, 'min'],
              P300=[(0.3, 0.5), 5, 'maxmean'])
 
 # TODO:
-# - [ ] make less erp-peak dependent - support other data types (freq)
+# - [ ] make less erp-peak dependent - support other data types (freq)?
 # fit (add option to fix latency)
 # transform # average=True, average_channels?
 # channel_names, channel_inds ? get_channels('names')

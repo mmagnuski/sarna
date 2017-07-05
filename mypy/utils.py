@@ -56,6 +56,7 @@ def whos():
         del frame
 
 
+# - [ ] maybe add the one_in approach from find_range
 # - [ ] if np.ndarray try to format output in the right shape
 def find_index(vec, vals):
     if not isinstance(vals, (list, tuple, np.ndarray)):
