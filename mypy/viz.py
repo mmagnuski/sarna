@@ -196,8 +196,24 @@ class Topo(object):
         self.img = im
         self.lines = lines
         self.marks = list()
-        self.chans = im.axes.findobj(mpl.patches.Circle)
-        self.chan_pos = np.array([ch.center for ch in self.chans])
+        # check channel positions - some (older?) versions use scatter so
+        # the channels are marked with `mpl.patches.Circle` but at other times
+        # `mpl.collections.PathCollection` is being used.
+        circles = im.axes.findobj(mpl.patches.Circle)
+        if len(circles) == 0:
+            # look for PathCollection
+            path_collection = im.axes.findobj(mpl.collections.PathCollection)
+            if len(path_collection) > 0:
+                self.chans = path_collection[0]
+                self.chan_pos = self.chans.get_offsets()
+            else:
+                raise RuntimeError('Could not find matplotlib objects '
+                                   'representing channels. Looked for '
+                                   '`matplotlib.patches.Circle` and '
+                                   '`matplotlib.collections.PathCollection`.')
+        else:
+            self.chans = circles
+            self.chan_pos = np.array([ch.center for ch in self.chans])
 
     def remove_levels(self, lvl):
         if not isinstance(lvl, list):
@@ -240,7 +256,7 @@ class Topo(object):
 
         # mark
         marks = self.axis.plot(self.chan_pos[chans, 0],
-                                   self.chan_pos[chans, 1], **default_marker)
+                               self.chan_pos[chans, 1], **default_marker)
         self.marks.append(marks)
 
 # # for Topo, setting channel props:
