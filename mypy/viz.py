@@ -282,6 +282,10 @@ class Topo(object):
 #     self.chans[ch].set_zorder(4)
 
 
+def color_limits(data):
+    vmax = np.abs([np.nanmin(data), np.nanmax(data)]).max()
+    return -vmax, vmax
+
 
 # TODOs:
 # - [ ] fix issue with shapes that touch matrix edge
