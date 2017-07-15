@@ -2,7 +2,6 @@ import os
 from os.path import split
 from functools import partial
 
-
 import numpy as np
 from scipy import sparse
 from scipy.io import loadmat
@@ -72,6 +71,7 @@ def construct_adjacency_matrix(ch_names, neighbours, sparse=False):
 
 
 # - [ ] add edit option (runs in interactive mode only)
+# - [ ] 'random' is actually misleading - it follows colorcycle...
 # another approach to random colors:
 # plt.cm.viridis(np.linspace(0., 1., num=15) , alpha=0.5)
 def plot_neighbours(inst, adj_matrix, color='gray'):
@@ -138,7 +138,6 @@ def plot_neighbours(inst, adj_matrix, color='gray'):
     def onpick(event, axes=None, positions=None, highlighted=None,
                line_dict=None, highlighted_scatter=None, adj_matrix=None):
         node_ind = event.ind[0]
-        print(node_ind)
         if node_ind in highlighted:
             # change node color back to normal
             highlighted_scatter[0].remove()
@@ -151,8 +150,8 @@ def plot_neighbours(inst, adj_matrix, color='gray'):
                 highlighted.append(node_ind)
                 scatter = axes.scatter(positions[node_ind, 0],
                                        positions[node_ind, 1],
-                                       positions[node_ind, 2], c='r', s=100,
-                                       zorder=10)
+                                       positions[node_ind, 2],
+                                       c='r', s=100, zorder=10)
                 highlighted_scatter.append(scatter)
                 fig.canvas.draw()
             else:
@@ -191,11 +190,6 @@ def plot_neighbours(inst, adj_matrix, color='gray'):
                 fig.canvas.draw()
 
             print(highlighted)
-        # if len(highlighted) < 2:
-        #     highlighted
-        # print(ind, event)
-        # x, y, z = event.artist._offsets3d
-        # print(x[ind], y[ind], z[ind])
 
     this_onpick = partial(onpick, axes=fig.axes[0], positions=pos,
                           highlighted=list(), line_dict=lines,

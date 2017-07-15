@@ -196,6 +196,7 @@ class Topo(object):
         self.img = im
         self.lines = lines
         self.marks = list()
+
         # check channel positions - some (older?) versions use scatter so
         # the channels are marked with `mpl.patches.Circle` but at other times
         # `mpl.collections.PathCollection` is being used.
@@ -258,6 +259,7 @@ class Topo(object):
         marks = self.axis.plot(self.chan_pos[chans, 0],
                                self.chan_pos[chans, 1], **default_marker)
         self.marks.append(marks)
+
 
 # # for Topo, setting channel props:
 # for ch in ch_ind:
