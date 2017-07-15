@@ -164,7 +164,21 @@ def set_3d_axes_equal(ax):
 #       https://github.com/wmvanvliet/psychic/blob/master/psychic/scalpplot.py
 class Topo(object):
     '''High-level object that allows for convenient topographic plotting.
-    * FIXME *
+
+    Parameters
+    ----------
+    values : numpy array
+        Values to topographically plot.
+    info : mne Info instance
+        Info object containing channel positions.
+    **kwargs : any additional keyword arguments
+        Additional keyword arguments are passed to mne.viz.plot_topomap
+
+    Returns
+    -------
+    topo : mypy.viz.Topo instance
+        Topo object that exposes various useful methods like `remove_levels`
+        or `mark_channels`.
 
     Example
     -------
