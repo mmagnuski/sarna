@@ -164,3 +164,12 @@ def format_pvalue(pvalue):
             return 'p < {}'.format(['0.001', '0.0001'][which_power])
         else:
             return 'p < {}'.format(str(powers[which_power]))
+
+
+def confidence_interval(arr, ci):
+    """Calculate the `ci` parametric confidence interval for array `arr`.
+    Computes the ci from t distribution with relevant mean and distribution.
+    """
+    from scipy import stats
+    mean, sigma = arr.mean(axis=0), stats.sem(arr, axis=0)
+    return stats.t.interval(ci, loc=mean, scale=sigma, df=arr.shape[0])
