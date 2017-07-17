@@ -1,10 +1,10 @@
 import numpy as np
-from scipy.stats import ttest_ind, ttest_rel
+from scipy.stats import ttest_ind, ttest_rel, levene
 
 
 # TODO:
-# - [ ] avoid calculating p, not just throw it away
-#       (less computation time)
+# - [ ] avoid calculating p, now it is computed but thrown away
+#       (unnecessary computation time)
 def ttest_ind_no_p(*args):
     t, p = ttest_ind(*args)
     return t
@@ -46,10 +46,11 @@ def corr(x, y, method='Pearson'):
     return np.array(rs), np.array(ps)
 
 
+# - [ ] merge with apply_test (and corr?)
 # - [ ] pred -> data; data + pred -> y
 # - [ ] progressbar
 # - [ ] use faster function for ols (a wrapper around np.linalg.lstsq)
-# - [ ] apply model - statsmodels or sklearn
+# - [ ] apply model - statsmodels (or sklearn?)
 def apply_regr(data, pred, along=0):
     """
     apply ordinary least squares regression along specified
@@ -86,6 +87,22 @@ def apply_regr(data, pred, along=0):
     pvals = pvals.T.reshape(new_shp)
 
     return tvals, pvals
+
+
+def apply_test(data, group, test_name):
+    '''applies test along axis=1
+    data - 2d data array
+    group - group identity (rows)
+    test_name - 'levene' for example'''
+    n_samples = data.shape[1]
+    if test_name == 'levene':
+        levene_W = np.zeros(n_samples)
+        levene_p = np.zeros(n_samples)
+        for t_ind in range(n_samples):
+            levene_W[t_ind], levene_p[t_ind] = levene(data[group == 0, t_ind],
+                                                      data[group == 1, t_ind])
+
+        return levene_W, levene_p
 
 
 # TODO:
