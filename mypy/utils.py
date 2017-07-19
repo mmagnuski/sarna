@@ -1,21 +1,13 @@
 import numpy as np
+from contextlib import contextmanager
 
 
-# - [ ] may not be necessary any longer...
-def do_not_warn():
-    '''turns off DeprecationWarnings as they can be (were)
-    painful in the current (older) jupyter notebook'''
-    import warnings
-    try:
-        from exceptions import DeprecationWarning # py2
-    except ImportError:
-        global DeprecationWarning
-        # from warnings import DeprecationWarning
-    warnings.filterwarnings("ignore", category=DeprecationWarning)
-    # warnings.filterwarnings('ignore', category=DeprecationWarning, message='.*use @default decorator instead.*')
-    # warnings.filterwarnings('ignore', category=DeprecationWarning, module='.*/IPython/.*')
-    # another way, turn only deprecation wornings for a specific package (like mne):
-    # warnings.filterwarnings('default', category=DeprecationWarning, module='.*/mypackage/.*')
+@contextmanager
+def silent_mne():
+    import mne
+    log_level = mne.set_log_level(verbose=False, return_old_level=True)
+    yield
+    mne.set_log_level(log_level)
 
 
 # - [ ] convenient reloading will require much more work
@@ -56,6 +48,7 @@ def whos():
         del frame
 
 
+# - [ ] maybe add the one_in approach from find_range
 # - [ ] if np.ndarray try to format output in the right shape
 def find_index(vec, vals):
     if not isinstance(vals, (list, tuple, np.ndarray)):
@@ -206,10 +199,10 @@ def get_info(inst):
         return inst.info
 
 
+# TODO: add evoked (for completeness)
 def mne_types():
     import mne
     types = dict()
-    isdev = mne.__version__.startswith('0.14.dev')
     from mne.io.meas_info import Info
     try:
         from mne.io import _BaseRaw
@@ -240,3 +233,9 @@ class AtribDict(dict):
             except KeyError:
                 msg = "TrialType has no attribute (or key) \'%s\'"
                 raise AttributeError(msg % name)
+
+
+def get_chan_pos(inst):
+    info = get_info(inst)
+    chan_pos = [info['chs'][i]['loc'][:3] for i in range(len(info['chs']))]
+    return np.array(chan_pos)

@@ -164,7 +164,21 @@ def set_3d_axes_equal(ax):
 #       https://github.com/wmvanvliet/psychic/blob/master/psychic/scalpplot.py
 class Topo(object):
     '''High-level object that allows for convenient topographic plotting.
-    * FIXME *
+
+    Parameters
+    ----------
+    values : numpy array
+        Values to topographically plot.
+    info : mne Info instance
+        Info object containing channel positions.
+    **kwargs : any additional keyword arguments
+        Additional keyword arguments are passed to mne.viz.plot_topomap
+
+    Returns
+    -------
+    topo : mypy.viz.Topo instance
+        Topo object that exposes various useful methods like `remove_levels`
+        or `mark_channels`.
 
     Example
     -------
@@ -196,8 +210,25 @@ class Topo(object):
         self.img = im
         self.lines = lines
         self.marks = list()
-        self.chans = im.axes.findobj(mpl.patches.Circle)
-        self.chan_pos = np.array([ch.center for ch in self.chans])
+
+        # check channel positions - some (older?) versions use scatter so
+        # the channels are marked with `mpl.patches.Circle` but at other times
+        # `mpl.collections.PathCollection` is being used.
+        circles = im.axes.findobj(mpl.patches.Circle)
+        if len(circles) == 0:
+            # look for PathCollection
+            path_collection = im.axes.findobj(mpl.collections.PathCollection)
+            if len(path_collection) > 0:
+                self.chans = path_collection[0]
+                self.chan_pos = self.chans.get_offsets()
+            else:
+                raise RuntimeError('Could not find matplotlib objects '
+                                   'representing channels. Looked for '
+                                   '`matplotlib.patches.Circle` and '
+                                   '`matplotlib.collections.PathCollection`.')
+        else:
+            self.chans = circles
+            self.chan_pos = np.array([ch.center for ch in self.chans])
 
     def remove_levels(self, lvl):
         if not isinstance(lvl, list):
@@ -221,6 +252,18 @@ class Topo(object):
             ln.set_linewidths(lw)
 
     def mark_channels(self, chans, **marker_params):
+        '''Highlight specified channels with markers.
+
+        Parameters
+        ----------
+        chans : numpy array
+            Channels to highlight. Integer array with channel indices or
+            boolean array of shape (n_channels, ).
+        **kwargs
+            Any additional keyword arguments are passed as arguments to
+            plt.plot. It is useful for defining marker properties like
+            `markerfacecolor` or `markersize`.
+        '''
         default_marker = dict(marker='o', markerfacecolor='w',
                               markeredgecolor='k', linewidth=0, markersize=8)
         for k in marker_params.keys():
@@ -228,8 +271,9 @@ class Topo(object):
 
         # mark
         marks = self.axis.plot(self.chan_pos[chans, 0],
-                                   self.chan_pos[chans, 1], **default_marker)
+                               self.chan_pos[chans, 1], **default_marker)
         self.marks.append(marks)
+
 
 # # for Topo, setting channel props:
 # for ch in ch_ind:
@@ -237,6 +281,10 @@ class Topo(object):
 #     self.chans[ch].set_radius(0.01)
 #     self.chans[ch].set_zorder(4)
 
+
+def color_limits(data):
+    vmax = np.abs([np.nanmin(data), np.nanmax(data)]).max()
+    return -vmax, vmax
 
 
 # TODOs:
@@ -251,11 +299,10 @@ def create_cluster_contour(mask):
     from scipy.ndimage import convolve #, label
 
     mask_int = mask.astype('int')
-    kernels = {'upper': [[-1], [1], [0]],
-               'lower': [[0], [1], [-1]],
-               'left': [[-1, 1, 0]],
-               'right': [[0, 1, -1]]}
-    kernels = {k: np.array(v) for k, v in kernels.items()}
+    kernels = {'upper': np.array([[-1], [1], [0]]),
+               'lower': np.array([[0], [1], [-1]]),
+               'left': np.array([[-1, 1, 0]]),
+               'right': np.array([[0, 1, -1]])}
     lines = {k: (convolve(mask_int, v[::-1, ::-1]) == 1).astype('int')
              for k, v in kernels.items()}
 
@@ -345,6 +392,26 @@ def highlight(x_values, which_highligh, kind='patch', color=None,
         axis.add_patch(ptch)
 
 
+# test a little and change the API and options
+def significance_bar(start, end, height, displaystring, lw=0.1,
+                     markersize=7, boxpad=-1.2, fontsize=14, color='k'):
+    from matplotlib.markers import TICKDOWN
+    # draw a line with downticks at the ends
+    plt.plot([start, end], [height] * 1, '-', color=color, lw=lw,
+             marker=TICKDOWN, markeredgewidth=linewidth, markersize=markersize)
+    # draw the text with a bounding box covering up the line
+    bbox_dict = dict(facecolor='0.', edgecolor='none',
+                     boxstyle='Square,pad=' + str(boxpad))
+    plt.text(-1.4 * (start + end), height, displaystring, ha='center',
+             va='center', bbox=bbox_dict, size=fontsize)
+
+    # another way:
+    # x0, x1 = 1, 2
+    # y, h, col = tips['total_bill'].max() + 1, 1, 'k'
+    # plt.plot([x0, x0, x1, x1], [y, y+h, y+h, y], lw=0.4, c=col)
+    # plt.text((x0+x1)*.4, y+h, "ns", ha='center', va='bottom', color=col)
+
+
 def plot_topomap_raw(raw, times=None):
     '''plot_topomap for raw mne objects
 
@@ -383,8 +450,8 @@ def plot_topomap_raw(raw, times=None):
 
     # find relevant time samples and select data
     time_samples = np.array(find_index(raw.times, times))
-    data_slices = raw._data[picks[:, np.newaxis], time_samples[np.newaxis, :]] - \
-        raw._data[picks, :].mean(axis=1)[:, np.newaxis] # remove DC by default
+    data_slices = raw._data[picks[:, np.newaxis], time_samples[np.newaxis, :]]
+    #- raw._data[picks, :].mean(axis=1)[:, np.newaxis] # remove DC by default
 
     fig, axes = plt.subplots(ncols=len(times), squeeze=False)
     minmax = np.abs([data_slices.min(), data_slices.max()]).max()

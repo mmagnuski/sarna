@@ -237,6 +237,7 @@ def read_set_events(filename, ignore_fields=None):
 
 def read_rej(fname, sfreq, bad_types=['reject']):
 	from mne import Annotations
+
 	rej = pd.read_table(fname)
 	rej.loc[:, ['start', 'end']] = rej.loc[:, ['start', 'end']] / sfreq
 	onset, duration = rej.start.values, (rej.end - rej.start).values
