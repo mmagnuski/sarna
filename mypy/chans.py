@@ -91,6 +91,47 @@ def select_channels(chan_vals, N=5, connectivity=None,
     return clst
 
 
+def asymmetry_pairs(ch_names, inst=None):
+    '''construct asymetry channel pairs based on names.
+
+    Parameters
+    ----------
+    ch_names : list of str
+        List of channel names.
+    inst : mne object instance (optional)
+        Mne object like mne.Raw or mne.Epochs
+
+    Returns
+    -------
+    asym_chans_idx: dict of str -> list of int mappings
+        Dictionary mapping hemisphere to list of channel indices. Indices are
+        with respect to mne object instance ch_names if `inst` was passed,
+        otherwise the indices are with respect to `ch_names`
+    asym_chans: dict of str -> list of str mappings
+        Dictionary mapping hemisphere to list of channel names.
+    '''
+
+    frontal_asym = [ch for ch in ch_names if 'z' not in ch]
+    labels = ['right', 'left']
+    asym_chans = {l: list() for l in labels}
+
+    for ch in frontal_asym:
+        chan_base = ch[:-1]
+        chan_value = int(ch[-1])
+
+        if (chan_value % 2) == 1:
+            asym_chans['left'].append(ch)
+            asym_chans['right'].append(chan_base + str(chan_value + 1))
+
+    if inst is not None:
+        asym_chans_idx = {k: [inst.ch_names.index(ch) for ch in asym_chans[k]]
+                          for k in asym_chans.keys()}
+    else:
+        asym_chans_idx = {k: [ch_names.index(ch) for ch in asym_chans[k]]
+                          for k in asym_chans.keys()}
+
+    return asym_chans_idx, asym_chans
+
 
 modes = dict(N170=[(0.145, 0.21), 5, 'min'],
              P100=[(0.075, 0.125), 5, 'max'],
