@@ -160,8 +160,10 @@ def set_3d_axes_equal(ax):
 # TODO:
 # [ ] add docs
 # - [ ] add support for vectors of topographies
+# - [ ] check why remove_levels didn't work for
 # - [ ] check out psychic.scalpplot.plot_scalp for slightly different topo plots
 #       https://github.com/wmvanvliet/psychic/blob/master/psychic/scalpplot.py
+#       (there is also eelbrain)
 class Topo(object):
     '''High-level object that allows for convenient topographic plotting.
 
@@ -285,6 +287,31 @@ class Topo(object):
 def color_limits(data):
     vmax = np.abs([np.nanmin(data), np.nanmax(data)]).max()
     return -vmax, vmax
+def selected_Topo(values, info, indices, replace='zero', **kawrgs):
+    # if a different info is passed - compare and
+    # fill unused channels with 0
+    ch_num = len(info['ch_names'])
+
+    if replace == 'zero':
+        vals = np.zeros(ch_num)
+    elif replace == 'min':
+        vals = np.ones(ch_num) * min(values)
+    elif replace == 'max':
+        vals = np.ones(ch_num) * max(values)
+
+    vals[indices] = values
+
+    # topoplot
+    tp = Topo(vals, info, show=False, **kawrgs)
+
+    # make all topography lines solid
+    tp.solid_lines()
+    tp.remove_levels(0.)
+
+    # final touches
+    tp.fig.set_facecolor('white')
+
+    return tp
 
 
 # TODOs:
