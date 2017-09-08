@@ -71,10 +71,11 @@ def construct_adjacency_matrix(ch_names, neighbours, sparse=False):
 
 
 # - [ ] add edit option (runs in interactive mode only)
-# - [ ] 'random' is actually misleading - it follows colorcycle...
+# - [ ] new lines should have one color
+# - [x] 'random' is actually misleading - it follows colorcycle...
 # another approach to random colors:
 # plt.cm.viridis(np.linspace(0., 1., num=15) , alpha=0.5)
-def plot_neighbours(inst, adj_matrix, color='gray'):
+def plot_neighbours(inst, adj_matrix, color='gray', kind='3d'):
     '''Plot channel adjacency.
 
     Parameters
@@ -93,7 +94,9 @@ def plot_neighbours(inst, adj_matrix, color='gray'):
     '''
     tps = utils.mne_types()
     from .viz import set_3d_axes_equal
+    from mne.viz import plot_sensors
     assert isinstance(inst, (tps['raw'], tps['epochs'], tps['info']))
+    info = utils.get_info(inst)
 
     if isinstance(adj_matrix, sparse.coo_matrix):
         adj_matrix = adj_matrix.todense()
@@ -105,16 +108,19 @@ def plot_neighbours(inst, adj_matrix, color='gray'):
             return adj_matrix[ch, n] / max_conn * max_lw
     elif adj_matrix.dtype == 'bool':
         def get_lw():
-            return 2.
+            return 1.
 
-    if isinstance(inst, tps['info']):
-        from mne.viz import plot_sensors
-        fig = plot_sensors(inst, kind='3d', show=False)
-        pos = np.array([x['loc'][:3] for x in inst['chs']])
-    else:
-        fig = inst.plot_sensors(kind='3d', show=False)
-        pos = np.array([x['loc'][:3] for x in inst.info['chs']])
-    set_3d_axes_equal(fig.axes[0])
+    if kind == '3d':
+        fig = plot_sensors(info, kind=kind, show=False)
+        pos = np.array([x['loc'][:3] for x in info['chs']])
+        set_3d_axes_equal(fig.axes[0])
+    elif kind == '2d':
+        import matplotlib as mpl
+        fig = plot_sensors(info, kind='topomap', show=False)
+        fig.axes[0].axis('equal')
+        path_collection = fig.axes[0].findobj(mpl.collections.PathCollection)
+        pos = path_collection[0].get_offsets()
+        path_collection[0].set_zorder(10)
 
     lines = dict()
     for ch in range(adj_matrix.shape[0]):
@@ -123,14 +129,16 @@ def plot_neighbours(inst, adj_matrix, color='gray'):
             this_pos = pos[[ch, n], :]
             chan_pair = [ch, n]
             sorted(chan_pair)
-            if not color == 'random':
+            this_color = color if not color == 'random' else np.random.random()
+            if kind == '3d':
                 lines[tuple(chan_pair)] = fig.axes[0].plot(
                     this_pos[:, 0], this_pos[:, 1], this_pos[:, 2],
-                    color=color, lw=get_lw())[0]
-            else:
+                    color=this_color, lw=get_lw())[0]
+            elif kind == '2d':
                 lines[tuple(chan_pair)] = fig.axes[0].plot(
-                    this_pos[:, 0], this_pos[:, 1], this_pos[:, 2],
-                    lw=get_lw())[0]
+                    this_pos[:, 0], this_pos[:, 1],
+                    color=this_color, lw=get_lw())[0]
+
 
     highlighted = list()
     highlighted_scatter = list()
@@ -138,6 +146,7 @@ def plot_neighbours(inst, adj_matrix, color='gray'):
     def onpick(event, axes=None, positions=None, highlighted=None,
                line_dict=None, highlighted_scatter=None, adj_matrix=None):
         node_ind = event.ind[0]
+        print(node_ind)
         if node_ind in highlighted:
             # change node color back to normal
             highlighted_scatter[0].remove()
@@ -148,16 +157,23 @@ def plot_neighbours(inst, adj_matrix, color='gray'):
             if len(highlighted) == 0:
                 # add current node
                 highlighted.append(node_ind)
-                scatter = axes.scatter(positions[node_ind, 0],
-                                       positions[node_ind, 1],
-                                       positions[node_ind, 2],
-                                       c='r', s=100, zorder=10)
+                if kind == '3d':
+                    scatter = axes.scatter(positions[node_ind, 0],
+                                           positions[node_ind, 1],
+                                           positions[node_ind, 2],
+                                           c='r', s=100, zorder=15)
+                elif kind == '2d':
+                    scatter = axes.scatter(positions[node_ind, 0],
+                                           positions[node_ind, 1],
+                                           c='r', s=100, zorder=15)
+
                 highlighted_scatter.append(scatter)
                 fig.canvas.draw()
             else:
                 # add or remove line
                 both_nodes = [highlighted[0], node_ind]
                 sorted(both_nodes)
+
                 if tuple(both_nodes) in line_dict.keys():
                     # remove line
                     line_dict[tuple(both_nodes)].remove()
@@ -169,8 +185,12 @@ def plot_neighbours(inst, adj_matrix, color='gray'):
                 else:
                     # add line
                     selected_pos = positions[both_nodes, :]
-                    line = axes.plot(selected_pos[:, 0], selected_pos[:, 1],
-                                     selected_pos[:, 2], lw=get_lw())[0]
+                    if kind == '3d':
+                        line = axes.plot(selected_pos[:, 0], selected_pos[:, 1],
+                                         selected_pos[:, 2], lw=get_lw())[0]
+                    elif kind == '2d':
+                        line = axes.plot(selected_pos[:, 0], selected_pos[:, 1],
+                                         lw=get_lw())[0]
                     # add line to line_dict
                     line_dict[tuple(both_nodes)] = line
                     # modify adjacency matrix
@@ -179,17 +199,21 @@ def plot_neighbours(inst, adj_matrix, color='gray'):
 
                 # highlight new node, de-highligh previous
                 highlighted.append(node_ind)
-                scatter = axes.scatter(positions[node_ind, 0],
-                                       positions[node_ind, 1],
-                                       positions[node_ind, 2], c='r', s=100,
-                                       zorder=10)
+                if kind == '3d':
+                    scatter = axes.scatter(positions[node_ind, 0],
+                                           positions[node_ind, 1],
+                                           positions[node_ind, 2],
+                                           c='r', s=100, zorder=10)
+                elif kind == '2d':
+                    scatter = axes.scatter(positions[node_ind, 0],
+                                           positions[node_ind, 1],
+                                           c='r', s=100, zorder=10)
+
                 highlighted_scatter.append(scatter)
                 highlighted_scatter[0].remove()
                 highlighted_scatter.pop(0)
                 highlighted.pop(0)
                 fig.canvas.draw()
-
-            print(highlighted)
 
     this_onpick = partial(onpick, axes=fig.axes[0], positions=pos,
                           highlighted=list(), line_dict=lines,
