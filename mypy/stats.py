@@ -107,6 +107,77 @@ def apply_test(data, group, test):
                 data[group == 0, t_ind], data[group == 1, t_ind])
 
         return levene_W, levene_p
+    else:
+        raise NotImplementedError('Only levene is implemented currently...')
+
+
+# - [ ] compute t for all preds when multiple regressors
+# - [ ] consider using in apply_test or apply_regr (then would need p values)
+# - [x] compare speed with respect to using statsmodels
+#   (scipy loop is about 2 times faster than statsmodels)
+# - [x] compare speed with using scipy.linalg.lstsq(a, b) where b is 2d
+#   (scipy noloop is about 150 times faster than scipy loop)
+def compute_regression_t(data, preds, backend='scipy'):
+    '''Compute regression t values for whole 2d data space.
+
+    Parameters
+    ----------
+    data : numpy array of shape (observations, dim1, dim2)
+        Data to perform regression on. Frist dimension are observations
+        (for example trials or subjects). Has to be 3d unless using scipy
+        backend.
+    preds : numpy array
+        Predictor array. Currently only 1d array is supported.
+    '''
+    if backend == 'scipy':
+        n_obs, _ = data.shape
+    else:
+        n_obs, n_channels, n_times = data.shape
+    assert preds.ndim == 1 or preds.shape[1] == 1, ('currently only single'
+        ' predictor is allowed (constant term is added automatically).')
+    assert n_obs == preds.shape[0], ('preds must have the same number of rows'
+        ' as the size of first data dimension (observations).')
+
+    # add constant term
+    if preds.ndim == 1: preds = np.atleast_2d(preds).T
+    preds = np.concatenate([np.ones((n_obs, 1)), preds], axis=1)
+
+    if backend == 'scipy_loop':
+        t_vals = np.zeros((n_channels, n_times))
+        mean_x = preds[:, 1].mean()
+        x_sd = np.sqrt(np.sum((preds[:, 1] - mean_x) ** 2))
+        for ch in range(n_channels):
+            for tm in range(n_times):
+                coefs, _, _, _ = scipy.linalg.lstsq(preds, data[:, ch, tm])
+                prediction = (preds * coefs[np.newaxis, :]).sum(axis=1)
+                squared_error = (data[:, ch, tm] - prediction) ** 2
+                prediction_error = np.sqrt(np.sum(squared_error) / (n_obs - 2))
+
+                SE = prediction_error / x_sd
+                t_vals[ch, tm] = coefs[1] / SE
+
+    elif backend == 'scipy':
+        mean_x = preds[:, 1].mean()
+        x_sd = np.sqrt(np.sum((preds[:, 1] - mean_x) ** 2))
+
+        original_shape = data.shape
+        data = data.reshape((original_shape[0], np.prod(original_shape[1:])))
+        coefs, _, _, _ = scipy.linalg.lstsq(preds, data)
+
+        prediction = (preds[:, :, np.newaxis] * coefs[np.newaxis, :]
+                      ).sum(axis=1)
+        squared_error = (data - prediction) ** 2
+        prediction_error = np.sqrt(np.sum(squared_error, axis=0) / (n_obs - 2))
+        SE = prediction_error / x_sd
+        t_vals = (coefs[1, :] / SE).reshape(original_shape[1:])
+
+    elif backend == 'statsmodels':
+        t_vals = np.zeros((n_channels, n_times))
+        for ch in range(n_channels):
+            for tm in range(n_times):
+                mdl = sm.OLS(data[:, ch, tm], preds).fit()
+                t_vals[ch, tm] = mdl.tvalues[1]
+    return t_vals
 
 
 # TODO:
