@@ -91,19 +91,87 @@ def select_channels(chan_vals, N=5, connectivity=None,
     return clst
 
 
+def asymmetry_pairs(ch_names, inst=None):
+    '''construct asymetry channel pairs based on names.
+
+    Parameters
+    ----------
+    ch_names : list of str
+        List of channel names.
+    inst : mne object instance (optional)
+        Mne object like mne.Raw or mne.Epochs
+
+    Returns
+    -------
+    asym_chans_idx: dict of str -> list of int mappings
+        Dictionary mapping hemisphere to list of channel indices. Indices are
+        with respect to mne object instance ch_names if `inst` was passed,
+        otherwise the indices are with respect to `ch_names`
+    asym_chans: dict of str -> list of str mappings
+        Dictionary mapping hemisphere to list of channel names.
+    '''
+
+    frontal_asym = [ch for ch in ch_names if 'z' not in ch]
+    labels = ['right', 'left']
+    asym_chans = {l: list() for l in labels}
+
+    for ch in frontal_asym:
+        chan_base = ch[:-1]
+        chan_value = int(ch[-1])
+
+        if (chan_value % 2) == 1:
+            asym_chans['left'].append(ch)
+            asym_chans['right'].append(chan_base + str(chan_value + 1))
+
+    if inst is not None:
+        asym_chans_idx = {k: [inst.ch_names.index(ch) for ch in asym_chans[k]]
+                          for k in asym_chans.keys()}
+    else:
+        asym_chans_idx = {k: [ch_names.index(ch) for ch in asym_chans[k]]
+                          for k in asym_chans.keys()}
+
+    return asym_chans_idx, asym_chans
+
 
 modes = dict(N170=[(0.145, 0.21), 5, 'min'],
              P100=[(0.075, 0.125), 5, 'max'],
              P300=[(0.3, 0.5), 5, 'maxmean'])
 
 # TODO:
+# - [ ] simplify peak selection
+# - [ ] move different info checks to separate function, possibly even
+#       to mypy.viz.Topo
+# - [ ] maybe add an option to fix latency from fit to transform
+#       (fix_latency=True or fix_peak_pos=True)
+# - [ ] simplify the way channel indices and names are handled (some
+#       of that can be in separate functions):
+#       channel_names, channel_inds, get_channels('names')?
 # - [ ] make less erp-peak dependent - support other data types (freq)?
-# fit (add option to fix latency)
-# transform # average=True, average_channels?
-# channel_names, channel_inds ? get_channels('names')
 class Peakachu(object):
-    '''Find peaks, select channels...
-
+    '''Find peaks, select channels... FIXME
+    
+    Parameters
+    ----------
+    mode: str
+        String that describes peak characteristics to look for.
+        For example `N170` means that negative peak in 145 - 210 ms
+        is looked for. These options can be overriden with `time_window`
+        and `select` keyword arguments.
+        Available modes are: 'P100', 'N170' and 'P300'. Their
+        characteristics (time_window, n_channels and select method) can
+        be seen in `mypy.chans.modes`.
+    time_window: two-element tuple
+        (start, end) of the peak search window in seconds. Make sure that
+        the window makes sense for your data - peaks outside of this
+        window will not be found.
+    n_channels: int
+        Number of channels maximizing peak strength that are chosen.
+        These channels are averaged during `transform` and the peak is
+        found in this averaged signal. Defaults to 5.
+    connectivity: boolean 2d array
+        Channel adjacency matrix. If passed - only adjacent channels
+        maximizing peak strength are chosen.
+    
     Example:
     --------
     >> p = Peakachu(mode='N170', n_channels=6)
@@ -158,6 +226,14 @@ class Peakachu(object):
                                 ' got {} instead.'.format(type(connectivity)))
 
     def fit(self, inst):
+        '''
+        Fit Peakachu to erp data.
+        This leads to selection of channels that maximize peak strength.
+        These channels are then used during `transform` to search for peak.
+        Different data can be passed during `fit` and `transform` - for example
+        `fit` could use condition-average while transform can be used on separate
+        conditions.
+        '''
         from mne.evoked import Evoked
         from mne.io.pick import _pick_data_channels, pick_info
         assert isinstance(inst, (Evoked, np.ndarray)), 'inst must be either' \
@@ -182,6 +258,13 @@ class Peakachu(object):
         return self
 
     def transform(self, inst, average_channels=True):
+        '''
+        Extract peaks from given data using information on channels that
+        maximize peak strength obtained during `fit`. Returns peak amplitude
+        and latency. `average_channels` argument can be used to avoid averaging
+        channels. If mne.Epochs is passed the peaks are found for single trials
+        (which may not be a good idea unless you have very good SNR).
+        '''
         from mne.evoked import Evoked
         tps = mne_types()
 
@@ -254,12 +337,11 @@ class Peakachu(object):
         self._current_time_range = t_rng
 
         data = _get_inst_data(inst)
+        data_segment = data[..., t_rng]
         if data.ndim == 3:
-            # channels first
-            data_segment = data[:, :, t_rng].transpose((1, 0, 2))
-        else:
-            data_segment = data[:, t_rng]
-
+            # put channels first
+            data_segment = data_segment.transpose((1, 0, 2))
+            
         if select is True:
             data_segment = data_segment[self._chan_ind, :]
         elif isinstance(select, (list, np.ndarray)):
