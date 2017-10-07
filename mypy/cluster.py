@@ -284,9 +284,9 @@ def cluster_spread(cluster, connectivity):
 
 
 # - [x] add min_channel_neighbours
+# - [ ] min_neighbours as a 0 - 1 float
 # - [ ] include_channels (what was the idea here?)
-# - [ ] min_neighbours as a 0-1 float
-def filter(mat, min_neighbours=4, min_channels=0, connectivity=None):
+def filter_clusters(mat, min_neighbours=4, min_channels=0, connectivity=None):
     from scipy import signal
 
     kernel = np.array([[1, 1, 1], [1, 0, 1], [1, 1, 1]])
@@ -310,8 +310,8 @@ def filter(mat, min_neighbours=4, min_channels=0, connectivity=None):
 
 def remove_links(mat, min_pixels=5):
     '''Remove clusters that are smaller than min_pixels within any given
-    slice (channel) of the matrix. These small blobs often/sometimes create
-    weak links of otherwise strong clusters.'''
+    slice (channel) of the matrix. These small blobs sometimes create
+    weak links between otherwise strong clusters.'''
     from skimage.measure import label
 
     # label each channel separately
