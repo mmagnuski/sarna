@@ -1,4 +1,6 @@
 import numpy as np
+import scipy
+from scipy import stats
 from scipy.stats import ttest_ind, ttest_rel, levene
 
 
@@ -6,12 +8,12 @@ from scipy.stats import ttest_ind, ttest_rel, levene
 # - [ ] avoid calculating p, now it is computed but thrown away
 #       (unnecessary computation time)
 def ttest_ind_no_p(*args):
-    t, p = ttest_ind(*args)
+    t, p = stats.ttest_ind(*args)
     return t
 
 
 def ttest_rel_no_p(*args):
-    t, p = ttest_rel(*args)
+    t, p = stats.ttest_rel(*args)
     return t
 
 
@@ -89,27 +91,30 @@ def apply_regr(data, pred, along=0):
     return tvals, pvals
 
 
-def apply_test(data, group, test_name):
+def apply_test(data, group, test):
     '''applies test along axis=1
     data - 2d data array
     group - group identity (rows)
-    test_name - 'levene' for example'''
+    test - 'levene' for example
+            should accept functions too
+    '''
     n_samples = data.shape[1]
-    if test_name == 'levene':
+    if test == 'levene':
         levene_W = np.zeros(n_samples)
         levene_p = np.zeros(n_samples)
         for t_ind in range(n_samples):
-            levene_W[t_ind], levene_p[t_ind] = levene(data[group == 0, t_ind],
-                                                      data[group == 1, t_ind])
+            levene_W[t_ind], levene_p[t_ind] = stats.levene(
+                data[group == 0, t_ind], data[group == 1, t_ind])
 
         return levene_W, levene_p
 
 
 # TODO:
+# - [ ] rename along to retain
 # - [ ] should the default be along -1?
+# - [ ] add fit_transform
 # - [ ] check whether n_preds is there in inverse_transform
 # - [ ] use rollaxis if not along default
-# - [ ] rename along to retain
 # - [ ] allow more than one dim in retain?
 class Reshaper(object):
     def __init__(self):
@@ -168,7 +173,7 @@ def format_pvalue(pvalue):
 
 def confidence_interval(arr, ci):
     """Calculate the `ci` parametric confidence interval for array `arr`.
-    Computes the ci from t distribution with relevant mean and distribution.
+    Computes the ci from t distribution with relevant mean and scale.
     """
     from scipy import stats
     mean, sigma = arr.mean(axis=0), stats.sem(arr, axis=0)
