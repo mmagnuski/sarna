@@ -130,7 +130,7 @@ def compute_regression_t(data, preds, backend='scipy'):
         Predictor array. Currently only 1d array is supported.
     '''
     if backend == 'scipy':
-        n_obs, _ = data.shape
+        n_obs = data.shape[0]
     else:
         n_obs, n_channels, n_times = data.shape
     assert preds.ndim == 1 or preds.shape[1] == 1, ('currently only single'

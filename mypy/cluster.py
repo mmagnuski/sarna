@@ -222,9 +222,15 @@ def plot_neighbours(inst, adj_matrix, color='gray', kind='3d'):
     return fig
 
 
-def cluster_based_regression(data, pred, conn, n_permutations=1000,
+# TODO - change to accept any data shape
+#        data_shape = data.shape
+#      - add checks to preds
+def cluster_based_regression(data, preds, conn, n_permutations=1000,
                              progressbar=True):
     # data has to have observations as 1st dim and channels/vert as last dim
+    from mypy.stats import compute_regression_t
+    from mne.stats.cluster_level import (_setup_connectivity, _find_clusters,
+                                         _cluster_indices_to_mask)
 
     # TODO - move this piece of code to utils
     #        maybe a simple ProgressBar class?
@@ -237,9 +243,7 @@ def cluster_based_regression(data, pred, conn, n_permutations=1000,
             from tqdm import tqdm
             pbar = tqdm(total=n_permutations)
 
-    # TODO - change to accept any shape
-    # data_shape = data.shape
-    n_obs, n_channels, n_times = data.shape
+    n_obs, n_times, n_channels = data.shape
     connectivity = _setup_connectivity(conn, n_channels * n_times, n_times)
 
     pos_dist = np.zeros(n_permutations)
@@ -247,29 +251,34 @@ def cluster_based_regression(data, pred, conn, n_permutations=1000,
     perm_preds = preds.copy()
 
     # regression on non-permuted data
-    t_values = compute_regression_t(data, this_perm)
-    clusters, cluster_stats = _find_clusters(t_vals.ravel(), threshold=2.,
+    t_values = compute_regression_t(data, preds)
+    clusters, cluster_stats = _find_clusters(t_values.ravel(), threshold=2.,
                                              tail=0, connectivity=connectivity)
     clusters = _cluster_indices_to_mask(clusters, n_channels * n_times)
-    clusters = clusters.reshape((n_channels, n_times))
+    clusters = [clst.reshape((n_times, n_channels)) for clst in clusters]
 
     if not clusters:
         print('No clusters found, permutations are not performed.')
         return t_values, clusters, cluster_stats
+    else:
+        msg = 'Found {} clusters, computing permutations.'
+        print(msg.format(len(clusters)))
 
     # compute permutations
     for perm in range(n_permutations):
-        perm_inds = np.random.permutation(n_preds)
-        this_perm = perm_preds[perm_inds, :]
+        perm_inds = np.random.permutation(n_obs)
+        this_perm = perm_preds[perm_inds]
         perm_tvals = compute_regression_t(data, this_perm)
         _, perm_cluster_stats = _find_clusters(
-            perm_tvals.ravel(), threshold=2., tail=0, connectivity=conn,
-            max_step=1, include=None, partitions=None, t_power=1,
-            show_info=False)
-        max_val = perm_cluster_stats.max()
-        min_val = perm_cluster_stats.min()
-        if max_val > 0: pos_dist[perm] = max_val
-        if min_val < 0: neg_dist[perm] = min_val
+            perm_tvals.ravel(), threshold=2., tail=0, connectivity=connectivity)
+
+        # if any clusters were found - add max statistic
+        if perm_cluster_stats.shape[0] > 0:
+            max_val = perm_cluster_stats.max()
+            min_val = perm_cluster_stats.min()
+
+            if max_val > 0: pos_dist[perm] = max_val
+            if min_val < 0: neg_dist[perm] = min_val
 
         if progressbar:
             pbar.update(1)
@@ -286,7 +295,7 @@ def cluster_based_regression(data, pred, conn, n_permutations=1000,
     cluster_p = cluster_p[cluster_order]
     clusters = [clusters[i] for i in cluster_order]
 
-    return clusters, cluster_p
+    return t_values, clusters, cluster_p
 
 
 # TODO: do not convert to sparse if already sparse
