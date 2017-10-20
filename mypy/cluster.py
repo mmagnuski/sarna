@@ -102,11 +102,12 @@ def plot_neighbours(inst, adj_matrix, color='gray', kind='3d'):
         adj_matrix = adj_matrix.todense()
 
     if adj_matrix.dtype == 'int':
-        max_lw = 10.
+        max_lw = 5.
         max_conn = adj_matrix.max()
         def get_lw():
             return adj_matrix[ch, n] / max_conn * max_lw
-    elif adj_matrix.dtype == 'bool':
+    elif adj_matrix.dtype == 'bool' or (np.unique(adj_matrix) ==
+                                        np.array([0., 1.])).all():
         def get_lw():
             return 1.
 
