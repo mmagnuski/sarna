@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from mypy.utils import get_info, find_index
+from mypy.utils import get_info, find_index, find_range
 
 # TODOs:
 # MultiDimView:
@@ -127,6 +127,31 @@ class MultiDimView(object):
             self.chan_ind = min(self.epoch_ind, self.data.shape[3]-1)
             self.refresh()
 
+# check in plot_sensors how button_press_event select relevant chan labels
+
+# SpectralPlot - can work from here and make it a little more universal
+
+# this pacplot can be used with partial to couple with some figure
+def pacplot(ch_ind=None, fig=None):
+    if ch_ind is None:
+        ch_ind = [eeg.ch_names.index(ch) for ch in fig.lasso.selection]
+    im = t_ef[ch_ind, :, :].mean(axis=0).T
+    mask = np.abs(im) > 2.
+    fig, ax = plt.subplots()
+    masked_image(im, mask, origin='lower', vmin=-3, vmax=3)
+
+# this on_pick can be used with partial to couple with some figure
+def on_pick(event, fig=None):
+    if event.mouseevent.key == 'control' and fig.lasso is not None:
+         for ind in event.ind:
+             fig.lasso.select_one(event.ind)
+
+         return
+    pacplot(ch_ind=event.ind)
+
+# fig.canvas.mpl_connect('pick_event', on_pick)
+# fig.canvas.mpl_connect('lasso_event', pacplot)
+
 
 def set_3d_axes_equal(ax):
     '''Make axes of 3D plot have equal scale so that spheres appear as spheres,
@@ -160,7 +185,7 @@ def set_3d_axes_equal(ax):
 # TODO:
 # [ ] add docs
 # - [ ] add support for vectors of topographies
-# - [ ] check why remove_levels didn't work for
+# - [ ] check why remove_levels didn't work
 # - [ ] check out psychic.scalpplot.plot_scalp for slightly different topo plots
 #       https://github.com/wmvanvliet/psychic/blob/master/psychic/scalpplot.py
 #       (there is also eelbrain)
@@ -287,6 +312,8 @@ class Topo(object):
 def color_limits(data):
     vmax = np.abs([np.nanmin(data), np.nanmax(data)]).max()
     return -vmax, vmax
+
+
 def selected_Topo(values, info, indices, replace='zero', **kawrgs):
     # if a different info is passed - compare and
     # fill unused channels with 0
@@ -487,3 +514,194 @@ def plot_topomap_raw(raw, times=None):
                              vmin=-minmax, vmax=minmax)
         ax.set_title('{} s'.format(times[i]))
     return fig
+
+
+class SpectrumPlot(object):
+    def __init__(self, psd, freq, info):
+        from mne.viz.utils import SelectFromCollection
+
+        self.trial = 0
+        self.freq = freq
+        self.psd = psd
+        self.info = info
+        self.ch_names = info['ch_names']
+        self.ch_point_size = 36
+
+        self.xpos = 0.
+        self.is_mouse_pressed = False
+
+        self.n_trials, self.n_channels, self.n_freqs = psd.shape
+
+        # box selection
+        self.freq_box_selection = None
+        self.freq_window = slice(0, len(freq))
+        self.selected_channels = range(self.n_channels)
+
+        # plot setup
+        self.fig = plt.figure()
+        self.ax = list()
+        self.ax.append(self.fig.add_axes([0.05, 0.1, 0.3, 0.8]))
+        self.ax.append(self.fig.add_axes([0.4, 0.05, 0.45, 0.9]))
+        self.fig.suptitle('trial {}'.format(self.trial))
+
+        # average psd within freq_window
+        topo_data = psd[self.trial, :, self.freq_window].mean(axis=-1)
+        self.topo = Topo(topo_data, self.info, axes=self.ax[0])
+
+        # modify topo channels style
+        self.topo.chans.set_sizes(
+            [self.ch_point_size] * self.topo.chans.get_offsets().shape[0])
+        self.topo.chans.set_facecolor('k')
+
+        # add lasso selection
+        self.lasso_selection = SelectFromCollection(
+            self.topo.axis, self.topo.chans, np.array(self.ch_names))
+
+        # psd plot
+        self.psd_lines = self.ax[1].plot(
+            self.freq, self.psd[0].mean(axis=0))[0]
+        self.ax[1].set_xlabel('Frequency (Hz)')
+        self.ax[1].set_ylabel('Power (AU)')
+
+        # ‘key_press_event’	KeyEvent - key is pressed
+        # ‘key_release_event’	KeyEvent - key is released
+        # ‘motion_notify_event’	MouseEvent - mouse motion
+
+        self.fig.canvas.mpl_connect('lasso_event', self.on_lasso)
+        self.fig.canvas.mpl_connect('button_press_event', self.on_press)
+        self.fig.canvas.mpl_connect('motion_notify_event',
+                                    self.on_mouse_movement)
+        self.fig.canvas.mpl_connect('button_release_event', self.on_release)
+        self.fig.canvas.mpl_connect('key_press_event', self.on_key)
+
+
+    def on_lasso(self):
+        self.selected_channels = [self.ch_names.index(ch) for ch in
+                                  self.lasso_selection.selection]
+        this_psd = self.psd[self.trial, self.selected_channels].mean(axis=0)
+        vmin, vmax = this_psd.min(), this_psd.max()
+        y_rng = vmax - vmin
+        self.psd_lines.set_ydata(this_psd)
+        old_ylim = self.ax[1].get_ylim()
+        new_ylim = (min(vmin - 0.05 * y_rng, old_ylim[0]),
+                    max(vmax + 0.05 * y_rng, old_ylim[1]))
+        self.ax[1].set_ylim(new_ylim)
+        self.fig.canvas.draw()
+
+    def on_press(self, event):
+        if event.inaxes != self.ax[1]: return
+        if self.freq_box_selection is not None:
+            self.freq_box_selection.remove()
+
+        self.is_mouse_pressed = True
+        self.xpos = event.xdata
+        ylim = self.ax[1].get_ylim()
+        y_height = ylim[1] - ylim[0]
+        smallstep = np.diff(self.freq[[0, 1]]) / 4.
+        self.freq_box_selection = plt.bar(
+            left=self.xpos - smallstep, bottom=ylim[0], width=smallstep * 2,
+            height=y_height, alpha=0.3)[0]
+        self.fig.canvas.draw()
+
+    def on_mouse_movement(self, event):
+        if not self.is_mouse_pressed: return
+        if event.inaxes != self.ax[1]: return
+
+        current_xpos = event.xdata
+        ylim = self.ax[1].get_ylim()
+        left, bottom = min(current_xpos, self.xpos), ylim[0]
+
+
+        height = ylim[1] - ylim[0]
+        width = np.abs(current_xpos - self.xpos)
+        self.freq_box_selection.set_bounds(left, bottom, width, height)
+
+        self.fig.canvas.draw()
+
+    def rescale_box_selection(self):
+        ylim = self.ax[1].get_ylim()
+        y_height = ylim[1] - ylim[0]
+        smallstep = np.diff(self.freq[[0, 1]]) / 2.
+
+        self.freq_box_selection.set_bounds(
+            self.freq[self.freq_window.start] - smallstep, ylim[0],
+            np.diff(self.freq[self.freq_window][[0, -1]]) + smallstep * 2,
+                    y_height)
+        self.freq_box_selection.set_alpha(0.5)
+
+
+    def on_release(self, event):
+        from mne.viz.utils import SelectFromCollection
+
+        if event.inaxes != self.ax[1]: return
+        self.is_mouse_pressed = False
+
+        # correct box position
+        current_xpos = event.xdata
+        lfreq, hfreq = (min(current_xpos, self.xpos),
+                        max(current_xpos, self.xpos))
+        self.freq_window = find_range(self.freq, [lfreq, hfreq])
+
+        self.rescale_box_selection()
+
+        # update topo
+        topo_data = self.psd[self.trial, :, self.freq_window].mean(axis=-1)
+        self.ax[0].clear()
+        self.topo = Topo(topo_data, self.info, axes=self.ax[0])
+
+        # modify topo channels style
+        self.topo.chans.set_sizes([self.ch_point_size] *
+                                  self.topo.chans.get_offsets().shape[0])
+        self.topo.chans.set_facecolor('k')
+
+        # add lasso selection
+        self.lasso_selection.disconnect()
+        self.lasso_selection = SelectFromCollection(
+            self.topo.axis, self.topo.chans, np.array(self.ch_names))
+        # self.fig.canvas.mpl_connect('lasso_event', self.on_lasso)
+
+        self.fig.canvas.draw()
+
+    def on_key(self, event):
+        from mne.viz.utils import SelectFromCollection
+        refresh = False
+        if event.key == 'right' and self.trial < self.n_trials:
+            self.trial += 1
+            refresh = True
+        if event.key == 'left' and self.trial > 0:
+            self.trial -= 1
+            refresh = True
+
+        if refresh:
+            # update topo
+            topo_data = self.psd[self.trial, :, self.freq_window].mean(axis=-1)
+            self.ax[0].clear()
+            self.topo = Topo(topo_data, self.info, axes=self.ax[0])
+
+            # modify topo channels style
+            self.topo.chans.set_sizes(
+                [self.ch_point_size] * self.topo.chans.get_offsets().shape[0])
+            self.topo.chans.set_facecolor('k')
+
+            # add lasso selection
+            self.lasso_selection.disconnect()
+            self.lasso_selection = SelectFromCollection(
+                self.topo.axis, self.topo.chans, np.array(self.ch_names))
+
+            # refresh psd
+            this_psd = self.psd[self.trial, self.selected_channels].mean(axis=0)
+            vmin, vmax = this_psd.min(), this_psd.max()
+            y_rng = vmax - vmin
+            self.psd_lines.set_ydata(this_psd)
+            old_ylim = self.ax[1].get_ylim()
+            new_ylim = (min(vmin - 0.05 * y_rng, old_ylim[0]),
+                        max(vmax + 0.05 * y_rng, old_ylim[1]))
+            self.ax[1].set_ylim(new_ylim)
+
+            # refresh psd box ylims
+            self.rescale_box_selection()
+
+            # set overall title to indicate current trial
+            self.fig.suptitle('trial {}'.format(self.trial))
+
+            self.fig.canvas.draw()
