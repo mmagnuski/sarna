@@ -342,22 +342,28 @@ def selected_Topo(values, info, indices, replace='zero', **kawrgs):
 
 
 # TODOs:
-# - [ ] fix issue with shapes that touch matrix edge
-# - [ ] let it work for all the shapes (not only the first one completed)
+# create_contour:
+# - [x] let it work for all the shapes (not only the first one completed)
+# - [x] fix issue with shapes that touch matrix edge
+# - [ ] add function that corrects for image extent
+# - [ ] rename to create_contour
 # - [ ] docstring
+#
+# separate cluter_contour?:
 # - [ ] cluster mode (returns a list or dict mapping cluster ids to list of
 #       cluster contours) - so that each cluster can be marked by a different
 #       color.
 # - [ ] one convolution for all clusters
 def create_cluster_contour(mask):
-    from scipy.ndimage import convolve #, label
+    from scipy.ndimage import correlate
 
-    mask_int = mask.astype('int')
+    orig_mask_shape = mask.shape
+    mask_int = np.pad(mask.astype('int'), ((1, 1), (1, 1)), 'constant')
     kernels = {'upper': np.array([[-1], [1], [0]]),
                'lower': np.array([[0], [1], [-1]]),
                'left': np.array([[-1, 1, 0]]),
                'right': np.array([[0, 1, -1]])}
-    lines = {k: (convolve(mask_int, v[::-1, ::-1]) == 1).astype('int')
+    lines = {k: (correlate(mask_int, v) == 1).astype('int')
              for k, v in kernels.items()}
 
     search_order = {'upper': ['right', 'left', 'upper'],
@@ -372,48 +378,144 @@ def create_cluster_contour(mask):
                         'lower': [0.5, -0.5], 'left': [-0.5, -0.5]}
 
     # current index - upmost upper line
-    current_index = np.array([x[0] for x in np.where(lines['upper'])])
-    closed_shape = False
-    current_edge = 'upper'
-    edge_points = [tuple(current_index + [-0.5, -0.5])]
-    direction = movement_direction[current_edge]
+    upper_lines = np.where(lines['upper'])
+    outlines = list()
 
-    while not closed_shape:
-        ind = tuple(current_index)
-        new_edge = None
+    while len(upper_lines[0]) > 0:
+        current_index = np.array([x[0] for x in upper_lines])
+        closed_shape = False
+        current_edge = 'upper'
+        edge_points = [tuple(current_index + [-0.5, -0.5])]
+        direction = movement_direction[current_edge]
 
-        # check the next edge
-        for edge in search_order[current_edge]:
-            modifier = '_'.join([current_edge, edge])
-            has_modifier = modifier in search_modifiers
-            if has_modifier:
-                modifier_value = search_modifiers[modifier]
-                test_ind = tuple(current_index + modifier_value)
+        while not closed_shape:
+            new_edge = None
+            ind = tuple(current_index)
+
+            # check the next edge
+            for edge in search_order[current_edge]:
+                modifier = '_'.join([current_edge, edge])
+                has_modifier = modifier in search_modifiers
+                if has_modifier:
+                    modifier_value = search_modifiers[modifier]
+                    test_ind = tuple(current_index + modifier_value)
+                else:
+                    test_ind = ind
+
+                if lines[edge][test_ind] == 1:
+                    new_edge = edge
+                    lines[current_edge][ind] = -1
+                    break
+                elif lines[edge][test_ind] == -1: # -1 means 'visited'
+                    closed_shape = True
+                    new_edge = 'finish'
+                    lines[current_edge][ind] = -1
+                    break
+
+            if not new_edge == current_edge:
+                edge_points.append(tuple(
+                    current_index + finish_modifiers[current_edge]))
+                direction = modifier_value if has_modifier else [0, 0]
+                current_edge = new_edge
             else:
-                test_ind = ind
+                direction = movement_direction[current_edge]
 
-            if lines[edge][test_ind] == 1:
-                new_edge = edge
-                lines[current_edge][ind] = -1
-                break
-            elif lines[edge][test_ind] == -1: # -1 means 'visited'
-                closed_shape = True
-                new_edge = 'finish'
-                lines[current_edge][ind] = -1
-                break
+            current_index += direction
+        # TODO: this should be done at runtime
+        x = np.array([l[1] for l in edge_points])
+        y = np.array([l[0] for l in edge_points])
+        outlines.append([x, y])
+        upper_lines = np.where(lines['upper'] > 0)
+    _correct_all_outlines(outlines, orig_mask_shape)
+    return outlines
 
-        if not new_edge == current_edge:
-            edge_points.append(tuple(
-                current_index + finish_modifiers[current_edge]))
-            direction = modifier_value if has_modifier else [0, 0]
-            current_edge = new_edge
+
+def _correct_all_outlines(outlines, orig_mask_shape):
+    def find_successive(vec):
+        vec = vec.astype('int')
+        two_consec = np.where((vec[:-1] + vec[1:]) == 2)[0]
+        return two_consec
+
+    for current_outlines in outlines:
+        x_lim = (0, orig_mask_shape[1])
+        y_lim = (0, orig_mask_shape[0])
+
+        x_above = current_outlines[0] > x_lim[1]
+        x_below = current_outlines[0] < x_lim[0]
+        y_above = current_outlines[1] > y_lim[1]
+        y_below = current_outlines[1] < y_lim[0]
+
+        x_ind, y_ind = list(), list()
+        for x in [x_above, x_below]:
+            x_ind.append(find_successive(x))
+        for y in [y_above, y_below]:
+            y_ind.append(find_successive(y))
+
+        all_ind = np.concatenate(x_ind + y_ind)
+
+        if len(all_ind) > 0:
+            current_outlines[1] = np.insert(current_outlines[1],
+                                            all_ind + 1, np.nan)
+            current_outlines[0] = np.insert(current_outlines[0],
+                                            all_ind + 1, np.nan)
+        current_outlines[0] = current_outlines[0] - 1.
+        current_outlines[1] = current_outlines[1] - 1.
+
+
+# TODO - [ ] consider moving selection out to some simple interface
+#            with .__init__ and .next()
+#      - [ ] or maybe just use np.random.choice
+#      - [ ] change zoom to size
+#      - [ ] add 'auto' zoom
+def imscatter(x, y, images, ax=None, zoom=1, selection='random'):
+    '''
+    Plot images as scatter points. Puppy scatter, anyone?
+
+    modified version of this stack overflow answer:
+    https://stackoverflow.com/questions/22566284/matplotlib-how-to-plot-images-instead-of-points'''
+    if ax is None:
+        ax = plt.gca()
+
+    if isinstance(images, str): images = [images]
+    if isinstance(images, list) and isinstance(images[0], str):
+        images = [plt.imread(image) for image in images]
+
+    if not isinstance(zoom, list):
+        zoom = [zoom] * len(images)
+
+    im = [OffsetImage(im, zoom=zm) for im, zm in zip(images, zoom)]
+    x, y = np.atleast_1d(x, y)
+
+    artists = []
+    img_idx = list(range(len(im)))
+    sel_idx = img_idx.copy()
+
+    for idx, (x0, y0) in enumerate(zip(x, y)):
+        # refill sel_idx if empty
+        if 'replace' not in selection and len(sel_idx) < 1:
+            sel_idx = img_idx.copy()
+
+        # select image index
+        if 'random' in selection:
+            take = sample(range(len(sel_idx)), 1)[0]
+        elif 'replace' in selection:
+            take = idx % len(im)
         else:
-            direction = movement_direction[current_edge]
+            take = 0
 
-        current_index += direction
-    return edge_points
+        if 'replace' not in selection:
+            im_idx = sel_idx.pop(take)
+        else:
+            im_idx = sel_idx[take]
 
+        # add image to axis
+        ab = AnnotationBbox(im[im_idx], (x0, y0),
+                            xycoords='data', frameon=False)
+        artists.append(ax.add_artist(ab))
 
+    ax.update_datalim(np.column_stack([x, y]))
+    ax.autoscale() # this may not be needed
+    return artists
 def highlight(x_values, which_highligh, kind='patch', color=None,
               alpha=0.3, axis=None, level=0.04, height=0.03):
     '''Highlight ranges along x axis.
