@@ -10,13 +10,6 @@ def silent_mne():
     mne.set_log_level(log_level)
 
 
-# - [ ] convenient reloading will require much more work
-def rld(pkg):
-    '''fast reaload (no need to type much)'''
-    import importlib
-    importlib.reload(pkg)
-
-
 # TODO:
 # - [ ] should check type and size of the vars (check how mne-python does it)
 # - [ ] detect if in notebook/qtconsole and ignore 'Out' and similar vars
@@ -58,11 +51,20 @@ def find_index(vec, vals):
 
 def find_range(vec, ranges):
     '''
+    Find specified ranges in an ordered vector and retur them as slices.
+
     Parameters
     ----------
     vec : numpy array
         Vector of sorted values.
     ranges: list of tuples/lists or two-element list/tuple
+
+    Returns
+    -------
+    slices : slice or list of slices
+        Slices representing the ranges. If one range was passed the output
+        is a slice. If two or more ranges were passed the output is a list
+        of slices.
     '''
     assert isinstance(ranges, (list, tuple))
     assert len(ranges) > 0
@@ -80,12 +82,14 @@ def find_range(vec, ranges):
     return slices
 
 
+# - this one does not seem to be used any more, should be removed
 def time_range(inst, time_window):
     return find_range(inst.times, time_window)
 
 
 def extend_slice(slc, val, maxval, minval=0):
-    '''Extend slice `slc` by `val` but not exceeding `maxval`.
+    '''Extend slice `slc` by `val` in both directions but not exceeding
+    `minval` or `maxval`.
 
     Parameters
     ----------
@@ -121,6 +125,9 @@ def extend_slice(slc, val, maxval, minval=0):
 # - [ ] diff mode
 # - [ ] option to return slice
 def group(vec, diff=False, return_slice=False):
+    '''
+    Group values in a vector into ranges of adjacent identical values.
+    '''
     in_grp = False
     group_lims = list()
     if diff:
@@ -218,12 +225,12 @@ def mne_types():
     return types
 
 
+# see if there is a standard library implementation of something similar
 class AtribDict(dict):
     """Just like a dictionary, except that you can access keys with obj.key.
 
     Copied from psychopy.data.TrialType
     """
-
     def __getattribute__(self, name):
         try:  # to get attr from dict in normal way (passing self)
             return dict.__getattribute__(self, name)
@@ -235,6 +242,7 @@ class AtribDict(dict):
                 raise AttributeError(msg % name)
 
 
+# shouldn't it be in mypy.chan?
 def get_chan_pos(inst):
     info = get_info(inst)
     chan_pos = [info['chs'][i]['loc'][:3] for i in range(len(info['chs']))]

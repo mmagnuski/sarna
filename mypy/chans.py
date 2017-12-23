@@ -158,7 +158,7 @@ modes = dict(N170=[(0.145, 0.21), 5, 'min'],
 # - [ ] make less erp-peak dependent - support other data types (freq)?
 class Peakachu(object):
     '''Find peaks, select channels... FIXME
-    
+
     Parameters
     ----------
     mode: str
@@ -174,13 +174,13 @@ class Peakachu(object):
         the window makes sense for your data - peaks outside of this
         window will not be found.
     n_channels: int
-        Number of channels maximizing peak strength that are chosen.
+        Chosen number of channels maximizing peak strength.
         These channels are averaged during `transform` and the peak is
         found in this averaged signal. Defaults to 5.
     connectivity: boolean 2d array
         Channel adjacency matrix. If passed - only adjacent channels
         maximizing peak strength are chosen.
-    
+
     Example:
     --------
     >> p = Peakachu(mode='N170', n_channels=6)
@@ -240,8 +240,8 @@ class Peakachu(object):
         This leads to selection of channels that maximize peak strength.
         These channels are then used during `transform` to search for peak.
         Different data can be passed during `fit` and `transform` - for example
-        `fit` could use condition-average while transform can be used on separate
-        conditions.
+        `fit` could use condition-average while transform can be used on
+        separate conditions.
         '''
         from mne.evoked import Evoked
         from mne.io.pick import _pick_data_channels, pick_info
@@ -350,7 +350,7 @@ class Peakachu(object):
         if data.ndim == 3:
             # put channels first
             data_segment = data_segment.transpose((1, 0, 2))
-            
+
         if select is True:
             data_segment = data_segment[self._chan_ind, :]
         elif isinstance(select, (list, np.ndarray)):
