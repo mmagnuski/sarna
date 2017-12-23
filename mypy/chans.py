@@ -91,6 +91,15 @@ def select_channels(chan_vals, N=5, connectivity=None,
     return clst
 
 
+def find_channels(inst, names):
+    one_name = False
+    if isinstance(names, str):
+        one_name = True
+    finder = (lambda val: inst.ch_names.index(val)
+              if val in inst.ch_names else None)
+    return finder(names) if one_name else list(map(finder, names))
+
+
 def asymmetry_pairs(ch_names, inst=None):
     '''construct asymetry channel pairs based on names.
 
