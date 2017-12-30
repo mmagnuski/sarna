@@ -25,7 +25,7 @@ def get_spatial_colors(inst):
     return _rgb(info, x, y, z)
 
 
-def masked_image(img, mask, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
+def masked_image(img, mask=None, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
                  axis=None, **imshow_kwargs):
     defaults = {'interpolation': 'none', 'origin': 'lower'}
     defaults.update(imshow_kwargs)
@@ -35,9 +35,12 @@ def masked_image(img, mask, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
 
     # plot images
     main_img = axis.imshow(img, **defaults)
-    mask_img = add_image_mask(mask, alpha=alpha, mask_color=mask_color,
-                              axis=axis, **defaults)
-    return main_img, mask_img
+    if mask is not None:
+        mask_img = add_image_mask(mask, alpha=alpha, mask_color=mask_color,
+                                  axis=axis, **defaults)
+        return main_img, mask_img
+    else:
+        return main_img
 
 
 # - [ ] should check for image extent, origin etc.
