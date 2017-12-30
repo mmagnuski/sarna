@@ -4,10 +4,11 @@ from itertools import product
 from contextlib import contextmanager
 
 
+# - [ ] check better ways to silence mne
 @contextmanager
 def silent_mne():
     import mne
-    log_level = mne.set_log_level(verbose=False, return_old_level=True)
+    log_level = mne.set_log_level('CRITICAL', return_old_level=True)
     yield
     mne.set_log_level(log_level)
 
@@ -84,11 +85,6 @@ def find_range(vec, ranges):
     return slices
 
 
-# - this one does not seem to be used any more, should be removed
-def time_range(inst, time_window):
-    return find_range(inst.times, time_window)
-
-
 def extend_slice(slc, val, maxval, minval=0):
     '''Extend slice `slc` by `val` in both directions but not exceeding
     `minval` or `maxval`.
@@ -123,9 +119,9 @@ def extend_slice(slc, val, maxval, minval=0):
 
 # join inds
 # TODO:
-# - [ ] docs!
-# - [ ] diff mode
-# - [ ] option to return slice
+# - [ ] more detailed docs
+# - [x] diff mode
+# - [x] option to return slice
 def group(vec, diff=False, return_slice=False):
     '''
     Group values in a vector into ranges of adjacent identical values.
