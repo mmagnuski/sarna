@@ -345,7 +345,7 @@ def selected_Topo(values, info, indices, replace='zero', **kawrgs):
 # create_contour:
 # - [x] let it work for all the shapes (not only the first one completed)
 # - [x] fix issue with shapes that touch matrix edge
-# - [ ] add function that corrects for image extent
+# - [x] add function that corrects for image extent
 # - [ ] rename to create_contour
 # - [ ] docstring
 #
@@ -354,7 +354,7 @@ def selected_Topo(values, info, indices, replace='zero', **kawrgs):
 #       cluster contours) - so that each cluster can be marked by a different
 #       color.
 # - [ ] one convolution for all clusters
-def create_cluster_contour(mask):
+def create_cluster_contour(mask, extent=None):
     from scipy.ndimage import correlate
 
     orig_mask_shape = mask.shape
@@ -426,11 +426,21 @@ def create_cluster_contour(mask):
         y = np.array([l[0] for l in edge_points])
         outlines.append([x, y])
         upper_lines = np.where(lines['upper'] > 0)
-    _correct_all_outlines(outlines, orig_mask_shape)
+    _correct_all_outlines(outlines, orig_mask_shape, extent=extent)
     return outlines
 
 
-def _correct_all_outlines(outlines, orig_mask_shape):
+def _correct_all_outlines(outlines, orig_mask_shape, extent=None):
+    if extent is not None:
+        orig_ext = [-0.5, orig_mask_shape[1] - 0.5,
+                    -0.5, orig_mask_shape[0] - 0.5]
+        orig_ranges = [orig_ext[1] - orig_ext[0],
+                       orig_ext[3] - orig_ext[2]]
+        ext_ranges = [extent[1] - extent[0],
+                       extent[3] - extent[2]]
+        scales = [ext_ranges[0] / orig_ranges[0],
+                  ext_ranges[1] / orig_ranges[1]]
+
     def find_successive(vec):
         vec = vec.astype('int')
         two_consec = np.where((vec[:-1] + vec[1:]) == 2)[0]
@@ -458,8 +468,15 @@ def _correct_all_outlines(outlines, orig_mask_shape):
                                             all_ind + 1, np.nan)
             current_outlines[0] = np.insert(current_outlines[0],
                                             all_ind + 1, np.nan)
+        # compensate for padding
         current_outlines[0] = current_outlines[0] - 1.
         current_outlines[1] = current_outlines[1] - 1.
+
+        if extent is not None:
+            current_outlines[0] = ((current_outlines[0] + 0.5) * scales[0]
+                                   + extent[0])
+            current_outlines[1] = ((current_outlines[1] + 0.5) * scales[1]
+                                   + extent[2])
 
 
 # TODO - [ ] consider moving selection out to some simple interface
