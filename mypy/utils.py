@@ -1,4 +1,6 @@
 import numpy as np
+from copy import deepcopy
+from itertools import product
 from contextlib import contextmanager
 
 
@@ -247,3 +249,128 @@ def get_chan_pos(inst):
     info = get_info(inst)
     chan_pos = [info['chs'][i]['loc'][:3] for i in range(len(info['chs']))]
     return np.array(chan_pos)
+
+
+# TODO
+# - [ ] more input validation
+#       validate dim_names, dim_values
+# - [ ] infer df dtypes
+# - [x] groups could be any of following
+#   * dict of int -> (dict of int -> str)
+#   * instead of int -> str there could be tuple -> str
+#   * or str -> list mapping
+# - [x] support list of lists for groups as well
+def array2df(arr, dim_names=None, groups=None, value_name='value'):
+    '''
+    Melt array into a pandas DataFrame.
+
+    The resulting DataFrame has one row per array value and additionally
+    one column per array dimension.
+
+    Parameters
+    ----------
+    arr : numpy array
+        Array to be transformed to DataFrame.
+    dim_names : list of str or dict of int to str mappings
+        Names of consecutive array dimensions - used as column names of the
+        resulting DataFrame.
+    groups : list of dicts or dict of dicts
+        here more datailed explanation
+    value_name : ...
+        ...
+
+    Returns
+    -------
+    df : pandas DataFrame
+        ...
+
+    Example
+    -------
+    >> arr = np.arange(4).reshape((2, 2))
+    >> array2df(arr)
+
+      value dim_i dim_j
+    0     0    i0    j0
+    1     1    i0    j1
+    2     2    i1    j0
+    3     3    i1    j1
+
+    >> arr = np.arange(12).reshape((4, 3))
+    >> array2df(arr, dim_names=['first', 'second'], value_name='array_value',
+    >>          groups=[{'A': [0, 2], 'B': [1, 3]},
+    >>                  {(0, 2): 'abc', (1,): 'd'}])
+
+       array_value first second
+    0            0     A    abc
+    1            1     A      d
+    2            2     A    abc
+    3            3     B    abc
+    4            4     B      d
+    5            5     B    abc
+    6            6     A    abc
+    7            7     A      d
+    8            8     A    abc
+    9            9     B    abc
+    10          10     B      d
+    11          11     B    abc
+    '''
+    n_dim = arr.ndim
+    shape = arr.shape
+
+    dim_letters = list('ijklmnop')[:n_dim]
+    if dim_names is None:
+        dim_names = {dim: 'dim_{}'.format(l)
+                     for dim, l in enumerate(dim_letters)}
+    if groups is None:
+        groups = {dim: {i: dim_letters[dim] + str(i)
+                        for i in range(shape[dim])} for dim in range(n_dim)}
+    else:
+        if isinstance(groups, dict):
+            groups = {dim: _check_dict(groups[dim], shape[dim])
+                      for dim in groups.keys()}
+        elif isinstance(groups, list):
+            groups = [_check_dict(groups[dim], shape[dim])
+                      for dim in range(len(groups))]
+
+    # initialize DataFrame
+    col_names = [value_name] + [dim_names[i] for i in range(n_dim)]
+    df = pd.DataFrame(columns=col_names, index=np.arange(arr.size))
+
+    # iterate through dimensions producing tuples of relevant dims...
+    for idx, adr in enumerate(product(*map(range, shape))):
+        df.loc[idx, value_name] = arr[adr] # this could be vectorized easily
+        # add relevant values to dim columns
+        for dim_idx, dim_adr in enumerate(adr):
+            df.loc[idx, dim_names[dim_idx]] = groups[dim_idx][dim_adr]
+    return df
+
+
+def _check_dict(dct, dim_len):
+    if isinstance(dct, dict):
+        str_keys = all(isinstance(k, str) for k in dct.keys())
+        if not str_keys:
+            tuple_keys = all(isinstance(k, tuple) for k in dct.keys())
+
+        if str_keys:
+            vals_set = set()
+            new_dct = dict()
+            for k in dct.keys():
+                for val in dct[k]:
+                    new_dct[val] = k
+                    vals_set.add(val)
+            assert len(vals_set) == dim_len
+        elif tuple_keys:
+            new_dct = dict()
+            i_set = set()
+            for k, val in dct.items():
+                for i in k:
+                    new_dct[i] = val
+                    i_set.add(i)
+            assert len(i_set) == dim_len
+        else:
+            new_dct = dct
+    else:
+        # validate if equal to num dims
+        assert len(dct) == dim_len
+        new_dct = dct
+    return new_dct
