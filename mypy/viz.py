@@ -317,6 +317,7 @@ def color_limits(data):
     return -vmax, vmax
 
 
+# - [ ] enhance Topo with that functionality
 def selected_Topo(values, info, indices, replace='zero', **kawrgs):
     # if a different info is passed - compare and
     # fill unused channels with 0
@@ -536,6 +537,8 @@ def imscatter(x, y, images, ax=None, zoom=1, selection='random'):
     ax.update_datalim(np.column_stack([x, y]))
     ax.autoscale() # this may not be needed
     return artists
+
+
 def highlight(x_values, which_highligh, kind='patch', color=None,
               alpha=0.3, axis=None, level=0.04, height=0.03):
     '''Highlight ranges along x axis.
@@ -568,7 +571,7 @@ def highlight(x_values, which_highligh, kind='patch', color=None,
         axis.add_patch(ptch)
 
 
-# test a little and change the API and options
+# - [ ] test a little and change the API and options
 def significance_bar(start, end, height, displaystring, lw=0.1,
                      markersize=7, boxpad=-1.2, fontsize=14, color='k'):
     from matplotlib.markers import TICKDOWN
