@@ -260,7 +260,7 @@ def get_chan_pos(inst):
 # TODO
 # - [ ] more input validation
 #       validate dim_names, dim_values
-# - [ ] infer df dtypes
+# - [x] infer df dtypes
 # - [x] groups could be any of following
 #   * dict of int -> (dict of int -> str)
 #   * instead of int -> str there could be tuple -> str
@@ -349,6 +349,14 @@ def array2df(arr, dim_names=None, groups=None, value_name='value'):
         # add relevant values to dim columns
         for dim_idx, dim_adr in enumerate(adr):
             df.loc[idx, dim_names[dim_idx]] = groups[dim_idx][dim_adr]
+
+    # column dtype inference
+    try: # for pandas 0.22 or higher
+        df = df.infer_objects()
+    except: # otherwise
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            df = df.convert_objects(convert_numeric=True)
     return df
 
 
