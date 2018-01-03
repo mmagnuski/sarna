@@ -310,6 +310,7 @@ def array2df(arr, dim_names=None, groups=None, value_name='value'):
     10          10     B      d
     11          11     B    abc
     '''
+    import pandas as pd
     n_dim = arr.ndim
     shape = arr.shape
 

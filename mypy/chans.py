@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.stats import zscore
 import matplotlib.pyplot as plt
-from .utils import time_range, mne_types, get_chan_pos
+from .utils import find_range, mne_types, get_chan_pos
 
 
 
@@ -342,7 +342,7 @@ class Peakachu(object):
     def _get_peaks(self, inst, select=False):
         from mne.utils import _get_inst_data
 
-        t_rng = time_range(inst, self.time_window)
+        t_rng = find_range(inst.times, self.time_window)
         self._current_time_range = t_rng
 
         data = _get_inst_data(inst)
