@@ -1,7 +1,9 @@
-import numpy as np
+import warnings
 from copy import deepcopy
 from itertools import product
 from contextlib import contextmanager
+
+import numpy as np
 
 
 # - [ ] check better ways to silence mne
@@ -11,6 +13,14 @@ def silent_mne():
     log_level = mne.set_log_level('CRITICAL', return_old_level=True)
     yield
     mne.set_log_level(log_level)
+
+
+@contextmanager
+def silent():
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        yield
+
 
 
 # TODO:
