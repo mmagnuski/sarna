@@ -595,24 +595,26 @@ def significance_bar(start, end, height, displaystring, lw=0.1,
 #       * time-chan
 #       * time-freq
 #       * chan-freq
-def plot_cluster_heatmap(values, mask=None, x_axis=None, y_axis=None,
-                         outlines=False, colorbar=True, line_kwargs=dict(),
-                         ch_names=None, freq=None):
+def plot_cluster_heatmap(values, mask=None, axis=None, x_axis=None,
+                         y_axis=None, outlines=False, colorbar=True,
+                         line_kwargs=dict(), ch_names=None, freq=None):
     n_channels = values.shape[0]
     if x_axis is None and freq is not None:
         x_axis = freq
 
-    heatmap(values, mask=mask, x_axis=x_axis, y_axis=y_axis, outlines=outlines,
-            colorbar=True, line_kwargs=dict())
+    heatmap(values, mask=mask, axis=axis, x_axis=x_axis, y_axis=y_axis,
+            outlines=outlines, colorbar=True, line_kwargs=dict())
 
     if ch_names is not None:
         plt.yticks(np.arange(len(ch_names)) + 0.5, ch_names);
         for tick in plt.gca().yaxis.get_major_ticks():
             tick.label.set_fontsize(8)
 
+
+# - [ ] cmap support
 # - [ ] multiple masks, multiple alpha, multiple outline_colors
-def heatmap(array, mask=None, x_axis=None, y_axis=None, outlines=False,
-            colorbar=True, line_kwargs=dict()):
+def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
+            outlines=False, colorbar=True, line_kwargs=dict()):
     vmin, vmax = color_limits(array)
     n_rows, n_cols = array.shape
 
@@ -626,9 +628,14 @@ def heatmap(array, mask=None, x_axis=None, y_axis=None, outlines=False,
            *(y_axis[[0, -1]] + [-y_step / 2, y_step / 2])]
 
 
-    axis, msk_img = masked_image(array, mask=mask, vmin=vmin, vmax=vmax,
-                                 cmap='RdBu_r', aspect='auto', extent=ext,
-                                 interpolation='nearest', origin='lower')
+    out = masked_image(array, mask=mask, vmin=vmin, vmax=vmax,
+                       cmap='RdBu_r', aspect='auto', extent=ext,
+                       interpolation='nearest', origin='lower',
+                       axis=axis)
+    if mask is None:
+        axis = out
+    else:
+        axis = out[0]
 
     # add outlines if necessary
     if outlines:
