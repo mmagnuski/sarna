@@ -99,7 +99,7 @@ def plot_neighbours(inst, adj_matrix, color='gray', kind='3d'):
     info = utils.get_info(inst)
 
     if isinstance(adj_matrix, sparse.coo_matrix):
-        adj_matrix = adj_matrix.todense()
+        adj_matrix = adj_matrix.toarray()
 
     if adj_matrix.dtype == 'int':
         max_lw = 5.
