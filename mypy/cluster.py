@@ -33,13 +33,13 @@ def get_neighbours(captype):
     return loadmat(file_name, squeeze_me=True)['neighbours']
 
 
-def construct_adjacency_matrix(ch_names, neighbours, sparse=False):
+def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
     # check input
-    assert isinstance(ch_names, list), 'ch_names must be a list.'
-    assert all(map(lambda x: isinstance(x, str), ch_names)), \
-        'ch_names must be a list of strings'
-
-    from scipy import sparse as sprs
+    if ch_names is not None:
+        assert isinstance(ch_names, list), 'ch_names must be a list.'
+        assert all(map(lambda x: isinstance(x, str), ch_names)), \
+            'ch_names must be a list of strings'
+        ch_names = ngb['label'].tolist()
 
     if isinstance(neighbours, str):
         neighbours = get_neighbours(neighbours)
@@ -51,8 +51,8 @@ def construct_adjacency_matrix(ch_names, neighbours, sparse=False):
 
         # safty checks:
         if len(ngb_ind) == 0:
-            raise ValueError('channel {} was not found in neighbours.'.format(
-                             chan))
+            raise ValueError(('channel {} was not found in neighbours.'
+                              .format(chan)))
         elif len(ngb_ind) == 1:
             ngb_ind = ngb_ind[0]
         else:
@@ -64,8 +64,8 @@ def construct_adjacency_matrix(ch_names, neighbours, sparse=False):
                        [ngb_ind] if ch in ch_names]
         chan_ind = ch_names.index(chan)
         conn[chan_ind, connections] = True
-    if sparse:
-        return sprs.coo_matrix(conn)
+    if as_sparse:
+        return sparse.coo_matrix(conn)
     else:
         return conn
 
