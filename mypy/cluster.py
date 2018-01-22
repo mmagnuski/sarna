@@ -35,14 +35,14 @@ def get_neighbours(captype):
 
 def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
     # check input
+    if isinstance(neighbours, str):
+        neighbours = get_neighbours(neighbours)
+
     if ch_names is not None:
         assert isinstance(ch_names, list), 'ch_names must be a list.'
         assert all(map(lambda x: isinstance(x, str), ch_names)), \
             'ch_names must be a list of strings'
-        ch_names = ngb['label'].tolist()
-
-    if isinstance(neighbours, str):
-        neighbours = get_neighbours(neighbours)
+        ch_names = neighbours['label'].tolist()
     n_channels = len(ch_names)
     conn = np.zeros((n_channels, n_channels), dtype='bool')
 
