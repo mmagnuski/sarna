@@ -151,7 +151,6 @@ class Topo(object):
 
     def __init__(self, values, info, side=None, **kwargs):
         from mne.viz.topomap import plot_topomap
-        import matplotlib as mpl
 
         self.info = info
         self.values = values
@@ -174,24 +173,8 @@ class Topo(object):
         self.lines = lines
         self.marks = list()
 
-        # check channel positions - some (older?) versions use scatter so
-        # the channels are marked with `mpl.patches.Circle` but at other times
-        # `mpl.collections.PathCollection` is being used.
-        circles = im.axes.findobj(mpl.patches.Circle)
-        if len(circles) == 0:
-            # look for PathCollection
-            path_collection = im.axes.findobj(mpl.collections.PathCollection)
-            if len(path_collection) > 0:
-                self.chans = path_collection[0]
-                self.chan_pos = self.chans.get_offsets()
-            else:
-                raise RuntimeError('Could not find matplotlib objects '
-                                   'representing channels. Looked for '
-                                   '`matplotlib.patches.Circle` and '
-                                   '`matplotlib.collections.PathCollection`.')
-        else:
-            self.chans = circles
-            self.chan_pos = np.array([ch.center for ch in self.chans])
+        # get channel objects and channel positions from topo
+        self.chans, self.chan_pos = _extract_topo_channels(im.axes)
 
     def remove_levels(self, lvl):
         if not isinstance(lvl, list):
@@ -274,6 +257,30 @@ def _construct_topo_side(info, kwargs):
     pos[:, 1] *= scale_y
     info = pos
     return info, kwargs
+
+
+def _extract_topo_channels(ax):
+    # check channel positions - some (older?) versions use scatter so
+    # the channels are marked with `mpl.patches.Circle` but at other times
+    # `mpl.collections.PathCollection` is being used.
+    import matplotlib as mpl
+
+    circles = ax.findobj(mpl.patches.Circle)
+    if len(circles) == 0:
+        # look for PathCollection
+        path_collection = ax.findobj(mpl.collections.PathCollection)
+        if len(path_collection) > 0:
+            chans = path_collection[0]
+            chan_pos = chans.get_offsets()
+        else:
+            raise RuntimeError('Could not find matplotlib objects '
+                               'representing channels. Looked for '
+                               '`matplotlib.patches.Circle` and '
+                               '`matplotlib.collections.PathCollection`.')
+    else:
+        chans = circles
+        chan_pos = np.array([ch.center for ch in chans])
+    return chans, chan_pos
 
 
 
