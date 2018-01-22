@@ -586,6 +586,7 @@ def plot_cluster_heatmap(values, mask=None, axis=None, x_axis=None,
 
 
 # - [ ] cmap support
+# - [x] BUG, colorbar=True with axis=ax[0] adds colorbar to last axis
 # - [ ] multiple masks, multiple alpha, multiple outline_colors
 def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
             outlines=False, colorbar=True, line_kwargs=dict()):
@@ -606,10 +607,7 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
                        cmap='RdBu_r', aspect='auto', extent=ext,
                        interpolation='nearest', origin='lower',
                        axis=axis)
-    if mask is None:
-        axis = out
-    else:
-        axis = out[0]
+    img = out if mask is None else out[0]
 
     # add outlines if necessary
     if outlines:
@@ -617,18 +615,21 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
             line_kwargs['color'] = 'w'
         outlines = create_cluster_contour(mask, extent=ext)
         for x_line, y_line in outlines:
-            plt.plot(x_line, y_line, **line_kwargs)
+            img.axes.plot(x_line, y_line, **line_kwargs)
 
     # plt.xlabel('Frequency', fontsize=14)
     # plt.ylabel('Channels', fontsize=14)
     # plt.title('{}'.format(format_pvalue(pval[cluster_id])))
 
     if colorbar:
-        cbar = plt.colorbar(axis)
+        from mpl_toolkits.axes_grid1 import make_axes_locatable
+        divider = make_axes_locatable(img.axes)
+        cax = divider.append_axes('right', size='8%', pad=0.1)
+        cbar = plt.colorbar(img, cax=cax)
         # cbar.set_label('t values')
-        return axis, cbar
+        return img.axes, cbar
     else:
-        return axis
+        return img.axes
 
 
 def plot_topomap_raw(raw, times=None):
