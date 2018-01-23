@@ -42,7 +42,9 @@ def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
         assert isinstance(ch_names, list), 'ch_names must be a list.'
         assert all(map(lambda x: isinstance(x, str), ch_names)), \
             'ch_names must be a list of strings'
+    else:
         ch_names = neighbours['label'].tolist()
+
     n_channels = len(ch_names)
     conn = np.zeros((n_channels, n_channels), dtype='bool')
 
