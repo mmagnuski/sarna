@@ -622,14 +622,20 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
     # plt.title('{}'.format(format_pvalue(pval[cluster_id])))
 
     if colorbar:
-        from mpl_toolkits.axes_grid1 import make_axes_locatable
-        divider = make_axes_locatable(img.axes)
-        cax = divider.append_axes('right', size='8%', pad=0.1)
-        cbar = plt.colorbar(img, cax=cax)
+        cbar = add_colorbar_to_axis(img.axes, img)
         # cbar.set_label('t values')
         return img.axes, cbar
     else:
         return img.axes
+
+
+# - [ ] default source if not given
+def add_colorbar_to_axis(axis, source, side='right', size='8%', pad=0.1):
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+    divider = make_axes_locatable(axis)
+    cax = divider.append_axes(side, size=size, pad=pad)
+    cbar = plt.colorbar(source, cax=cax)
+    return cbar
 
 
 def plot_topomap_raw(raw, times=None):
