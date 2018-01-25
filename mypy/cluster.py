@@ -246,8 +246,9 @@ def cluster_based_regression(data, preds, conn, n_permutations=1000,
             from tqdm import tqdm
             pbar = tqdm(total=n_permutations)
 
-    n_obs, n_times, n_channels = data.shape
-    connectivity = _setup_connectivity(conn, n_channels * n_times, n_times)
+    n_obs = data.shape[0]
+    connectivity = _setup_connectivity(conn, np.prod(data.shape[1:]),
+                                       data.shape[1])
 
     pos_dist = np.zeros(n_permutations)
     neg_dist = np.zeros(n_permutations)
@@ -257,8 +258,8 @@ def cluster_based_regression(data, preds, conn, n_permutations=1000,
     t_values = compute_regression_t(data, preds)
     clusters, cluster_stats = _find_clusters(t_values.ravel(), threshold=2.,
                                              tail=0, connectivity=connectivity)
-    clusters = _cluster_indices_to_mask(clusters, n_channels * n_times)
-    clusters = [clst.reshape((n_times, n_channels)) for clst in clusters]
+    clusters = _cluster_indices_to_mask(clusters, np.prod(data.shape[1:]))
+    clusters = [clst.reshape(data.shape[1:]) for clst in clusters]
 
     if not clusters:
         print('No clusters found, permutations are not performed.')
