@@ -246,6 +246,82 @@ def read_rej(fname, sfreq, bad_types=['reject']):
 	return Annotations(onset, duration, description)
 
 
+class AutoMark(object):
+	def __init__(self):
+		self.window = None
+		self.step = None
+		self.ranges = None
+		self.variances = None
+
+	def calculate(self, raw, window=1., step=0.25, minmax=False, variance=False,
+				  reduction='mean', progressbar=True):
+		if not minmax and not variance:
+			raise Warning('Nothing computed. To compute variance you need to'
+						  ' pass `variance=True`, to compute range you need to'
+						  ' pass `minmax=True`.')
+			return self
+
+		data = raw._data
+		window = int(round(window * raw.info['sfreq']))
+		step = int(round(step * raw.info['sfreq']))
+		self.window = window
+		self.step = step
+		self.sfreq = raw.info['sfreq']
+
+		n_samples = data.shape[1]
+		n_windows = int(np.floor((n_samples - window) / step))
+		self.ranges = np.zeros(n_windows) if minmax else None
+		self.variances = np.zeros(n_windows) if variance else None
+
+		reduction = dict(mean=np.mean, max=np.max)[reduction]
+
+		if progressbar:
+			from tqdm import tqdm_notebook
+			pbar = tqdm_notebook(total=n_windows)
+
+		# step through data
+		for window_idx in range(n_windows):
+			first = window_idx * step
+			last = first + window
+			data_buffer = data[:, first:last]
+
+			if minmax:
+				self.ranges[window_idx] = reduction(
+					data_buffer.max(axis=1) - data_buffer.min(axis=1))
+			if variance:
+				self.variances[window_idx] = reduction(data_buffer.var(axis=1))
+			if progressbar:
+				pbar.update(1)
+		return self
+
+	def reject(self, max_range=23e-5, max_variance=23e-6):
+		if self.ranges is not None:
+			is_bad_range = self.ranges > max_range
+			# turn to annotations
+			annot = self._to_annotation(is_bad_range, description='BAD_range')
+
+		if self.variances is not None:
+			is_bad_variance = self.variances > max_variance
+			# turn to annotations
+			if self.ranges is not None:
+				annot = annot + self._to_annotation(is_bad_variance,
+													description='BAD_variance')
+			else:
+				annot = self._to_annotation(is_bad_variance,
+											description='BAD_variance')
+		return annot
+
+	def _to_annotation(self, bad_bool, description='BAD_'):
+		import mne
+		groups = group(bad_bool)
+		if len(groups) > 0:
+			onset = groups[:, 0] * (self.step / self.sfreq)
+			duration = (self.window / self.sfreq) + np.diff(groups).ravel() * (self.step / self.sfreq)
+			return mne.Annotations(onset, duration, [description] * groups.shape[0])
+		else:
+			return mne.Annotations([], [], [])
+
+
 # - [ ] develop this function a little better
 # - [ ] check what is used by raw.reject_bads() when no inds given
 def mark_reject_peak2peak(raw, reject={'eeg': 23e-5}, window_length=1.,
