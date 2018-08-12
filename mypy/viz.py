@@ -588,10 +588,39 @@ def plot_cluster_heatmap(values, mask=None, axis=None, x_axis=None,
 
 
 # - [ ] cmap support
-# - [x] BUG, colorbar=True with axis=ax[0] adds colorbar to last axis
 # - [ ] multiple masks, multiple alpha, multiple outline_colors
 def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
             outlines=False, colorbar=True, line_kwargs=dict()):
+    '''Plot heatmap with defaults meaningful for big heatmaps like
+    time-frequency representations.
+
+    Parameters
+    ----------
+    array : 2d numpy array
+        The array to be plotted as heatmap.
+    mask : 2d boolean array
+        A bit counter to the names - specifies which pixels to unmask.
+        Masking is done with transparency.
+    axis : matplotlib axis
+        Axis to draw in.
+    x_axis : 1d array
+        X axis coordinates - 1d array of x axis bin names.
+    y_axis : 1d array
+        Y axis coordinates - 1d array of y axis bin names.
+    outlines : boolean
+        whether to draw outlines of the clusters defined by the mask.
+    colorbar : boolean
+        Whether to add a colorbar to the image.
+    line_kwargs : dict
+        Dictionary of additional parameters for outlines.
+
+    Returns
+    -------
+    axis : maplotlib axis
+        The axis drawn to.
+    cbar : matplotlib colorbar
+        The handle to the colorbar.
+    '''
     vmin, vmax = color_limits(array)
     n_rows, n_cols = array.shape
 
