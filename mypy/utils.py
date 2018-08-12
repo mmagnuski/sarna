@@ -1,26 +1,15 @@
 import warnings
 from copy import deepcopy
 from itertools import product
-from contextlib import contextmanager
 
 import numpy as np
 
 
-# - [ ] check better ways to silence mne
-@contextmanager
-def silent_mne():
-    import mne
-    log_level = mne.set_log_level('CRITICAL', return_old_level=True)
-    yield
-    mne.set_log_level(log_level)
-
-
-@contextmanager
-def silent():
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore')
-        yield
-
+# @contextmanager
+# def silent():
+#     with warnings.catch_warnings():
+#         warnings.simplefilter('ignore')
+#         yield
 
 
 # TODO:
@@ -60,39 +49,6 @@ def find_index(vec, vals):
     if not isinstance(vals, (list, tuple, np.ndarray)):
         vals = [vals]
     return [np.abs(vec - x).argmin() for x in vals]
-
-
-def find_range(vec, ranges):
-    '''
-    Find specified ranges in an ordered vector and retur them as slices.
-
-    Parameters
-    ----------
-    vec : numpy array
-        Vector of sorted values.
-    ranges: list of tuples/lists or two-element list/tuple
-
-    Returns
-    -------
-    slices : slice or list of slices
-        Slices representing the ranges. If one range was passed the output
-        is a slice. If two or more ranges were passed the output is a list
-        of slices.
-    '''
-    assert isinstance(ranges, (list, tuple))
-    assert len(ranges) > 0
-    one_in = False
-    if not isinstance(ranges[0], (list, tuple)) and len(ranges) == 2:
-        one_in = True
-        ranges = [ranges]
-
-    slices = list()
-    for rng in ranges:
-        start, stop = [np.abs(vec - x).argmin() for x in rng]
-        slices.append(slice(start, stop + 1)) # including last index
-    if one_in:
-        slices = slices[0]
-    return slices
 
 
 def extend_slice(slc, val, maxval, minval=0):
@@ -202,16 +158,6 @@ def subselect_keys(key, mapping, sep='/'):
     else:
         raise ValueError('Your keys are bad formatted.')
     return mapping
-
-
-# - [ ] more checks for mne type
-# - [ ] maybe move to mneutils ?
-def get_info(inst):
-    from mne.io.meas_info import Info
-    if isinstance(inst, Info):
-        return inst
-    else:
-        return inst.info
 
 
 # TODO: add evoked (for completeness)

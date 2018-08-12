@@ -24,5 +24,5 @@ except ImportError:
 # import seaborn as sns?
 # maybe seaborn.apionly?
 
-from mypy.utils import find_index, find_range
+from mypy.utils import find_index
 from mypy.freq import dB

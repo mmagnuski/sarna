@@ -1,8 +1,9 @@
 import numpy as np
 from scipy.stats import zscore
 import matplotlib.pyplot as plt
-from .utils import find_range, mne_types, get_chan_pos
 
+from borsar.utils import find_range
+from .utils import mne_types
 
 
 def correct_egi_channel_names(eeg):

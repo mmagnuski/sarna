@@ -2,7 +2,8 @@ import numpy as np
 import pandas as pd
 from scipy.io import loadmat
 
-from mypy.utils import group, extend_slice, find_range
+from borsar.utils import find_range
+from mypy.utils import group, extend_slice
 
 # TODOs:
 # - [ ] create_middle_events should be made more universal
@@ -292,20 +293,6 @@ def join_segments(time_segments):
 	final_segments = final_segments[final_segments[:, 0].argsort(), :]
 
 	return final_segments
-
-
-def get_dropped_epoch_index(epochs):
-	'''get indices of dropped epochs'''
-	current_epoch = 0
-	removed_epochs = list()
-
-	for info in epochs.drop_log:
-	    if 'IGNORED' not in info:
-	        if 'USER' in info:
-	            removed_epochs.append(current_epoch)
-	        current_epoch += 1
-
-	return removed_epochs
 
 
 def align_events(events1, events2):

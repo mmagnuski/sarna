@@ -1,17 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from mypy.utils import get_info, find_index, find_range
 
-# TODOs:
-# MultiDimView:
-# - [ ] add colorbar
-# - [ ] add topo view
-# - [ ] clickable topo view
-# - [ ] cickable (blockable) color bar
-# - [ ] add window select
-# SignalPlotter:
-# - [ ] design object API (similar to fastplot)
-# - [ ] continuous and epoched signal support
+from borsar.utils import find_range, get_info
+from mypy.utils import find_index
 
 
 def get_spatial_colors(inst):
