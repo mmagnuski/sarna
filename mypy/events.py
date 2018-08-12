@@ -232,7 +232,7 @@ def read_set_events(filename, ignore_fields=None):
 	take_fields = ['epoch', 'type']
 	ignore_fields = list() if ignore_fields is None else ignore_fields
 	take_fields.extend([col for col in df.columns if not
-					 (col in take_fields or col in ignore_fields)])
+					   col in take_fields or col in ignore_fields])
 	return df.loc[:, take_fields]
 
 

@@ -272,6 +272,8 @@ def cluster_1d(data, connectivity=None):
     return _find_clusters(data, 0.5, connectivity=connectivity)
 
 
+# - [ ] check timing on some 3d matrix (3d random smoothed?)
+# - [ ] compare to some other algo
 def cluster_3d(matrix, chan_conn):
     '''
     parameters

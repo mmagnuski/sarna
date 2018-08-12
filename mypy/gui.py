@@ -3,6 +3,18 @@ import matplotlib.pyplot as plt
 from .viz import Topo
 
 
+# TODOs:
+# MultiDimView:
+# - [ ] add colorbar
+# - [ ] add topo view
+# - [ ] clickable topo view
+# - [ ] cickable (blockable) color bar
+# - [ ] add window select
+# SignalPlotter:
+# - [ ] design object API (similar to fastplot)
+# - [ ] continuous and epoched signal support
+
+
 # - [ ] lasso selection from mne SelectFromCollection
 # - [ ] better support for time-like dim when matrix is freq-freq
 # - [ ] add pyqt (+pyqtgraph) backend

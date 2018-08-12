@@ -85,6 +85,7 @@ def extend_slice(slc, val, maxval, minval=0):
 
 # join inds
 # TODO:
+# - [ ] profile, compare to cythonized version?
 # - [ ] more detailed docs
 # - [x] diff mode
 # - [x] option to return slice
@@ -161,6 +162,7 @@ def subselect_keys(key, mapping, sep='/'):
 
 
 # TODO: add evoked (for completeness)
+# mne now has _validate_type ...
 def mne_types():
     import mne
     types = dict()
@@ -196,17 +198,10 @@ class AtribDict(dict):
                 raise AttributeError(msg % name)
 
 
-# shouldn't it be in mypy.chan?
-def get_chan_pos(inst):
-    info = get_info(inst)
-    chan_pos = [info['chs'][i]['loc'][:3] for i in range(len(info['chs']))]
-    return np.array(chan_pos)
-
-
 # TODO
+# - [ ] move to borsar
 # - [ ] more input validation
 #       validate dim_names, dim_values
-# - [x] infer df dtypes
 # - [x] groups could be any of following
 #   * dict of int -> (dict of int -> str)
 #   * instead of int -> str there could be tuple -> str
@@ -227,7 +222,7 @@ def array2df(arr, dim_names=None, groups=None, value_name='value'):
         Names of consecutive array dimensions - used as column names of the
         resulting DataFrame.
     groups : list of dicts or dict of dicts
-        here more datailed explanation
+        FIXME - here more datailed explanation
     value_name : ...
         ...
 
@@ -306,6 +301,8 @@ def array2df(arr, dim_names=None, groups=None, value_name='value'):
     return df
 
 
+# utility function used by array2df (what does it do?)
+# better docs, comments, assert fail message
 def _check_dict(dct, dim_len):
     if isinstance(dct, dict):
         str_keys = all(isinstance(k, str) for k in dct.keys())

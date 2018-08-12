@@ -113,11 +113,11 @@ def asymmetry_pairs(ch_names, inst=None):
 
     Returns
     -------
-    asym_chans_idx: dict of str -> list of int mappings
+    asym_chans_idx: dict of {str -> list of int} mappings
         Dictionary mapping hemisphere to list of channel indices. Indices are
         with respect to mne object instance ch_names if `inst` was passed,
         otherwise the indices are with respect to `ch_names`
-    asym_chans: dict of str -> list of str mappings
+    asym_chans: dict of {str -> list of str} mappings
         Dictionary mapping hemisphere to list of channel names.
     '''
 
