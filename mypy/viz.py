@@ -1,20 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from mypy.utils import get_info, find_index, find_range
 
-# TODOs:
-# MultiDimView:
-# - [ ] add colorbar
-# - [ ] add topo view
-# - [ ] clickable topo view
-# - [ ] cickable (blockable) color bar
-# - [ ] add window select
-# SignalPlotter:
-# - [ ] design object API (similar to fastplot)
-# - [ ] continuous and epoched signal support
+from borsar.utils import find_range, get_info
+from mypy.utils import find_index
 
 
 def get_spatial_colors(inst):
+    '''Get mne-style spatial colors for given mne object instance.'''
     from mne.viz.evoked import _rgb
     info = get_info(inst)
 
@@ -177,6 +169,7 @@ class Topo(object):
         self.chans, self.chan_pos = _extract_topo_channels(im.axes)
 
     def remove_levels(self, lvl):
+        '''Remove countour lines at specified levels.'''
         if not isinstance(lvl, list):
             lvl = [lvl]
         for l in lvl:
@@ -187,13 +180,16 @@ class Topo(object):
                 self.lines.collections.pop(pop_ln)
 
     def solid_lines(self):
+        '''Turn all contour lines to solid style (no dashed lines).'''
         self.set_linestyle('-')
 
     def set_linestyle(self, *args, **kwargs):
+        '''Set specific linestyle to all contour lines.'''
         for ln in self.lines.collections:
             ln.set_linestyle(*args, **kwargs)
 
     def set_linewidth(self, lw):
+        '''Set contour lines linewidth.'''
         for ln in self.lines.collections:
             ln.set_linewidths(lw)
 
@@ -202,9 +198,10 @@ class Topo(object):
 
         Parameters
         ----------
-        chans : numpy array
+        chans : numpy array of int or bool
             Channels to highlight. Integer array with channel indices or
-            boolean array of shape (n_channels, ).
+            boolean array of shape (n_channels, ). If None all channels are
+            highlighted.
         **kwargs
             Any additional keyword arguments are passed as arguments to
             plt.plot. It is useful for defining marker properties like
@@ -262,6 +259,7 @@ def _construct_topo_side(info, kwargs):
 
 
 def _extract_topo_channels(ax):
+    '''Extract channels positions from mne topoplot.'''
     # check channel positions - some (older?) versions use scatter so
     # the channels are marked with `mpl.patches.Circle` but at other times
     # `mpl.collections.PathCollection` is being used.
@@ -287,11 +285,13 @@ def _extract_topo_channels(ax):
 
 
 def color_limits(data):
+    '''Set color limits from data.'''
     vmax = np.abs([np.nanmin(data), np.nanmax(data)]).max()
     return -vmax, vmax
 
 
 # - [ ] enhance Topo with that functionality
+# - [ ] later will not be needed when masking is smarter in mne
 def selected_Topo(values, info, indices, replace='zero', **kawrgs):
     # if a different info is passed - compare and
     # fill unused channels with 0
@@ -333,6 +333,7 @@ def selected_Topo(values, info, indices, replace='zero', **kawrgs):
 #       color.
 # - [ ] one convolution for all clusters
 def create_cluster_contour(mask, extent=None):
+    '''Create contour lines for clusters in boolean matrix.'''
     from scipy.ndimage import correlate
 
     orig_mask_shape = mask.shape
@@ -409,6 +410,7 @@ def create_cluster_contour(mask, extent=None):
 
 
 def _correct_all_outlines(outlines, orig_mask_shape, extent=None):
+    '''Performs various corrections on outlines.'''
     if extent is not None:
         orig_ext = [-0.5, orig_mask_shape[1] - 0.5,
                     -0.5, orig_mask_shape[0] - 0.5]
@@ -586,10 +588,39 @@ def plot_cluster_heatmap(values, mask=None, axis=None, x_axis=None,
 
 
 # - [ ] cmap support
-# - [x] BUG, colorbar=True with axis=ax[0] adds colorbar to last axis
 # - [ ] multiple masks, multiple alpha, multiple outline_colors
 def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
             outlines=False, colorbar=True, line_kwargs=dict()):
+    '''Plot heatmap with defaults meaningful for big heatmaps like
+    time-frequency representations.
+
+    Parameters
+    ----------
+    array : 2d numpy array
+        The array to be plotted as heatmap.
+    mask : 2d boolean array
+        A bit counter to the names - specifies which pixels to unmask.
+        Masking is done with transparency.
+    axis : matplotlib axis
+        Axis to draw in.
+    x_axis : 1d array
+        X axis coordinates - 1d array of x axis bin names.
+    y_axis : 1d array
+        Y axis coordinates - 1d array of y axis bin names.
+    outlines : boolean
+        whether to draw outlines of the clusters defined by the mask.
+    colorbar : boolean
+        Whether to add a colorbar to the image.
+    line_kwargs : dict
+        Dictionary of additional parameters for outlines.
+
+    Returns
+    -------
+    axis : maplotlib axis
+        The axis drawn to.
+    cbar : matplotlib colorbar
+        The handle to the colorbar.
+    '''
     vmin, vmax = color_limits(array)
     n_rows, n_cols = array.shape
 
@@ -631,6 +662,7 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
 
 # - [ ] default source if not given
 def add_colorbar_to_axis(axis, source, side='right', size='8%', pad=0.1):
+    '''Add colorbar to given axis.'''
     from mpl_toolkits.axes_grid1 import make_axes_locatable
     divider = make_axes_locatable(axis)
     cax = divider.append_axes(side, size=size, pad=pad)

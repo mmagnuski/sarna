@@ -1,26 +1,15 @@
 import warnings
 from copy import deepcopy
 from itertools import product
-from contextlib import contextmanager
 
 import numpy as np
 
 
-# - [ ] check better ways to silence mne
-@contextmanager
-def silent_mne():
-    import mne
-    log_level = mne.set_log_level('CRITICAL', return_old_level=True)
-    yield
-    mne.set_log_level(log_level)
-
-
-@contextmanager
-def silent():
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore')
-        yield
-
+# @contextmanager
+# def silent():
+#     with warnings.catch_warnings():
+#         warnings.simplefilter('ignore')
+#         yield
 
 
 # TODO:
@@ -62,39 +51,6 @@ def find_index(vec, vals):
     return [np.abs(vec - x).argmin() for x in vals]
 
 
-def find_range(vec, ranges):
-    '''
-    Find specified ranges in an ordered vector and retur them as slices.
-
-    Parameters
-    ----------
-    vec : numpy array
-        Vector of sorted values.
-    ranges: list of tuples/lists or two-element list/tuple
-
-    Returns
-    -------
-    slices : slice or list of slices
-        Slices representing the ranges. If one range was passed the output
-        is a slice. If two or more ranges were passed the output is a list
-        of slices.
-    '''
-    assert isinstance(ranges, (list, tuple))
-    assert len(ranges) > 0
-    one_in = False
-    if not isinstance(ranges[0], (list, tuple)) and len(ranges) == 2:
-        one_in = True
-        ranges = [ranges]
-
-    slices = list()
-    for rng in ranges:
-        start, stop = [np.abs(vec - x).argmin() for x in rng]
-        slices.append(slice(start, stop + 1)) # including last index
-    if one_in:
-        slices = slices[0]
-    return slices
-
-
 def extend_slice(slc, val, maxval, minval=0):
     '''Extend slice `slc` by `val` in both directions but not exceeding
     `minval` or `maxval`.
@@ -129,6 +85,7 @@ def extend_slice(slc, val, maxval, minval=0):
 
 # join inds
 # TODO:
+# - [ ] profile, compare to cythonized version?
 # - [ ] more detailed docs
 # - [x] diff mode
 # - [x] option to return slice
@@ -204,17 +161,8 @@ def subselect_keys(key, mapping, sep='/'):
     return mapping
 
 
-# - [ ] more checks for mne type
-# - [ ] maybe move to mneutils ?
-def get_info(inst):
-    from mne.io.meas_info import Info
-    if isinstance(inst, Info):
-        return inst
-    else:
-        return inst.info
-
-
 # TODO: add evoked (for completeness)
+# mne now has _validate_type ...
 def mne_types():
     import mne
     types = dict()
@@ -250,17 +198,10 @@ class AtribDict(dict):
                 raise AttributeError(msg % name)
 
 
-# shouldn't it be in mypy.chan?
-def get_chan_pos(inst):
-    info = get_info(inst)
-    chan_pos = [info['chs'][i]['loc'][:3] for i in range(len(info['chs']))]
-    return np.array(chan_pos)
-
-
 # TODO
+# - [ ] move to borsar
 # - [ ] more input validation
 #       validate dim_names, dim_values
-# - [x] infer df dtypes
 # - [x] groups could be any of following
 #   * dict of int -> (dict of int -> str)
 #   * instead of int -> str there could be tuple -> str
@@ -281,7 +222,7 @@ def array2df(arr, dim_names=None, groups=None, value_name='value'):
         Names of consecutive array dimensions - used as column names of the
         resulting DataFrame.
     groups : list of dicts or dict of dicts
-        here more datailed explanation
+        FIXME - here more datailed explanation
     value_name : ...
         ...
 
@@ -360,6 +301,8 @@ def array2df(arr, dim_names=None, groups=None, value_name='value'):
     return df
 
 
+# utility function used by array2df (what does it do?)
+# better docs, comments, assert fail message
 def _check_dict(dct, dim_len):
     if isinstance(dct, dict):
         str_keys = all(isinstance(k, str) for k in dct.keys())

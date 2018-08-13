@@ -7,6 +7,7 @@ from scipy import sparse
 from scipy.io import loadmat
 
 from mypy import utils
+from borsar.cluster import construct_adjacency_matrix
 # import matplotlib.pyplot as plt
 
 
@@ -31,45 +32,6 @@ def get_neighbours(captype):
         else:
             raise ValueError('Could not find specified cap type.')
     return loadmat(file_name, squeeze_me=True)['neighbours']
-
-
-def construct_adjacency_matrix(neighbours, ch_names=None, as_sparse=False):
-    # check input
-    if isinstance(neighbours, str):
-        neighbours = get_neighbours(neighbours)
-
-    if ch_names is not None:
-        assert isinstance(ch_names, list), 'ch_names must be a list.'
-        assert all(map(lambda x: isinstance(x, str), ch_names)), \
-            'ch_names must be a list of strings'
-    else:
-        ch_names = neighbours['label'].tolist()
-
-    n_channels = len(ch_names)
-    conn = np.zeros((n_channels, n_channels), dtype='bool')
-
-    for ii, chan in enumerate(ch_names):
-        ngb_ind = np.where(neighbours['label'] == chan)[0]
-
-        # safty checks:
-        if len(ngb_ind) == 0:
-            raise ValueError(('channel {} was not found in neighbours.'
-                              .format(chan)))
-        elif len(ngb_ind) == 1:
-            ngb_ind = ngb_ind[0]
-        else:
-            raise ValueError('found more than one neighbours entry for '
-                             'channel name {}.'.format(chan))
-
-        # find connections and fill up adjacency matrix
-        connections = [ch_names.index(ch) for ch in neighbours['neighblabel']
-                       [ngb_ind] if ch in ch_names]
-        chan_ind = ch_names.index(chan)
-        conn[chan_ind, connections] = True
-    if as_sparse:
-        return sparse.coo_matrix(conn)
-    else:
-        return conn
 
 
 # - [ ] add edit option (runs in interactive mode only)
@@ -246,8 +208,9 @@ def cluster_based_regression(data, preds, conn, n_permutations=1000,
             from tqdm import tqdm
             pbar = tqdm(total=n_permutations)
 
-    n_obs, n_times, n_channels = data.shape
-    connectivity = _setup_connectivity(conn, n_channels * n_times, n_times)
+    n_obs = data.shape[0]
+    connectivity = _setup_connectivity(conn, np.prod(data.shape[1:]),
+                                       data.shape[1])
 
     pos_dist = np.zeros(n_permutations)
     neg_dist = np.zeros(n_permutations)
@@ -257,8 +220,8 @@ def cluster_based_regression(data, preds, conn, n_permutations=1000,
     t_values = compute_regression_t(data, preds)
     clusters, cluster_stats = _find_clusters(t_values.ravel(), threshold=2.,
                                              tail=0, connectivity=connectivity)
-    clusters = _cluster_indices_to_mask(clusters, n_channels * n_times)
-    clusters = [clst.reshape((n_times, n_channels)) for clst in clusters]
+    clusters = _cluster_indices_to_mask(clusters, np.prod(data.shape[1:]))
+    clusters = [clst.reshape(data.shape[1:]) for clst in clusters]
 
     if not clusters:
         print('No clusters found, permutations are not performed.')
@@ -309,6 +272,8 @@ def cluster_1d(data, connectivity=None):
     return _find_clusters(data, 0.5, connectivity=connectivity)
 
 
+# - [ ] check timing on some 3d matrix (3d random smoothed?)
+# - [ ] compare to some other algo
 def cluster_3d(matrix, chan_conn):
     '''
     parameters
