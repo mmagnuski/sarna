@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from borsar.utils import find_range, get_info
-from mypy.utils import find_index
+from borsar.viz import Topo
+from borsar.utils import find_range, find_index, get_info
 
 
 def get_spatial_colors(inst):
@@ -51,10 +51,6 @@ def add_image_mask(mask, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
     # plot images
     return axis.imshow(mask_img, **imshow_kwargs)
 
-
-# TODO# check in plot_sensors how button_press_event select relevant chan labels
-
-# SpectralPlot - can work from here and make it a little more universal
 
 # this pacplot can be used with partial to couple with some figure
 def pacplot(ch_ind=None, fig=None):
@@ -107,181 +103,11 @@ def set_3d_axes_equal(ax):
     ax.set_zlim3d([z_mean - plot_radius, z_mean + plot_radius])
 
 
-# TODO:
-# [ ] add docs
-# - [ ] add support for vectors of topographies
-# - [ ] check why remove_levels didn't work
-# - [ ] check out psychic.scalpplot.plot_scalp for slightly different topo plots
-#       https://github.com/wmvanvliet/psychic/blob/master/psychic/scalpplot.py
-#       (there is also eelbrain)
-class Topo(object):
-    '''High-level object that allows for convenient topographic plotting.
-
-    Parameters
-    ----------
-    values : numpy array
-        Values to topographically plot.
-    info : mne Info instance
-        Info object containing channel positions.
-    **kwargs : any additional keyword arguments
-        Additional keyword arguments are passed to mne.viz.plot_topomap
-
-    Returns
-    -------
-    topo : mypy.viz.Topo instance
-        Topo object that exposes various useful methods like `remove_levels`
-        or `mark_channels`.
-
-    Example
-    -------
-    topo = Topo(values, info, axis=ax)
-    topo.remove_levels(0)
-    topo.solid_lines()
-    topo.set_linewidth(1.5)
-    topo.mark_channels([4, 5, 6], markerfacecolor='r', markersize=12)
-    '''
-
-    def __init__(self, values, info, side=None, **kwargs):
-        from mne.viz.topomap import plot_topomap
-
-        self.info = info
-        self.values = values
-
-        has_axis = 'axis' in kwargs.keys()
-        if has_axis:
-            self.axis = kwargs['axis']
-            plt.sca(self.axis)
-
-        if side is not None and side == 'right':
-            info, kwargs = _construct_topo_side(info, kwargs)
-
-        # plot using mne's topomap
-        im, lines = plot_topomap(values, info, **kwargs)
-
-        self.fig = im.figure
-        if not has_axis:
-            self.axis = im.axes
-        self.img = im
-        self.lines = lines
-        self.marks = list()
-
-        # get channel objects and channel positions from topo
-        self.chans, self.chan_pos = _extract_topo_channels(im.axes)
-
-    def remove_levels(self, lvl):
-        '''Remove countour lines at specified levels.'''
-        if not isinstance(lvl, list):
-            lvl = [lvl]
-        for l in lvl:
-            remove_lines = np.where(self.lines.levels == l)[0]
-            for rem_ln in remove_lines:
-                self.lines.collections[rem_ln].remove()
-            for pop_ln in np.flipud(np.sort(remove_lines)):
-                self.lines.collections.pop(pop_ln)
-
-    def solid_lines(self):
-        '''Turn all contour lines to solid style (no dashed lines).'''
-        self.set_linestyle('-')
-
-    def set_linestyle(self, *args, **kwargs):
-        '''Set specific linestyle to all contour lines.'''
-        for ln in self.lines.collections:
-            ln.set_linestyle(*args, **kwargs)
-
-    def set_linewidth(self, lw):
-        '''Set contour lines linewidth.'''
-        for ln in self.lines.collections:
-            ln.set_linewidths(lw)
-
-    def mark_channels(self, chans=None, **marker_params):
-        '''Highlight specified channels with markers.
-
-        Parameters
-        ----------
-        chans : numpy array of int or bool
-            Channels to highlight. Integer array with channel indices or
-            boolean array of shape (n_channels, ). If None all channels are
-            highlighted.
-        **kwargs
-            Any additional keyword arguments are passed as arguments to
-            plt.plot. It is useful for defining marker properties like
-            `markerfacecolor` or `markersize`.
-        '''
-        if chans is None:
-            chans = np.arange(self.chan_pos.shape[0])
-        default_marker = dict(marker='o', markerfacecolor='w',
-                              markeredgecolor='k', linewidth=0, markersize=8)
-        for k in marker_params.keys():
-            default_marker[k] = marker_params[k]
-
-        # mark
-        marks = self.axis.plot(self.chan_pos[chans, 0],
-                               self.chan_pos[chans, 1], **default_marker)
-        self.marks.append(marks)
-
-
 # # for Topo, setting channel props:
 # for ch in ch_ind:
 #     self.chans[ch].set_color('white')
 #     self.chans[ch].set_radius(0.01)
 #     self.chans[ch].set_zorder(4)
-
-# TODO - add side argument
-def _construct_topo_side(info, kwargs):
-    from mne.viz.topomap import _check_outlines, _find_topomap_coords
-    radius = 0.5
-    ll = np.linspace(0, 2 * np.pi, 101)
-    head_x = np.cos(ll) * radius
-    head_y = np.sin(ll) * radius
-    mask_outlines = np.c_[head_x, head_y]
-    below_zero = mask_outlines[:, 0] < 0
-    removed_len = below_zero.sum()
-    filling = np.zeros((removed_len, 2))
-    filling[:, 1] = np.linspace(0.5, -0.5, num=removed_len)
-    mask_outlines[below_zero, :] = filling
-
-    head_pos = dict(center=(0., 0.))
-    picks = range(len(info['ch_names']))
-    pos = _find_topomap_coords(info, picks=picks)
-    # TODO currently uses outlines='head', but should change later
-    pos, outlines = _check_outlines(pos, outlines='head',
-                                    head_pos=head_pos)
-    outlines['mask_pos'] = (mask_outlines[:, 0], mask_outlines[:, 1])
-    kwargs.update(dict(outlines=outlines, head_pos=head_pos))
-
-    # scale pos to min - max of the circle
-    scale_x = 0.425 / pos[:, 0].max()
-    scale_y = 0.425 / np.abs(pos[:, 1]).max()
-    pos[:, 0] *= scale_x
-    pos[:, 1] *= scale_y
-    info = pos
-    return info, kwargs
-
-
-def _extract_topo_channels(ax):
-    '''Extract channels positions from mne topoplot.'''
-    # check channel positions - some (older?) versions use scatter so
-    # the channels are marked with `mpl.patches.Circle` but at other times
-    # `mpl.collections.PathCollection` is being used.
-    import matplotlib as mpl
-
-    circles = ax.findobj(mpl.patches.Circle)
-    if len(circles) == 0:
-        # look for PathCollection
-        path_collection = ax.findobj(mpl.collections.PathCollection)
-        if len(path_collection) > 0:
-            chans = path_collection[0]
-            chan_pos = chans.get_offsets()
-        else:
-            raise RuntimeError('Could not find matplotlib objects '
-                               'representing channels. Looked for '
-                               '`matplotlib.patches.Circle` and '
-                               '`matplotlib.collections.PathCollection`.')
-    else:
-        chans = circles
-        chan_pos = np.array([ch.center for ch in chans])
-    return chans, chan_pos
-
 
 
 def color_limits(data):
@@ -321,17 +147,14 @@ def selected_Topo(values, info, indices, replace='zero', **kawrgs):
 
 # TODOs:
 # create_contour:
-# - [x] let it work for all the shapes (not only the first one completed)
-# - [x] fix issue with shapes that touch matrix edge
-# - [x] add function that corrects for image extent
-# - [ ] rename to create_contour
+# - [ ] rename to create_contour, create_cluster_contours?
 # - [ ] docstring
+# - [ ] check timing and compare against numba version
 #
 # separate cluter_contour?:
 # - [ ] cluster mode (returns a list or dict mapping cluster ids to list of
 #       cluster contours) - so that each cluster can be marked by a different
 #       color.
-# - [ ] one convolution for all clusters
 def create_cluster_contour(mask, extent=None):
     '''Create contour lines for clusters in boolean matrix.'''
     from scipy.ndimage import correlate
@@ -400,11 +223,13 @@ def create_cluster_contour(mask, extent=None):
                 direction = movement_direction[current_edge]
 
             current_index += direction
+
         # TODO: this should be done at runtime
         x = np.array([l[1] for l in edge_points])
         y = np.array([l[0] for l in edge_points])
         outlines.append([x, y])
         upper_lines = np.where(lines['upper'] > 0)
+
     _correct_all_outlines(outlines, orig_mask_shape, extent=extent)
     return outlines
 
@@ -460,10 +285,10 @@ def _correct_all_outlines(outlines, orig_mask_shape, extent=None):
 
 
 # TODO - [ ] consider moving selection out to some simple interface
-#            with .__init__ and .next()
+#            with .__init__ and .next()?
 #      - [ ] or maybe just use np.random.choice
 #      - [ ] change zoom to size
-#      - [ ] add 'auto' zoom
+#      - [ ] add 'auto' zoom / size
 def imscatter(x, y, images, ax=None, zoom=1, selection='random'):
     '''
     Plot images as scatter points. Puppy scatter, anyone?
@@ -515,6 +340,9 @@ def imscatter(x, y, images, ax=None, zoom=1, selection='random'):
     return artists
 
 
+# - [ ] support list/tuple of slices for which_highligh
+# - [ ] `level` and `height` are unused but should allow for highlight that
+#       takes only a fraction of the axis
 def highlight(x_values, which_highligh, kind='patch', color=None,
               alpha=0.3, axis=None, level=0.04, height=0.03):
     '''Highlight ranges along x axis.
@@ -567,10 +395,7 @@ def significance_bar(start, end, height, displaystring, lw=0.1,
     # plt.text((x0+x1)*.4, y+h, "ns", ha='center', va='bottom', color=col)
 
 
-# - [ ] cover some classical cases:
-#       * time-chan
-#       * time-freq
-#       * chan-freq
+# - [ ] cover some classical cases: time-chan, time-freq, chan-freq
 def plot_cluster_heatmap(values, mask=None, axis=None, x_axis=None,
                          y_axis=None, outlines=False, colorbar=True,
                          line_kwargs=dict(), ch_names=None, freq=None):

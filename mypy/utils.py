@@ -3,13 +3,7 @@ from copy import deepcopy
 from itertools import product
 
 import numpy as np
-
-
-# @contextmanager
-# def silent():
-#     with warnings.catch_warnings():
-#         warnings.simplefilter('ignore')
-#         yield
+from borsar.utils import get_info, find_index
 
 
 # TODO:
@@ -41,14 +35,6 @@ def whos():
             print(name, type(var), var)
     finally:
         del frame
-
-
-# - [ ] maybe add the one_in approach from find_range
-# - [ ] if np.ndarray try to format output in the right shape
-def find_index(vec, vals):
-    if not isinstance(vals, (list, tuple, np.ndarray)):
-        vals = [vals]
-    return [np.abs(vec - x).argmin() for x in vals]
 
 
 def extend_slice(slc, val, maxval, minval=0):
@@ -83,10 +69,9 @@ def extend_slice(slc, val, maxval, minval=0):
     return slice(start, stop, step)
 
 
-# join inds
 # TODO:
-# - [ ] profile, compare to cythonized version?
 # - [ ] more detailed docs
+# - [ ] profile, compare to cythonized version?
 # - [x] diff mode
 # - [x] option to return slice
 def group(vec, diff=False, return_slice=False):
@@ -123,8 +108,10 @@ def group(vec, diff=False, return_slice=False):
         return grp
 
 
+# - [ ] I never actually used this, maybe just remove
 def subselect_keys(key, mapping, sep='/'):
-    '''select keys with subselection by a separator.
+    '''
+    Select keys with subselection by a separator.
     This code was shared by Dennis Engemann on github.
 
     Parameters
@@ -162,7 +149,7 @@ def subselect_keys(key, mapping, sep='/'):
 
 
 # TODO: add evoked (for completeness)
-# mne now has _validate_type ...
+# - [ ] check: mne now has _validate_type ...
 def mne_types():
     import mne
     types = dict()
