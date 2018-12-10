@@ -294,7 +294,10 @@ def imscatter(x, y, images, ax=None, zoom=1, selection='random'):
     Plot images as scatter points. Puppy scatter, anyone?
 
     modified version of this stack overflow answer:
-    https://stackoverflow.com/questions/22566284/matplotlib-how-to-plot-images-instead-of-points'''
+    https://stackoverflow.com/questions/22566284/matplotlib-how-to-plot-images-instead-of-points
+
+    FIXME : add docs
+    '''
     if ax is None:
         ax = plt.gca()
 

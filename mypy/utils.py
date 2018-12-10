@@ -218,8 +218,8 @@ def array2df(arr, dim_names=None, groups=None, value_name='value'):
     df : pandas DataFrame
         ...
 
-    Example
-    -------
+    Examples
+    --------
     >> arr = np.arange(4).reshape((2, 2))
     >> array2df(arr)
 

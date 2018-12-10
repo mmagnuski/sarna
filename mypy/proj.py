@@ -5,6 +5,13 @@ from sys import platform
 
 
 def find_dropbox():
+    '''Find dropbox location.
+
+    Returns
+    -------
+    dropbox_path : str
+        Full path to main Dropbox directory.
+    '''
     if any([platform == plt for plt in ["linux", "linux2", "darwin"]]):
         config_pth = os.path.expanduser('~/.dropbox')
     elif platform == "win32":
@@ -16,6 +23,19 @@ def find_dropbox():
 
 
 def get_valid_path(pth_list):
+    '''
+    Select the first path that exists on current machine.
+
+    Parameters
+    ----------
+    pth_list : list of str
+        List of paths to check.
+
+    Returns
+    -------
+    pth : str
+        The first path that exists on current machine.
+    '''
     for pth in pth_list:
         if os.path.exists(pth):
             return pth
