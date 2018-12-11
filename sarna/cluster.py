@@ -6,9 +6,11 @@ import numpy as np
 from scipy import sparse
 from scipy.io import loadmat
 
-from mypy import utils
-from borsar.cluster import construct_adjacency_matrix
-# import matplotlib.pyplot as plt
+from mne.stats import permutation_cluster_test
+from borsar.cluster import Clusters, construct_adjacency_matrix
+
+from . import utils
+from .stats import ttest_ind_no_p, ttest_rel_no_p
 
 
 base_dir = split(__file__)[0]
@@ -187,83 +189,6 @@ def plot_neighbours(inst, adj_matrix, color='gray', kind='3d'):
     return fig
 
 
-# TODO - change to accept any data shape
-#        data_shape = data.shape
-#      - add checks to preds
-def cluster_based_regression(data, preds, conn, n_permutations=1000,
-                             progressbar=True):
-    # data has to have observations as 1st dim and channels/vert as last dim
-    from mypy.stats import compute_regression_t
-    from mne.stats.cluster_level import (_setup_connectivity, _find_clusters,
-                                         _cluster_indices_to_mask)
-
-    # TODO - move this piece of code to utils
-    #        maybe a simple ProgressBar class?
-    #      - then support tqdm pbar as input
-    if progressbar:
-        if not progressbar == 'text':
-            from tqdm import tqdm_notebook
-            pbar = tqdm_notebook(total=n_permutations)
-        else:
-            from tqdm import tqdm
-            pbar = tqdm(total=n_permutations)
-
-    n_obs = data.shape[0]
-    connectivity = _setup_connectivity(conn, np.prod(data.shape[1:]),
-                                       data.shape[1])
-
-    pos_dist = np.zeros(n_permutations)
-    neg_dist = np.zeros(n_permutations)
-    perm_preds = preds.copy()
-
-    # regression on non-permuted data
-    t_values = compute_regression_t(data, preds)
-    clusters, cluster_stats = _find_clusters(t_values.ravel(), threshold=2.,
-                                             tail=0, connectivity=connectivity)
-    clusters = _cluster_indices_to_mask(clusters, np.prod(data.shape[1:]))
-    clusters = [clst.reshape(data.shape[1:]) for clst in clusters]
-
-    if not clusters:
-        print('No clusters found, permutations are not performed.')
-        return t_values, clusters, cluster_stats
-    else:
-        msg = 'Found {} clusters, computing permutations.'
-        print(msg.format(len(clusters)))
-
-    # compute permutations
-    for perm in range(n_permutations):
-        perm_inds = np.random.permutation(n_obs)
-        this_perm = perm_preds[perm_inds]
-        perm_tvals = compute_regression_t(data, this_perm)
-        _, perm_cluster_stats = _find_clusters(
-            perm_tvals.ravel(), threshold=2., tail=0, connectivity=connectivity)
-
-        # if any clusters were found - add max statistic
-        if perm_cluster_stats.shape[0] > 0:
-            max_val = perm_cluster_stats.max()
-            min_val = perm_cluster_stats.min()
-
-            if max_val > 0: pos_dist[perm] = max_val
-            if min_val < 0: neg_dist[perm] = min_val
-
-        if progressbar:
-            pbar.update(1)
-
-    # compute permutation probability
-    cluster_p = np.array([(pos_dist > cluster_stat).mean() if cluster_stat > 0
-                          else (neg_dist < cluster_stat).mean()
-                          for cluster_stat in cluster_stats])
-    cluster_p *= 2 # because we use two-tail
-    cluster_p[cluster_p > 1.] = 1. # probability has to be >= 1.
-
-    # sort clusters by p value
-    cluster_order = np.argsort(cluster_p)
-    cluster_p = cluster_p[cluster_order]
-    clusters = [clusters[i] for i in cluster_order]
-
-    return t_values, clusters, cluster_p
-
-
 # TODO: do not convert to sparse if already sparse
 def cluster_1d(data, connectivity=None):
     from mne.stats.cluster_level import _find_clusters
@@ -425,3 +350,34 @@ def smooth(matrix, sd=2.):
     else:
         matrix = gaussian_filter(matrix, sd)
     return matrix
+
+
+def permutation_cluster_t_test(data1, data2, paired=False, n_permutations=1000,
+                               threshold=None, p_threshold=0.05,
+                               adjacency=None, tmin=None, tmax=None):
+    '''FIXME: add docs.'''
+    stat_fun = ttest_rel_no_p if paired else ttest_ind_no_p
+
+    len1, len2 = len(data1), len(data2)
+    if threshold is None:
+        from scipy.stats import distributions
+        df = (data1.shape[0] - 1 if paired else
+              data1.shape[0] + data2.shape[1] - 2)
+        threshold = distributions.t.ppf(p_threshold / 2., df=df)
+
+    # data1 and data2 have to be Evokeds
+    assert all([isinstance(dt, mne.Evoked) for dt in data1])
+    assert all([isinstance(dt, mne.Evoked) for dt in data2])
+
+    tmin = 0 if tmin is None else data1[0].time_as_index(tmin)
+    tmax = (len(data1[0].times) if tmax is None
+            else data1[0].time_as_index(tmax) + 1)
+
+    data1 = np.stack([erp.data[:, tmin:tmax].T for erp in data1], axis=0)
+    data2 = np.stack([erp.data[:, tmin:tmax].T for erp in data2], axis=0)
+
+    stat, clusters, cluster_p = permutation_cluster_test(
+        [data1, data2], stat_fun=stat_fun, threshold=threshold,
+        connectivity=adjacency, n_permutations=n_permutations)
+
+    return Clusters(clusters, cluster_p, stat, info=data1[0].info)

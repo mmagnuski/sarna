@@ -9,11 +9,11 @@ import os
 from setuptools import setup
 
 
-DISTNAME = 'mypy'
+DISTNAME = 'sarna'
 DESCRIPTION = "Various python tools for (mostly eeg) data analysis"
 MAINTAINER = u'Mikołaj Magnuski'
 MAINTAINER_EMAIL = 'mmagnuski@swps.edu.pl'
-URL = 'https://github.com/mmagnuski/mypy'
+URL = 'https://github.com/mmagnuski/sarna'
 LICENSE = 'MIT'
 DOWNLOAD_URL = 'https://github.com/mmagnuski/mypy'
 VERSION = '0.1dev1'
@@ -42,6 +42,6 @@ if __name__ == "__main__":
                        'Operating System :: Unix',
                        'Operating System :: MacOS'],
           platforms='any',
-          packages=['mypy', 'mypy.colors', 'mypy.data'],
-          package_data={'mypy': [os.path.join('colors', 'colors_pl.txt')]}
+          packages=['sarna', 'sarna.colors', 'sarna.data'],
+          package_data={'sarna': [os.path.join('colors', 'colors_pl.txt')]}
           )
