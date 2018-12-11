@@ -21,7 +21,8 @@ You need to have these packages:
 * `numpy`
 * `matplotlib`
 * `pandas`
+* [`mne`](https://martinos.org/mne/stable/index.html)
+* [`borsar`](https://github.com/mmagnuski/borsar)
 
 Additionally, parts of the code rely on:
 * `seaborn`
-* `mne`
