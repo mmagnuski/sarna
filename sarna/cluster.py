@@ -359,26 +359,35 @@ def permutation_cluster_t_test(data1, data2, paired=False, n_permutations=1000,
     '''FIXME: add docs.'''
     stat_fun = ttest_rel_no_p if paired else ttest_ind_no_p
 
+    inst = data1[0]
     len1, len2 = len(data1), len(data2)
+    if paired:
+        assert len1 == len2
+
     if threshold is None:
         from scipy.stats import distributions
-        df = (data1.shape[0] - 1 if paired else
-              data1.shape[0] + data2.shape[1] - 2)
-        threshold = distributions.t.ppf(p_threshold / 2., df=df)
+        df = (len1 - 1 if paired else
+              len1 + len2 - 2)
+        threshold = np.abs(distributions.t.ppf(p_threshold / 2., df=df))
 
     # data1 and data2 have to be Evokeds
     assert all([isinstance(dt, mne.Evoked) for dt in data1])
     assert all([isinstance(dt, mne.Evoked) for dt in data2])
 
-    tmin = 0 if tmin is None else data1[0].time_as_index(tmin)
-    tmax = (len(data1[0].times) if tmax is None
-            else data1[0].time_as_index(tmax) + 1)
+    tmin = 0 if tmin is None else inst.time_as_index(tmin)[0]
+    tmax = (len(inst.times) if tmax is None
+            else inst.time_as_index(tmax)[0] + 1)
 
     data1 = np.stack([erp.data[:, tmin:tmax].T for erp in data1], axis=0)
     data2 = np.stack([erp.data[:, tmin:tmax].T for erp in data2], axis=0)
 
-    stat, clusters, cluster_p = permutation_cluster_test(
+    if isinstance(adjacency, np.ndarray) and not sparse.issparse(adjacency):
+        adjacency = sparse.coo_matrix(adjacency)
+
+    stat, clusters, cluster_p, _ = permutation_cluster_test(
         [data1, data2], stat_fun=stat_fun, threshold=threshold,
         connectivity=adjacency, n_permutations=n_permutations)
 
-    return Clusters(clusters, cluster_p, stat, info=data1[0].info)
+    dimcoords = [inst.ch_names, inst.times[tmin:tmax]]
+    return Clusters([c.T for c in clusters], cluster_p, stat.T, info=inst.info,
+                    dimnames=['chan', 'time'], dimcoords=dimcoords)
