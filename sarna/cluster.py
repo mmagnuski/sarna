@@ -6,6 +6,7 @@ import numpy as np
 from scipy import sparse
 from scipy.io import loadmat
 
+import mne
 from mne.stats import permutation_cluster_test
 from borsar.cluster import Clusters, construct_adjacency_matrix
 

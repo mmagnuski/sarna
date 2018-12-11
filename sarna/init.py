@@ -15,14 +15,13 @@ from scipy import stats, signal
 
 # from scipy.stats import distributions as dist
 # from scipy import fftpack
+# import seaborn as sns?
 
 try:
   from showit import image
 except ImportError:
   pass
 
-# import seaborn as sns?
-# maybe seaborn.apionly?
 
-from mypy.utils import find_index
-from mypy.freq import dB
+from .utils import find_index
+from .freq import dB

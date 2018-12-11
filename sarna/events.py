@@ -3,7 +3,7 @@ import pandas as pd
 from scipy.io import loadmat
 
 from borsar.utils import find_range
-from mypy.utils import group, extend_slice
+from .utils import group, extend_slice
 
 # TODOs:
 # - [ ] create_middle_events should be made more universal

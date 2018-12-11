@@ -3,7 +3,7 @@ from copy import deepcopy
 from itertools import product
 
 import numpy as np
-from borsar.utils import get_info, find_index
+from borsar.utils import get_info, find_index, find_range
 
 
 # TODO:
