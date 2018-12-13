@@ -1,5 +1,7 @@
 # sarna
 
+<img src="http://zhr59sarny.blox.pl/resource/sarna1.jpg" width="300px">
+
 ## Installation
 Install from git:
 ```
