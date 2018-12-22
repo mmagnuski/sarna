@@ -1,4 +1,5 @@
 import os
+import os.path as op
 import numpy as np
 import pandas as pd
 from matplotlib.colors import hex2color
@@ -11,7 +12,7 @@ from matplotlib.colors import hex2color
 
 # load colors
 # -----------
-file_path = os.path.split(__file__)[0]
+file_path = op.join(op.split(__file__)[0], 'data', 'colors')
 all_colors = dict()
 searchlist = ["wiki pl"]
 
@@ -19,7 +20,7 @@ searchlist = ["wiki pl"]
 columns = ['colname', 'hex'] + list('rgb') + ['description', 'addinfo']
 wiki_pl_fullpath = os.path.join(file_path, 'colors_pl.txt')
 wiki_pl = pd.read_table(wiki_pl_fullpath, names=columns)
-all_colors['wiki pl'] = {'names': list(wiki_pl.colname), 
+all_colors['wiki pl'] = {'names': list(wiki_pl.colname),
 					'rgb': wiki_pl.loc[:, list('rgb')].values}
 
 # seaborn colors

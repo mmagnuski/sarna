@@ -6,6 +6,7 @@
 
 
 import os
+import os.path as op
 from setuptools import setup
 
 
@@ -42,6 +43,7 @@ if __name__ == "__main__":
                        'Operating System :: Unix',
                        'Operating System :: MacOS'],
           platforms='any',
-          packages=['sarna', 'sarna.colors', 'sarna.data'],
-          package_data={'sarna': [os.path.join('colors', 'colors_pl.txt')]}
+          packages=['sarna'],
+          package_data={'sarna': [op.join('data', 'colors', 'colors_pl.txt'),
+                                  op.join('data', 'chan', '*')]}
           )
