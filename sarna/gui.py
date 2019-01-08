@@ -99,6 +99,10 @@ class SpectrumPlot(object):
         self.xpos = 0.
         self.is_mouse_pressed = False
 
+        if psd.ndim == 2:
+            # no epochs, only channels x frequencies, add epochs dim
+            psd = psd[np.newaxis, :]
+
         self.n_trials, self.n_channels, self.n_freqs = psd.shape
 
         # box selection
