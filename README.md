@@ -3,11 +3,14 @@
 <img src="http://zhr59sarny.blox.pl/resource/sarna1.jpg" width="300px">
 
 ## Installation
-Install from git:
+Installing `sarna` requires `git` to be installed.
+Recommended way to install `sarna` (from github) is to:
 ```
 pip install git+https://github.com/mmagnuski/sarna
 ```
-or *if you want to develop*, this way:
+
+### advanced installation
+If you know what you are doing and want to have *editable, 'develop'* version of `sarna`, you can install either this way:
 ```
 pip install -e git+https://github.com/mmagnuski/sarna#egg=sarna
 ```
@@ -26,5 +29,5 @@ You need to have these packages:
 * [`mne`](https://martinos.org/mne/stable/index.html)
 * [`borsar`](https://github.com/mmagnuski/borsar)
 
-Additionally, parts of the code rely on:
+Additionally, parts of the code may rely on:
 * `seaborn`
