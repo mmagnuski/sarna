@@ -396,7 +396,12 @@ def highlight(x_values, highlight, color=None, alpha=0.3, axis=None):
     ylims = axis.get_ylim()
     y_rng = np.diff(ylims)
     hlf_dist = np.diff(x_values).mean() / 2
-    grp = group(which_highligh, return_slice=True)
+
+    if isinstance(highlight, np.ndarray):
+        grp = group(highlight, return_slice=True)
+    elif isinstance(highlight, slice):
+        grp = [highlight]
+
     for slc in grp:
         this_x = x_values[slc]
         start = this_x[0] - hlf_dist
