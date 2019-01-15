@@ -42,13 +42,19 @@ def add_image_mask(mask, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
                    axis=None, **imshow_kwargs):
     if axis is None:
         axis = plt.gca()
+    else:
+        # update imshow_kwargs so that image does not change
+        if 'aspect' not in imshow_kwargs:
+            imshow_kwargs['aspect'] = axis.get_aspect()
+        if 'extent' not in imshow_kwargs:
+            imshow_kwargs['extent'] = axis.images[0].get_extent()
+        if 'origin' not in imshow_kwargs:
+            imshow_kwargs['origin'] = axis.images[0].origin
 
     # create RGBA mask:
     mask_img = np.array(list(mask_color) + [0.]).reshape((1, 1, 4))
     mask_img = np.tile(mask_img, list(mask.shape) + [1])
-
-    # set alpha
-    mask_img[np.logical_not(mask), -1] = alpha
+    mask_img[~mask, -1] = alpha
 
     # plot images
     return axis.imshow(mask_img, **imshow_kwargs)
@@ -259,7 +265,7 @@ def _correct_all_outlines(outlines, orig_mask_shape, extent=None):
         orig_ranges = [orig_ext[1] - orig_ext[0],
                        orig_ext[3] - orig_ext[2]]
         ext_ranges = [extent[1] - extent[0],
-                       extent[3] - extent[2]]
+                      extent[3] - extent[2]]
         scales = [ext_ranges[0] / orig_ranges[0],
                   ext_ranges[1] / orig_ranges[1]]
 
