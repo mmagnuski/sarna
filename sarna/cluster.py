@@ -3,7 +3,7 @@ from os.path import split
 from functools import partial
 
 import numpy as np
-from scipy import sparse
+from scipy import sparse, signal
 from scipy.io import loadmat
 
 import mne
@@ -202,14 +202,16 @@ def cluster_1d(data, connectivity=None):
 # - [ ] compare to some other algo
 def cluster_3d(matrix, chan_conn):
     '''
-    parameters
+    Parameters
     ----------
-    matrix - 3d matrix: channels by dim2 by dim3
-    chan_conn - 2d boolean matrix with information about
-        channel adjacency. If chann_conn[i, j] is True that
-        means channel i and j are adjacent.
+    matrix : numpy array
+        Matrix of shape ``(channels, dim2, dim3)``
+    chan_conn : numpy array
+        2d boolean matrix with information about channel adjacency.
+        If ``chann_conn[i, j]`` is True that means channel i and j are
+        adjacent.
 
-    returns
+    Returns
     -------
     clusters - 3d integer matrix with cluster labels
     '''
@@ -281,8 +283,6 @@ def cluster_spread(cluster, connectivity):
 # - [ ] min_neighbours as a 0 - 1 float
 # - [ ] include_channels (what was the idea here?)
 def filter_clusters(mat, min_neighbours=4, min_channels=0, connectivity=None):
-    from scipy import signal
-
     kernel = np.array([[1, 1, 1], [1, 0, 1], [1, 1, 1]])
     mat = mat.copy()
     size = mat.shape

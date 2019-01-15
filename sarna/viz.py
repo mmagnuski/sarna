@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 from borsar.viz import Topo
 from borsar.utils import find_range, find_index, get_info
 
+from .utils import group
+
 
 def get_spatial_colors(inst):
     '''Get mne-style spatial colors for given mne object instance.'''
@@ -147,16 +149,31 @@ def selected_Topo(values, info, indices, replace='zero', **kawrgs):
 
 # TODOs:
 # create_contour:
-# - [ ] rename to create_contour, create_cluster_contours?
 # - [ ] docstring
 # - [ ] check timing and compare against numba version
+#       numba would be require some changes, we'd have to remove all the dicts
 #
 # separate cluter_contour?:
 # - [ ] cluster mode (returns a list or dict mapping cluster ids to list of
 #       cluster contours) - so that each cluster can be marked by a different
 #       color.
 def create_cluster_contour(mask, extent=None):
-    '''Create contour lines for clusters in boolean matrix.'''
+    '''Create contour lines for clusters in a boolean matrix.
+
+    Parameters
+    ----------
+    mask : numpy array
+        Two dimensional boolean numpy array.
+    extent : iterable, optional
+        The extents of the image: ``[x_min, x_max, y_min, y_max]`` - just as
+        the extent argument in ``matplotlib.pyplot.imshow``.
+
+    Returns
+    -------
+    contours : list
+        List of contours, one per cluster. Each controur is a list of two numpy
+        arrays: ``[x_contours, y_contours]``.
+    '''
     from scipy.ndimage import correlate
 
     orig_mask_shape = mask.shape
@@ -346,23 +363,28 @@ def imscatter(x, y, images, ax=None, zoom=1, selection='random'):
 # - [ ] support list/tuple of slices for which_highligh
 # - [ ] `level` and `height` are unused but should allow for highlight that
 #       takes only a fraction of the axis
-def highlight(x_values, which_highligh, kind='patch', color=None,
-              alpha=0.3, axis=None, level=0.04, height=0.03):
+#       kind='patch', level=0.04, height=0.03
+def highlight(x_values, highlight, color=None, alpha=0.3, axis=None):
     '''Highlight ranges along x axis.
 
     Parameters
     ----------
     x_values : numpy array
         Values specifying x axis points along which which_highligh operates.
-    which_highligh : numpy array of bool
-        Boolean values - each entry specifies whether corresponding value for
-        x_values belongs to highlighted ranges.
+    highlight : slice | numpy array
+        Slice or boolean numpy array defining which values in ``x_values``
+        should be highlighed.
+    color : str | list | numpy array, optional
+        Color in format understood by matplotlib. The default is 'orange'.
+    alpha : float
+        Highlight patch transparency. 0.3 by default.
+    axis : matplotlib Axes | None
+        Highligh on an already present axis. Default is ``None`` which creates
+        a new figure with one axis.
     '''
     from matplotlib.patches import Rectangle
-    from mypy.utils import group
 
-    if color is None:
-        color = 'orange' if kind == 'patch' else 'k'
+    color = 'orange' if color is None else color
     axis = plt.gca() if axis is None else axis
 
     ylims = axis.get_ylim()
@@ -416,7 +438,7 @@ def plot_cluster_heatmap(values, mask=None, axis=None, x_axis=None,
 
 
 # - [ ] cmap support
-# - [ ] multiple masks, multiple alpha, multiple outline_colors
+# - [ ] multiple masks, multiple alpha, multiple outline_colors?
 def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
             outlines=False, colorbar=True, line_kwargs=dict()):
     '''Plot heatmap with defaults meaningful for big heatmaps like
@@ -475,10 +497,6 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
         outlines = create_cluster_contour(mask, extent=ext)
         for x_line, y_line in outlines:
             img.axes.plot(x_line, y_line, **line_kwargs)
-
-    # plt.xlabel('Frequency', fontsize=14)
-    # plt.ylabel('Channels', fontsize=14)
-    # plt.title('{}'.format(format_pvalue(pval[cluster_id])))
 
     if colorbar:
         cbar = add_colorbar_to_axis(img.axes, img)
