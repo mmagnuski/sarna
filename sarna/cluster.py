@@ -190,6 +190,21 @@ def plot_neighbours(inst, adj_matrix, color='gray', kind='3d'):
     return fig
 
 
+def get_cluster_fun(data, adjacency=None):
+    has_adjacency = adjacency is not None
+    if data.ndim == 3 and has_adjacency:
+        if has_numba():
+            from .cluster_numba import cluster_3d_numba
+            return cluster_3d_numba
+        else:
+            return cluster_3d
+
+
+def cluster(data, adjacency=None):
+    clst_fun = get_cluster_fun(data, adjacency)
+    return clst_fun(data, adjacency)
+
+
 # TODO: do not convert to sparse if already sparse
 def cluster_1d(data, connectivity=None):
     from mne.stats.cluster_level import _find_clusters
@@ -391,3 +406,11 @@ def permutation_cluster_t_test(data1, data2, paired=False, n_permutations=1000,
     dimcoords = [inst.ch_names, inst.times[tmin:tmax]]
     return Clusters([c.T for c in clusters], cluster_p, stat.T, info=inst.info,
                     dimnames=['chan', 'time'], dimcoords=dimcoords)
+
+
+def has_numba():
+    try:
+        from numba import jit
+        return True
+    except ImportError:
+        return False
