@@ -114,7 +114,6 @@ def plot_neighbours(inst, adj_matrix, color='gray', kind='3d'):
     def onpick(event, axes=None, positions=None, highlighted=None,
                line_dict=None, highlighted_scatter=None, adj_matrix=None):
         node_ind = event.ind[0]
-        print(node_ind)
         if node_ind in highlighted:
             # change node color back to normal
             highlighted_scatter[0].remove()
@@ -268,8 +267,8 @@ def remove_links(mat, min_pixels=5):
 
 
 def relabel_mat(mat, label_map):
-    '''change values in a matrix of integers such that mapping given
-    in label_map dict is fulfilled
+    '''Change values in a matrix of integers such that mapping given
+    in label_map dict is fulfilled.
 
     parameters
     ----------
