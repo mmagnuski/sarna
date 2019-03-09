@@ -7,7 +7,7 @@ from scipy import sparse, signal
 from scipy.io import loadmat
 
 import mne
-from mne.stats import permutation_cluster_test
+from mne.stats import permutation_cluster_test, ttest_1samp_no_p
 from borsar.cluster import Clusters, construct_adjacency_matrix
 
 from . import utils
@@ -301,16 +301,23 @@ def permutation_cluster_t_test(data1, data2, paired=False, n_permutations=1000,
                                threshold=None, p_threshold=0.05,
                                adjacency=None, tmin=None, tmax=None):
     '''FIXME: add docs.'''
-    stat_fun = ttest_rel_no_p if paired else ttest_ind_no_p
+    if data2 is not None:
+        one_sample = False
+        stat_fun = ttest_rel_no_p if paired else ttest_ind_no_p
+    else:
+        one_sample = True
+        stat_fun = lambda data: ttest_1samp_no_p(data[0])
 
     inst = data1[0]
-    len1, len2 = len(data1), len(data2)
+    len1 = len(data1)
+    len2 = len(data2) if data2 is not None else 0
+
     if paired:
         assert len1 == len2
 
     if threshold is None:
         from scipy.stats import distributions
-        df = (len1 - 1 if paired else
+        df = (len1 - 1 if paired or one_sample else
               len1 + len2 - 2)
         threshold = np.abs(distributions.t.ppf(p_threshold / 2., df=df))
 
