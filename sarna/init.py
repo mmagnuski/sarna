@@ -18,10 +18,10 @@ from scipy import stats, signal
 # import seaborn as sns?
 
 try:
-  from showit import image
+    from showit import image
 except ImportError:
-  pass
+    pass
 
 
-from .utils import find_index
+from .utils import find_index, find_range
 from .freq import dB

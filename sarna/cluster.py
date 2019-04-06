@@ -7,7 +7,7 @@ from scipy import sparse, signal
 from scipy.io import loadmat
 
 import mne
-from mne.stats import permutation_cluster_test
+from mne.stats import permutation_cluster_test, ttest_1samp_no_p
 from borsar.cluster import Clusters, construct_adjacency_matrix
 
 from . import utils
@@ -114,7 +114,6 @@ def plot_neighbours(inst, adj_matrix, color='gray', kind='3d'):
     def onpick(event, axes=None, positions=None, highlighted=None,
                line_dict=None, highlighted_scatter=None, adj_matrix=None):
         node_ind = event.ind[0]
-        print(node_ind)
         if node_ind in highlighted:
             # change node color back to normal
             highlighted_scatter[0].remove()
@@ -190,18 +189,9 @@ def plot_neighbours(inst, adj_matrix, color='gray', kind='3d'):
     return fig
 
 
-def get_cluster_fun(data, adjacency=None):
-    has_adjacency = adjacency is not None
-    if data.ndim == 3 and has_adjacency:
-        if has_numba():
-            from .cluster_numba import cluster_3d_numba
-            return cluster_3d_numba
-        else:
-            return cluster_3d
-
-
 def cluster(data, adjacency=None):
-    clst_fun = get_cluster_fun(data, adjacency)
+    from borsar.cluster import _get_cluster_fun
+    clst_fun = _get_cluster_fun(data, adjacency)
     return clst_fun(data, adjacency)
 
 
@@ -211,67 +201,6 @@ def cluster_1d(data, connectivity=None):
     if connectivity is not None:
         connectivity = sparse.coo_matrix(connectivity)
     return _find_clusters(data, 0.5, connectivity=connectivity)
-
-
-# - [ ] check timing on some 3d matrix (3d random smoothed?)
-# - [ ] compare to some other algo
-def cluster_3d(matrix, chan_conn):
-    '''
-    Parameters
-    ----------
-    matrix : numpy array
-        Matrix of shape ``(channels, dim2, dim3)``
-    chan_conn : numpy array
-        2d boolean matrix with information about channel adjacency.
-        If ``chann_conn[i, j]`` is True that means channel i and j are
-        adjacent.
-
-    Returns
-    -------
-    clusters - 3d integer matrix with cluster labels
-    '''
-    # matrix has to be bool
-    assert matrix.dtype == np.bool
-
-    # nested import
-    from skimage.measure import label
-
-    # label each channel separately
-    clusters = np.zeros(matrix.shape, dtype='int')
-    max_cluster_id = 0
-    n_chan = matrix.shape[0]
-    for ch in range(n_chan):
-        clusters[ch, :, :] = label(matrix[ch, :, :],
-            connectivity=1, background=False)
-
-        # relabel so that layers do not have same cluster ids
-        num_clusters = clusters[ch, :, :].max()
-        clusters[ch, clusters[ch,:] > 0] += max_cluster_id
-        max_cluster_id += num_clusters
-
-    # unrolled views into clusters for ease of channel comparison:
-    unrolled = [clusters[ch, :].ravel() for ch in range(n_chan)]
-    # check channel neighbours and merge clusters across channels
-    for ch in range(n_chan - 1): # last chan will be already checked
-        ch1 = unrolled[ch]
-        ch1_ind = np.where(ch1)[0]
-        if ch1_ind.shape[0] == 0:
-            continue # no clusters, no fun...
-
-        # get unchecked neighbours
-        neighbours = np.where(chan_conn[ch + 1:, ch])[0]
-        if neighbours.shape[0] > 0:
-            neighbours += ch + 1
-
-            for ngb in neighbours:
-                ch2 = unrolled[ngb]
-                for ind in ch1_ind:
-                    # relabel clusters if adjacent and not the same id
-                    if ch2[ind] and not (ch1[ind] == ch2[ind]):
-                        c1 = min(ch1[ind], ch2[ind])
-                        c2 = max(ch1[ind], ch2[ind])
-                        clusters[clusters == c2] = c1
-    return clusters
 
 
 def cluster_spread(cluster, connectivity):
@@ -338,8 +267,8 @@ def remove_links(mat, min_pixels=5):
 
 
 def relabel_mat(mat, label_map):
-    '''change values in a matrix of integers such that mapping given
-    in label_map dict is fulfilled
+    '''Change values in a matrix of integers such that mapping given
+    in label_map dict is fulfilled.
 
     parameters
     ----------
@@ -368,49 +297,189 @@ def smooth(matrix, sd=2.):
     return matrix
 
 
+def check_list_inst(data, inst):
+    tps = list()
+    for this_data in data:
+        if not isinstance(this_data, inst):
+            raise TypeError('One of the objects in data list does not '
+                            'belong to supported mne objects (Evoked, '
+                            'AverageTFR).')
+        tps.append(type(this_data))
+    all_same_type = [tp == tps[0] for tp in tps[1:]]
+    if not all_same_type:
+        raise TypeError('Not all objects in the data list are of the same'
+                        ' mne object class.')
+
+
+# - [~] add TFR tests! - +fmin, +fmax
+# - [ ] add 2-step tests?
+# - [ ] consider renaming to ..._ttest
 def permutation_cluster_t_test(data1, data2, paired=False, n_permutations=1000,
                                threshold=None, p_threshold=0.05,
                                adjacency=None, tmin=None, tmax=None):
     '''FIXME: add docs.'''
-    stat_fun = ttest_rel_no_p if paired else ttest_ind_no_p
+    if data2 is not None:
+        one_sample = False
+        stat_fun = ttest_rel_no_p if paired else ttest_ind_no_p
+    else:
+        one_sample = True
+        stat_fun = lambda data: ttest_1samp_no_p(data[0])
 
     inst = data1[0]
-    len1, len2 = len(data1), len(data2)
+    len1 = len(data1)
+    len2 = len(data2) if data2 is not None else 0
+
     if paired:
         assert len1 == len2
 
     if threshold is None:
         from scipy.stats import distributions
-        df = (len1 - 1 if paired else
+        df = (len1 - 1 if paired or one_sample else
               len1 + len2 - 2)
         threshold = np.abs(distributions.t.ppf(p_threshold / 2., df=df))
 
-    # data1 and data2 have to be Evokeds
-    assert all([isinstance(dt, mne.Evoked) for dt in data1])
-    assert all([isinstance(dt, mne.Evoked) for dt in data2])
+    # data1 and data2 have to be Evokeds or TFRs
+    supported_types = (mne.Evoked, mne.time_frequency.AverageTFR)
+    check_list_inst(data1, inst=supported_types)
+    if data2 is not None:
+        check_list_inst(data2, inst=supported_types)
 
     tmin = 0 if tmin is None else inst.time_as_index(tmin)[0]
     tmax = (len(inst.times) if tmax is None
             else inst.time_as_index(tmax)[0] + 1)
+    time_slice = slice(tmin, tmax)
 
-    data1 = np.stack([erp.data[:, tmin:tmax].T for erp in data1], axis=0)
-    data2 = np.stack([erp.data[:, tmin:tmax].T for erp in data2], axis=0)
+    if isinstance(data1[0], mne.time_frequency.AverageTFR):
+        # + fmin, fmax
+        data1 = np.stack([erp.data[:, :, tmin:tmax] for erp in data1], axis=0)
+        data2 = (np.stack([erp.data[:, :, tmin:tmax] for erp in data2], axis=0)
+                 if data2 is not None else data2)
+    else:
+        data1 = np.stack([erp.data[:, tmin:tmax].T for erp in data1], axis=0)
+        data2 = (np.stack([erp.data[:, tmin:tmax].T for erp in data2], axis=0)
+                 if data2 is not None else data2)
 
-    if isinstance(adjacency, np.ndarray) and not sparse.issparse(adjacency):
+    data_3d = data1.ndim > 3
+    if (isinstance(adjacency, np.ndarray) and not sparse.issparse(adjacency)
+        and not data_3d):
         adjacency = sparse.coo_matrix(adjacency)
 
-    stat, clusters, cluster_p, _ = permutation_cluster_test(
-        [data1, data2], stat_fun=stat_fun, threshold=threshold,
-        connectivity=adjacency, n_permutations=n_permutations)
+    if not data_3d:
+        stat, clusters, cluster_p, _ = permutation_cluster_test(
+            [data1, data2], stat_fun=stat_fun, threshold=threshold,
+            connectivity=adjacency, n_permutations=n_permutations)
+        dimcoords = [inst.ch_names, inst.times[tmin:tmax]]
+        return Clusters([c.T for c in clusters], cluster_p, stat.T,
+                        info=inst.info, dimnames=['chan', 'time'],
+                        dimcoords=dimcoords)
 
-    dimcoords = [inst.ch_names, inst.times[tmin:tmax]]
-    return Clusters([c.T for c in clusters], cluster_p, stat.T, info=inst.info,
-                    dimnames=['chan', 'time'], dimcoords=dimcoords)
+    else:
+        stat, clusters, cluster_p = _permutation_cluster_test_3d(
+            [data1, data2], adjacency, stat_fun, threshold=threshold,
+            n_permutations=n_permutations)
+        dimcoords = [inst.ch_names, inst.freqs, inst.times[tmin:tmax]]
+        return Clusters(clusters, cluster_p, stat, info=inst.info,
+                        dimnames=['chan', 'freq', 'time'], dimcoords=dimcoords)
 
 
-def has_numba():
-    try:
-        from numba import jit
-        return True
-    except ImportError:
-        return False
+def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
+                                 one_sample=True, p_threshold=0.05,
+                                 n_permutations=1000, progressbar=True,
+                                 return_distribution=False, backend='auto'):
+    """FIXME: add docs."""
+
+    from borsar.cluster import _get_cluster_fun
+
+    if progressbar:
+        from tqdm import tqdm_notebook
+        pbar = tqdm_notebook(total=n_permutations)
+
+    n_obs = data[0].shape[0]
+    signs = np.array([-1, 1])
+    signs_size = tuple([n_obs] + [1] * (data[0].ndim - 1))
+
+    pos_dist = np.zeros(n_permutations)
+    neg_dist = np.zeros(n_permutations)
+
+    # test on non-permuted data
+    stat = stat_fun(data)
+
+    # use 3d clustering
+    cluster_fun = _get_cluster_fun(stat, adjacency=adjacency,
+                                   backend=backend)
+
+    # we need to transpose dimensions for 3d clustering
+    # FIXME/TODO - this could be eliminated by creating a single unified
+    #              clustering function / API
+    # jdata_dims = list(range(data[0].ndim))
+    # data_dims[1], data_dims[-1] = data_dims[-1], 1
+    # stat = stat.transpose(data_dims[1:] - 1)
+    pos_clusters = cluster_fun(stat > threshold, adjacency)
+    neg_clusters = cluster_fun(stat < -threshold, adjacency)
+
+    # FIXME/TODO - move the part below to separate clustering function
+    #              consider numba optimization too...
+    pos_cluster_id = np.unique(pos_clusters)[1:]
+    neg_cluster_id = np.unique(neg_clusters)[1:]
+    clusters = ([pos_clusters == id for id in pos_cluster_id]
+                + [neg_clusters == id for id in neg_cluster_id])
+    cluster_stats = np.array([stat[clst].sum() for clst in clusters])
+
+    if not clusters:
+        print('No clusters found, permutations are not performed.')
+        return stat, clusters, cluster_stats
+    else:
+        msg = 'Found {} clusters, computing permutations.'
+        print(msg.format(len(clusters)))
+
+    # compute permutations
+    for perm in range(n_permutations):
+        # permute predictors
+        if one_sample:
+            idx = np.random.random_integers(0, 1, size=signs_size)
+            perm_signs = signs[idx]
+            perm_data = data[0] * perm_signs
+            perm_stat = stat_fun(data)
+
+        # FIXME/TODO - move the part below to separate clustering function
+        #              consider numba optimization too...
+        perm_pos_clusters = cluster_fun(perm_stat > threshold, adjacency)
+        perm_neg_clusters = cluster_fun(perm_stat < -threshold, adjacency)
+
+        perm_pos_cluster_id = np.unique(perm_pos_clusters)[1:]
+        perm_neg_cluster_id = np.unique(perm_neg_clusters)[1:]
+        perm_neg_clusters = [perm_neg_clusters == id
+                             for id in perm_neg_cluster_id]
+        perm_clusters = ([perm_pos_clusters == id for id in
+                          perm_pos_cluster_id] + perm_neg_clusters)
+        perm_cluster_stats = np.array([perm_stat[clst].sum()
+                                       for clst in perm_clusters])
+
+        # if any clusters were found - add max statistic
+        if len(perm_cluster_stats) > 0:
+            max_val = perm_cluster_stats.max()
+            min_val = perm_cluster_stats.min()
+
+            if max_val > 0: pos_dist[perm] = max_val
+            if min_val < 0: neg_dist[perm] = min_val
+
+        if progressbar:
+            pbar.update(1)
+
+    # compute permutation probability
+    cluster_p = np.array([(pos_dist > cluster_stat).mean() if cluster_stat > 0
+                          else (neg_dist < cluster_stat).mean()
+                          for cluster_stat in cluster_stats])
+    cluster_p *= 2 # because we use two-tail
+    cluster_p[cluster_p > 1.] = 1. # probability has to be <= 1.
+
+    # FIXME: this may not be needed because Clusters sorts by p val...
+    # sort clusters by p value
+    cluster_order = np.argsort(cluster_p)
+    cluster_p = cluster_p[cluster_order]
+    clusters = [clusters[i] for i in cluster_order]
+
+    if return_distribution:
+        return stat, clusters, cluster_p, dict(pos=pos_dist, neg=neg_dist)
+    else:
+        return stat, clusters, cluster_p

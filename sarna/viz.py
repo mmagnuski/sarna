@@ -60,6 +60,7 @@ def add_image_mask(mask, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
     return axis.imshow(mask_img, **imshow_kwargs)
 
 
+# is this plot ever used? maybe move to gui
 # this pacplot can be used with partial to couple with some figure
 def pacplot(ch_ind=None, fig=None):
     if ch_ind is None:
@@ -68,6 +69,7 @@ def pacplot(ch_ind=None, fig=None):
     mask = np.abs(im) > 2.
     fig, ax = plt.subplots()
     masked_image(im, mask, origin='lower', vmin=-3, vmax=3)
+
 
 # this on_pick can be used with partial to couple with some figure
 def on_pick(event, fig=None):
@@ -366,7 +368,7 @@ def imscatter(x, y, images, ax=None, zoom=1, selection='random'):
     return artists
 
 
-# - [ ] support list/tuple of slices for which_highligh
+# - [ ] support list/tuple of slices for which_highligh?
 # - [ ] `level` and `height` are unused but should allow for highlight that
 #       takes only a fraction of the axis
 #       kind='patch', level=0.04, height=0.03
@@ -448,10 +450,10 @@ def plot_cluster_heatmap(values, mask=None, axis=None, x_axis=None,
             tick.label.set_fontsize(8)
 
 
-# - [ ] cmap support
 # - [ ] multiple masks, multiple alpha, multiple outline_colors?
 def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
-            outlines=False, colorbar=True, line_kwargs=dict()):
+            outlines=False, colorbar=True, cmap='RdBu_r', line_kwargs=dict(),
+            **kwargs):
     '''Plot heatmap with defaults meaningful for big heatmaps like
     time-frequency representations.
 
@@ -472,6 +474,8 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
         whether to draw outlines of the clusters defined by the mask.
     colorbar : boolean
         Whether to add a colorbar to the image.
+    cmap : str
+        Colormap to use. Defaults to ``'RdBu_r'``.
     line_kwargs : dict
         Dictionary of additional parameters for outlines.
 
@@ -494,11 +498,10 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
     ext = [*(x_axis[[0, -1]] + [-x_step / 2, x_step / 2]),
            *(y_axis[[0, -1]] + [-y_step / 2, y_step / 2])]
 
-
     out = masked_image(array, mask=mask, vmin=vmin, vmax=vmax,
-                       cmap='RdBu_r', aspect='auto', extent=ext,
+                       cmap=cmap, aspect='auto', extent=ext,
                        interpolation='nearest', origin='lower',
-                       axis=axis)
+                       axis=axis, **kwargs)
     img = out if mask is None else out[0]
 
     # add outlines if necessary
@@ -528,7 +531,7 @@ def add_colorbar_to_axis(axis, source, side='right', size='8%', pad=0.1):
 
 
 def plot_topomap_raw(raw, times=None):
-    '''plot_topomap for raw mne objects
+    '''``plot_topomap`` for mne ``Raw`` objects.
 
     Parameters
     ----------
