@@ -289,7 +289,7 @@ def array2df(arr, dim_names=None, groups=None, value_name='value'):
 
 
 # utility function used by array2df (what does it do?)
-# better docs, comments, assert fail message
+# FIXME - better docs, comments, assert fail message
 def _check_dict(dct, dim_len):
     if isinstance(dct, dict):
         str_keys = all(isinstance(k, str) for k in dct.keys())

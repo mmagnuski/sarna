@@ -60,7 +60,8 @@ def add_image_mask(mask, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
     return axis.imshow(mask_img, **imshow_kwargs)
 
 
-# this pacplot can be used with partial to couple with some figure
+# FIXME - is this plot ever used? maybe move to gui
+#         this pacplot can be used with partial to couple with some figure
 def pacplot(ch_ind=None, fig=None):
     if ch_ind is None:
         ch_ind = [eeg.ch_names.index(ch) for ch in fig.lasso.selection]
@@ -119,7 +120,23 @@ def set_3d_axes_equal(ax):
 
 
 def color_limits(data):
-    '''Set color limits from data.'''
+    '''Set color limits from data.
+
+    Parameters
+    ----------
+    data : numpy array
+        Data to set colorlimits for.
+
+    Returns
+    -------
+    vmin : float
+        Minimum value for the colormap.
+    vmax : float
+        Maximum value for the colormap.
+    '''
+    if data.dtype == 'bool':
+        return 0., 1.
+
     vmax = np.abs([np.nanmin(data), np.nanmax(data)]).max()
     return -vmax, vmax
 
@@ -451,7 +468,8 @@ def plot_cluster_heatmap(values, mask=None, axis=None, x_axis=None,
 # - [ ] cmap support
 # - [ ] multiple masks, multiple alpha, multiple outline_colors?
 def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
-            outlines=False, colorbar=True, line_kwargs=dict()):
+            outlines=False, colorbar=True, cmap='RdBu_r', vmin=None, vmax=None,
+            line_kwargs=dict(), **kwargs):
     '''Plot heatmap with defaults meaningful for big heatmaps like
     time-frequency representations.
 
@@ -472,6 +490,12 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
         whether to draw outlines of the clusters defined by the mask.
     colorbar : boolean
         Whether to add a colorbar to the image.
+    cmap : str
+        Colormap to use. Defaults to ``'RdBu_r'``.
+    vmin : float | None
+        Minimum value for the colormap.
+    vmax : float | None
+        Maximum value for the colormap.
     line_kwargs : dict
         Dictionary of additional parameters for outlines.
 
@@ -482,7 +506,8 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
     cbar : matplotlib colorbar
         The handle to the colorbar.
     '''
-    vmin, vmax = color_limits(array)
+    if vmin is None and vmax is None:
+        vmin, vmax = color_limits(array)
     n_rows, n_cols = array.shape
 
     x_axis = np.arange(n_cols) if x_axis is None else x_axis

@@ -62,7 +62,8 @@ def plot_neighbours(inst, adj_matrix, color='gray', kind='3d'):
     tps = utils.mne_types()
     from .viz import set_3d_axes_equal
     from mne.viz import plot_sensors
-    assert isinstance(inst, (tps['raw'], tps['epochs'], tps['info']))
+    assert isinstance(inst, (tps['raw'], tps['epochs'], tps['info'],
+                             mne.Evoked))
     info = utils.get_info(inst)
 
     if isinstance(adj_matrix, sparse.coo_matrix):
