@@ -319,3 +319,111 @@ def _check_dict(dct, dim_len):
         assert len(dct) == dim_len
         new_dct = dct
     return new_dct
+
+
+# - [ ] add round-trip test
+# - [ ] later consider support for reading partial epochs into mne
+#       partial='ignore' or partial='nan' (or maybe a list of epochs then
+#       but that wouldn't be that useful)
+def epochs_to_ft(epochs, fname, var_name='data', trialinfo=None):
+    '''Save epochs to a .mat file in fieldtrip trials representation.
+
+    Parameters
+    ----------
+    epochs : mne.Epochs
+        Instance of mne epochs object. The epochs data to save to
+        the .mat file in fieldtrip represetnation.
+    fname : str
+        Name (or full path) of the file to save data to.
+    var_name : str, optional
+        Variable info to put all the information in, 'data' by default.
+        If False or None - all the components (trial, time, label etc.) will
+        be saved directly in the .mat file. This makes a slight difference in
+        reading in matlab where ``var_name=False`` could be seen as more
+        convenient. With ``var_name='data'``:
+        > temp = load('saved_file.mat');
+        > data = temp.data;
+        With ``var_name=False``:
+        > data = load('saved_file.mat')
+    trialinfo : 2d numpy array, optional
+        n_trials x n_features numpy array where features are information the
+        user wants to keep track of for respective trials (for example -
+        experimental conditions and/or behavioral performance). By default
+        trialinfo is None, which leads to saving just the trial numbers in
+        data.trialinfo.
+    '''
+    import mne
+    from scipy.io import savemat
+    from borsar.channels import get_ch_pos
+
+    # safety checks
+    if not isinstance(epochs, mne.Epochs):
+        raise TypeError('epochs must be an instance of mne.Epochs,'
+                        'got %s.' % type(epochs))
+
+    if not isinstance(fname, str):
+        raise TypeError('fname must be a str, got %s.' % type(fname))
+
+
+    # get basic information from the epochs file
+    sfreq = epochs.info['sfreq']
+    n_trials, n_channels, n_samples = epochs._data.shape
+    ch_names = np.array(epochs.ch_names, dtype='object'
+                        ).reshape((n_channels, 1))
+
+    if trialinfo is not None:
+        assert isinstance(trialinfo, np.ndarray), ('trialinfo must be a numpy'
+                                                   ' array.')
+        assert trialinfo.ndim == 2, 'trialinfo must be 2d.'
+        if not trialinfo.shape[0] == n_trials:
+            msg = ('trialinfo must have n_trials rows, n_trials is {:d} while'
+                   ' trialinfo number of rows is {:d}.').format(
+                   n_trials, trialinfo.shape[0])
+            raise ValueError(msg)
+    else:
+        trialinfo = np.arange(1, n_trials + 1, dtype='float').reshape(
+            n_trials, 1)
+
+    # get channel position, multiply by 100 because fieldtrip wants
+    # units in cm, not meters
+    pos = get_ch_pos(epochs) * 100
+    n_samples_pre = (epochs.times < 0.).sum()
+
+    # double brackets to have n_channels x 1 array
+    chantype = np.array([['eeg']] * n_channels, dtype='object')
+    chanunit = np.array([['V']] * n_channels, dtype='object')
+
+    # reconstruct epoch sample limits from epochs.events
+    sample_limits = np.round(epochs.times[[0, -1]] * sfreq).astype('int')
+    sampleinfo = np.stack([epochs.events[:, 0] + sample_limits[0] + 1,
+                           epochs.events[:, 0] + sample_limits[1] + 1],
+                          axis=1)
+
+    # construct cell array of times and trial data
+    time = np.empty((1, n_trials), dtype='object')
+    trial = np.empty((1, n_trials), dtype='object')
+    for idx in range(n_trials):
+        time[0, idx] = epochs.times
+        trial[0, idx] = epochs._data[idx]
+
+    data = dict()
+    # header could have elec, but it does not seem to be necessary
+    data['hdr'] = dict(label=ch_names, nChans=n_channels, Fs=sfreq,
+                       nSamples=n_samples, nSamplesPre=n_samples_pre,
+                       nTrials=n_trials, chantype=chantype, chanunit=chanunit)
+    data['label'] = ch_names
+    data['time'] = time
+    data['trial'] = trial
+    data['fsample'] = sfreq
+    # sampleinfo and trialinfo are used in matlab in the default double format
+    data['sampleinfo'] = sampleinfo.astype('float')
+    data['trialinfo'] = trialinfo.astype('float')
+    data['elec'] = dict(chanpos=pos, chantype=chantype, chanunit=chanunit,
+                        elecpos=pos, label=ch_names, unit='cm')
+    data['elec']['type'] = 'egi64'
+
+    # pack into a variable if var_name is defined
+    if var_name:
+        data = {var_name: data}
+
+    savemat(fname, data)
