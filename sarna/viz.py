@@ -579,3 +579,54 @@ def plot_topomap_raw(raw, times=None):
                              vmin=-minmax, vmax=minmax)
         ax.set_title('{} s'.format(times[i]))
     return fig
+
+
+def prepare_equal_axes(fig, n_axes, space=[0.02, 0.98, 0.02, 0.98],
+                       w_dist=0.025, h_dist=0.025):
+    '''Prepare equal axes spanning given figure space. FIXME docs'''
+
+    # transforms
+    trans = fig.transFigure
+    trans_inv = fig.transFigure.inverted()
+
+    # FIXME - change space to be [x0, y0, w, h]
+    axes_space = np.array(space).reshape((2, 2)).T
+    axes_space_disp_units = trans.transform(axes_space)
+    space_h = np.diff(axes_space_disp_units[:, 1])[0]
+    space_w = np.diff(axes_space_disp_units[:, 0])[0]
+
+    w_dist, h_dist = trans.transform([w_dist, h_dist])
+
+    h = (space_h - (h_dist * (n_axes[0] - 1))) / n_axes[0]
+    w = (space_w - (w_dist * (n_axes[1] - 1))) / n_axes[1]
+
+    # if too much width or height space of each axes - increase spacing
+    # FIXME, ADD: other spacing options (for example align to top)
+    if w > h:
+        w_diff = w - h
+        additional_w_dist = w_diff * n_axes[1] / (n_axes[1] - 1)
+        w_dist += additional_w_dist
+        w = h
+    elif h > w:
+        h_diff = h - w
+        additional_h_dist = h_diff * n_axes[0] / (n_axes[0] - 1)
+        h_dist += additional_h_dist
+        h = w
+
+    # start creating axes from bottom left corner,
+    # then flipud the axis matrix
+    axes = list()
+    w_fig, h_fig = trans_inv.transform([w, h])
+    for row_idx in range(n_axes[0]):
+        row_axes = list()
+        y0 = axes_space_disp_units[0, 1] + (h + h_dist) * row_idx
+        _, y0 = trans_inv.transform([0, y0])
+        for col_idx in range(n_axes[1]):
+            x0 = axes_space_disp_units[0, 0] + (w + w_dist) * col_idx
+            x0, _ = trans_inv.transform([x0, 0])
+            ax = fig.add_axes([x0, y0, w_fig, h_fig])
+            row_axes.append(ax)
+        axes.append(row_axes)
+
+    axes = np.flipud(np.array(axes))
+    return axes
