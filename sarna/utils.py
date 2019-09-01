@@ -37,6 +37,14 @@ def whos():
         del frame
 
 
+def find_files(directory, ends=None):
+    '''FIXME - add docs.'''
+    files = os.listdir(directory)
+    if ends is not None:
+        files = [f for f in files if f.endswith(ends)]
+    return files
+
+
 def extend_slice(slc, val, maxval, minval=0):
     '''Extend slice `slc` by `val` in both directions but not exceeding
     `minval` or `maxval`.
@@ -381,8 +389,9 @@ def epochs_to_ft(epochs, fname, var_name='data', trialinfo=None):
                    n_trials, trialinfo.shape[0])
             raise ValueError(msg)
     else:
-        trialinfo = np.arange(1, n_trials + 1, dtype='float').reshape(
-            n_trials, 1)
+        # get event_id as the first column and epoch index as the second
+        epoch_idx = np.arange(1, n_trials + 1, dtype='float')
+        trialinfo = np.stack([epochs.events[:, -1], epoch_idx], axis=1)
 
     # get channel position, multiply by 100 because fieldtrip wants
     # units in cm, not meters
