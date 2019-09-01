@@ -1,15 +1,17 @@
+# imports for special_rounding:
+from decimal import localcontext, Decimal, ROUND_HALF_UP, ROUND_HALF_DOWN
+
 import numpy as np
 import matplotlib.pyplot as plt
 from .viz import Topo
+from borsar.channels import find_channels
 
 
 # TODOs:
-# MultiDimView:
+# MultiDimView will need review and changes:
+# - [ ] consider merging with TFR_GUI
 # - [ ] add colorbar
-# - [ ] add topo view
-# - [ ] clickable topo view
-# - [ ] cickable (blockable) color bar
-# - [ ] add window select
+# - [ ] cickable (blockable) color bar (??)
 # SignalPlotter:
 # - [ ] design object API (similar to fastplot)
 # - [ ] continuous and epoched signal support
@@ -278,3 +280,120 @@ class SpectrumPlot(object):
             self.fig.suptitle('trial {}'.format(self.trial))
 
             self.fig.canvas.draw()
+
+
+# TODOs:
+# - [ ] add colorbars
+# - [ ] allow for auto-scaling vmin, vmax for given topo / image
+class TFR_GUI(object):
+    '''Class for interactive plotting of TFR or PAC mutli-channel results.'''
+    def __init__(self, data, info):
+        import mne
+
+        from mne.viz.utils import SelectFromCollection
+        from matplotlib.widgets import RectangleSelector
+
+        # create figure and panels
+        self.fig = plt.figure(figsize=(10, 5))
+        self.topo_ax = self.fig.add_axes([0.05, 0.1, 0.3, 0.8])
+        self.image_ax = self.fig.add_axes([0.4, 0.05, 0.45, 0.9])
+
+        self.data = data
+        self.info = info
+        ch_names = info['ch_names']
+
+        # init topo
+        # ---------
+        # average values for channels
+        topo_data = data.mean(axis=(1, 2))
+
+        # TODO change vmin and vmax for TFR vs PAC
+        vmin = 0
+        vmax = np.quantile(data, 0.99)
+        self.topo = Topo(topo_data, info, axes=self.topo_ax,
+                         vmin=vmin, vmax=vmax)
+
+        # oznaczamy dodatkowymi 'groszkami' pozycję kanałów
+        marks = self.topo_ax.scatter(*self.topo.chan_pos.T, marker='o', s=10,
+                                     c='k')
+
+        # init image
+        # ----------
+        avg_img = data.mean(axis=0)
+        self.image_ax.imshow(avg_img, aspect='auto', origin='lower', vmin=vmin,
+                             vmax=vmax)
+
+        # TODO: labels and ticks
+
+        # interfaces
+        # ----------
+
+        # box-selection
+        self.box_select = RectangleSelector(self.image_ax, self.on_boxselect,
+                                            drawtype='box', useblit=True,
+                                            button=[1], interactive=True)
+
+        # lasso selection
+        self.lasso_selection = SelectFromCollection(
+            self.topo_ax, marks, np.array(ch_names), alpha_other=0.1)
+
+        # podpinamy te funkcje pod odpowiednie wydarzenia
+        self.fig.canvas.mpl_connect('key_press_event', self.box_select)
+        self.fig.canvas.mpl_connect('lasso_event', self.on_lasso)
+
+    def on_boxselect(self, eclick, erelease):
+        ext = self.box_select.extents
+
+        # FIXME: change so that we look for closest limits, not round
+        ext = np.array(special_rounding(ext[:2]) + special_rounding(ext[2:]))
+
+        bad_idx = ext < 0
+        if (bad_idx).any():
+            ext[bad_idx] = 0
+
+        # TODO could also check top limits...
+
+        # pierwszy wymiar adresujemy: ext[2]:ext[3] + 1
+        dim1 = slice(ext[2], ext[3] + 1)
+
+        # drugi wymiar adresujemy: ext[0]:ext[1] + 1
+        dim2 = slice(ext[0], ext[1] + 1)
+
+        topo_data = self.data[:, dim1, dim2].mean(axis=(1, 2))
+        self.topo.update(topo_data)
+
+        ext = ext + np.array([-0.5, 0.5, -0.5, 0.5])
+        self.box_select.extents = ext.tolist() # tolist() may not be needed
+
+        # wymuszamy redraw (may not be needed)
+        self.fig.canvas.draw()
+
+    def on_lasso(self):
+        ch_idx = find_channels(self.info, self.lasso_selection.selection)
+        avg_img = self.data[ch_idx].mean(axis=0)
+
+        # TODO - change imshow to image update
+        self.image_ax.images[0].set_data(avg_img)
+
+        # may not be needed:
+        # self.box_select.update()
+
+
+# some old notes for interactivity:
+# fig.canvas.mpl_connect('pick_event', on_pick)
+# fig.canvas.mpl_connect('lasso_event', pacplot)
+
+
+def special_rounding(vals):
+    out = list()
+    with localcontext() as ctxt:
+        ctxt.rounding = ROUND_HALF_UP
+        this_val = Decimal(vals[0]).to_integral_value()
+        out.append(int(this_val))
+
+    with localcontext() as ctxt:
+        ctxt.rounding = ROUND_HALF_DOWN
+        this_val = Decimal(vals[1]).to_integral_value()
+        out.append(int(this_val))
+
+    return out

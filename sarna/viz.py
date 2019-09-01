@@ -60,30 +60,6 @@ def add_image_mask(mask, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
     return axis.imshow(mask_img, **imshow_kwargs)
 
 
-# is this plot ever used? maybe move to gui
-# this pacplot can be used with partial to couple with some figure
-def pacplot(ch_ind=None, fig=None):
-    if ch_ind is None:
-        ch_ind = [eeg.ch_names.index(ch) for ch in fig.lasso.selection]
-    im = t_ef[ch_ind, :, :].mean(axis=0).T
-    mask = np.abs(im) > 2.
-    fig, ax = plt.subplots()
-    masked_image(im, mask, origin='lower', vmin=-3, vmax=3)
-
-
-# this on_pick can be used with partial to couple with some figure
-def on_pick(event, fig=None):
-    if event.mouseevent.key == 'control' and fig.lasso is not None:
-         for ind in event.ind:
-             fig.lasso.select_one(event.ind)
-
-         return
-    pacplot(ch_ind=event.ind)
-
-# fig.canvas.mpl_connect('pick_event', on_pick)
-# fig.canvas.mpl_connect('lasso_event', pacplot)
-
-
 def set_3d_axes_equal(ax):
     '''Make axes of 3D plot have equal scale so that spheres appear as spheres,
     cubes as cubes, etc..  This is one possible solution to Matplotlib's
@@ -121,7 +97,23 @@ def set_3d_axes_equal(ax):
 
 
 def color_limits(data):
-    '''Set color limits from data.'''
+    '''Set color limits from data.
+
+    Parameters
+    ----------
+    data : numpy array
+        Data to set colorlimits for.
+
+    Returns
+    -------
+    vmin : float
+        Minimum value for the colormap.
+    vmax : float
+        Maximum value for the colormap.
+    '''
+    if data.dtype == 'bool':
+        return 0., 1.
+
     vmax = np.abs([np.nanmin(data), np.nanmax(data)]).max()
     return -vmax, vmax
 
@@ -433,7 +425,7 @@ def significance_bar(start, end, height, displaystring, lw=0.1,
     # plt.text((x0+x1)*.4, y+h, "ns", ha='center', va='bottom', color=col)
 
 
-# - [ ] cover some classical cases: time-chan, time-freq, chan-freq
+# - [ ] remove and add heatmap options to borsar.Cluster.plot()
 def plot_cluster_heatmap(values, mask=None, axis=None, x_axis=None,
                          y_axis=None, outlines=False, colorbar=True,
                          line_kwargs=dict(), ch_names=None, freq=None):
@@ -450,10 +442,11 @@ def plot_cluster_heatmap(values, mask=None, axis=None, x_axis=None,
             tick.label.set_fontsize(8)
 
 
+# - [x] cmap support
 # - [ ] multiple masks, multiple alpha, multiple outline_colors?
 def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
-            outlines=False, colorbar=True, cmap='RdBu_r', line_kwargs=dict(),
-            **kwargs):
+            outlines=False, colorbar=True, cmap='RdBu_r', alpha=0.75,
+            vmin=None, vmax=None, line_kwargs=dict(), **kwargs):
     '''Plot heatmap with defaults meaningful for big heatmaps like
     time-frequency representations.
 
@@ -462,8 +455,8 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
     array : 2d numpy array
         The array to be plotted as heatmap.
     mask : 2d boolean array
-        A bit counter to the names - specifies which pixels to unmask.
-        Masking is done with transparency.
+        Matrix specifying which pixels to unmask. Masking is done with
+        transparency.
     axis : matplotlib axis
         Axis to draw in.
     x_axis : 1d array
@@ -476,6 +469,12 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
         Whether to add a colorbar to the image.
     cmap : str
         Colormap to use. Defaults to ``'RdBu_r'``.
+    alpha : float
+        Mask transparency.
+    vmin : float | None
+        Minimum value for the colormap.
+    vmax : float | None
+        Maximum value for the colormap.
     line_kwargs : dict
         Dictionary of additional parameters for outlines.
 
@@ -486,7 +485,8 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
     cbar : matplotlib colorbar
         The handle to the colorbar.
     '''
-    vmin, vmax = color_limits(array)
+    if vmin is None and vmax is None:
+        vmin, vmax = color_limits(array)
     n_rows, n_cols = array.shape
 
     x_axis = np.arange(n_cols) if x_axis is None else x_axis
@@ -501,7 +501,8 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
     out = masked_image(array, mask=mask, vmin=vmin, vmax=vmax,
                        cmap=cmap, aspect='auto', extent=ext,
                        interpolation='nearest', origin='lower',
-                       axis=axis, **kwargs)
+                       axis=axis, alpha=alpha, **kwargs)
+
     img = out if mask is None else out[0]
 
     # add outlines if necessary
@@ -578,3 +579,54 @@ def plot_topomap_raw(raw, times=None):
                              vmin=-minmax, vmax=minmax)
         ax.set_title('{} s'.format(times[i]))
     return fig
+
+
+def prepare_equal_axes(fig, n_axes, space=[0.02, 0.98, 0.02, 0.98],
+                       w_dist=0.025, h_dist=0.025):
+    '''Prepare equal axes spanning given figure space. FIXME docs'''
+
+    # transforms
+    trans = fig.transFigure
+    trans_inv = fig.transFigure.inverted()
+
+    # FIXME - change space to be [x0, y0, w, h]
+    axes_space = np.array(space).reshape((2, 2)).T
+    axes_space_disp_units = trans.transform(axes_space)
+    space_h = np.diff(axes_space_disp_units[:, 1])[0]
+    space_w = np.diff(axes_space_disp_units[:, 0])[0]
+
+    w_dist, h_dist = trans.transform([w_dist, h_dist])
+
+    h = (space_h - (h_dist * (n_axes[0] - 1))) / n_axes[0]
+    w = (space_w - (w_dist * (n_axes[1] - 1))) / n_axes[1]
+
+    # if too much width or height space of each axes - increase spacing
+    # FIXME, ADD: other spacing options (for example align to top)
+    if w > h:
+        w_diff = w - h
+        additional_w_dist = w_diff * n_axes[1] / (n_axes[1] - 1)
+        w_dist += additional_w_dist
+        w = h
+    elif h > w:
+        h_diff = h - w
+        additional_h_dist = h_diff * n_axes[0] / (n_axes[0] - 1)
+        h_dist += additional_h_dist
+        h = w
+
+    # start creating axes from bottom left corner,
+    # then flipud the axis matrix
+    axes = list()
+    w_fig, h_fig = trans_inv.transform([w, h])
+    for row_idx in range(n_axes[0]):
+        row_axes = list()
+        y0 = axes_space_disp_units[0, 1] + (h + h_dist) * row_idx
+        _, y0 = trans_inv.transform([0, y0])
+        for col_idx in range(n_axes[1]):
+            x0 = axes_space_disp_units[0, 0] + (w + w_dist) * col_idx
+            x0, _ = trans_inv.transform([x0, 0])
+            ax = fig.add_axes([x0, y0, w_fig, h_fig])
+            row_axes.append(ax)
+        axes.append(row_axes)
+
+    axes = np.flipud(np.array(axes))
+    return axes
