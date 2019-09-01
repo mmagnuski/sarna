@@ -60,29 +60,6 @@ def add_image_mask(mask, alpha=0.75, mask_color=(0.5, 0.5, 0.5),
     return axis.imshow(mask_img, **imshow_kwargs)
 
 
-# FIXME - is this plot ever used? maybe move to gui
-#         this pacplot can be used with partial to couple with some figure
-def pacplot(ch_ind=None, fig=None):
-    if ch_ind is None:
-        ch_ind = [eeg.ch_names.index(ch) for ch in fig.lasso.selection]
-    im = t_ef[ch_ind, :, :].mean(axis=0).T
-    mask = np.abs(im) > 2.
-    fig, ax = plt.subplots()
-    masked_image(im, mask, origin='lower', vmin=-3, vmax=3)
-
-# this on_pick can be used with partial to couple with some figure
-def on_pick(event, fig=None):
-    if event.mouseevent.key == 'control' and fig.lasso is not None:
-         for ind in event.ind:
-             fig.lasso.select_one(event.ind)
-
-         return
-    pacplot(ch_ind=event.ind)
-
-# fig.canvas.mpl_connect('pick_event', on_pick)
-# fig.canvas.mpl_connect('lasso_event', pacplot)
-
-
 def set_3d_axes_equal(ax):
     '''Make axes of 3D plot have equal scale so that spheres appear as spheres,
     cubes as cubes, etc..  This is one possible solution to Matplotlib's
@@ -448,7 +425,7 @@ def significance_bar(start, end, height, displaystring, lw=0.1,
     # plt.text((x0+x1)*.4, y+h, "ns", ha='center', va='bottom', color=col)
 
 
-# - [ ] cover some classical cases: time-chan, time-freq, chan-freq
+# - [ ] remove and add heatmap options to borsar.Cluster.plot()
 def plot_cluster_heatmap(values, mask=None, axis=None, x_axis=None,
                          y_axis=None, outlines=False, colorbar=True,
                          line_kwargs=dict(), ch_names=None, freq=None):
