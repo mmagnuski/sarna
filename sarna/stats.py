@@ -49,18 +49,33 @@ def corr(x, y, method='Pearson'):
     return np.array(rs), np.array(ps)
 
 
+# - [x] progressbar
+# - [x] two modes of prediction: pred -> data; data + pred -> y
+# - [x] refactor the two modes to share code
+# - [x] apply model - statsmodels (might be even sklearn)
 # - [ ] merge with apply_test (and corr?)
-# - [ ] pred -> data; data + pred -> y
-# - [ ] progressbar
+# - [ ] add n_jobs to speed up
 # - [ ] use faster function for ols (a wrapper around np.linalg.lstsq)
-# - [ ] apply model - statsmodels (or sklearn?)
-def apply_regr(data, pred, along=0):
+def apply_stat(data, pred, along=0, stat_fun='OLS', covariates=None,
+               progressbar=None):
     """
-    apply ordinary least squares regression along specified
-    dimension of the data.
+    Apply statistical test like ordinary least squares regression along
+    specified dimension of the data.
     """
     import statsmodels.api as sm
-    pred = sm.add_constant(pred)
+    has_covar = covariates is not None
+
+    # do we want to also add constat to the covariates?
+    if not has_covar:
+        pred = sm.add_constant(pred)
+
+    if stat_fun == 'OLS':
+        def stat_fun(dt, pred):
+            mdl = sm.OLS(dt, pred).fit()
+            return mdl.tvalues, mdl.pvalues
+
+    if has_covar:
+        data, pred = pred, data
 
     # reshape data to ease up regression
     if not along == 0:
@@ -79,19 +94,40 @@ def apply_regr(data, pred, along=0):
     tvals = np.zeros((n_comps, n_preds))
     pvals = np.zeros((n_comps, n_preds))
 
-    # perform regression for each (using np.linalg.lstsq would be faster)
-    for ii, dt in enumerate(data):
-        mdl = sm.OLS(dt, pred).fit()
-        tvals[ii, :] = mdl.tvalues
-        pvals[ii, :] = mdl.pvalues
-    new_shp = [n_preds] + shp[1:]
+    if progressbar:
+        from tqdm import tqdm_notebook
+        pbar = tqdm_notebook(total=n_comps)
 
+    # perform model for each
+    # FIXME: add to notes: for regression using np.linalg.lstsq would be faster
+    for ii, dt in enumerate(data):
+        if covariates is not None:
+            prd = dt[:, np.newaxis]
+
+            # center given predictor
+            # FIXME: this could be done at the start to speed up
+            prd -= prd.mean()
+            prd /= prd.std()
+            prd = np.concatenate([covariates, prd], axis=1)
+
+            # run model (we use `pred` as y because data and pred were swapped)
+            tval, pval = stat_fun(pred, prd)
+        else:
+            tval, pval = stat_fun(dt, pred)
+        tvals[ii, :] = tval
+        pvals[ii, :] = pval
+
+        if progressbar:
+            pbar.update(1)
+
+    new_shp = [n_preds] + shp[1:]
     tvals = tvals.T.reshape(new_shp)
     pvals = pvals.T.reshape(new_shp)
 
     return tvals, pvals
 
 
+# - [ ] remove and add example of using `apply_stat` this way
 def apply_test(data, group, test):
     '''applies test along axis=1
     data - 2d data array
