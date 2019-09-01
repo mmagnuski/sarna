@@ -1,6 +1,6 @@
 # sarna
 
-<img src="http://zhr59sarny.blox.pl/resource/sarna1.jpg" width="300px">
+<img src="https://www.naturnik.pl/wp-content/uploads/2017/01/sarna-po%C5%A4ciel-www-500x500.jpg" width="300px">
 
 ## Installation
 Installing `sarna` requires `git` to be installed.
