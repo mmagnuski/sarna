@@ -360,7 +360,7 @@ def imscatter(x, y, images, ax=None, zoom=1, selection='random'):
     return artists
 
 
-# - [ ] support list/tuple of slices for which_highligh
+# - [ ] support list/tuple of slices for which_highligh?
 # - [ ] `level` and `height` are unused but should allow for highlight that
 #       takes only a fraction of the axis
 #       kind='patch', level=0.04, height=0.03
@@ -498,11 +498,11 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
     ext = [*(x_axis[[0, -1]] + [-x_step / 2, x_step / 2]),
            *(y_axis[[0, -1]] + [-y_step / 2, y_step / 2])]
 
-
     out = masked_image(array, mask=mask, vmin=vmin, vmax=vmax,
                        cmap=cmap, aspect='auto', extent=ext,
                        interpolation='nearest', origin='lower',
-                       axis=axis, alpha=alpha)
+                       axis=axis, alpha=alpha, **kwargs)
+
     img = out if mask is None else out[0]
 
     # add outlines if necessary
@@ -532,7 +532,7 @@ def add_colorbar_to_axis(axis, source, side='right', size='8%', pad=0.1):
 
 
 def plot_topomap_raw(raw, times=None):
-    '''plot_topomap for raw mne objects
+    '''``plot_topomap`` for mne ``Raw`` objects.
 
     Parameters
     ----------
