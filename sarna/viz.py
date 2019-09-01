@@ -442,11 +442,11 @@ def plot_cluster_heatmap(values, mask=None, axis=None, x_axis=None,
             tick.label.set_fontsize(8)
 
 
-# - [ ] cmap support
+# - [x] cmap support
 # - [ ] multiple masks, multiple alpha, multiple outline_colors?
 def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
-            outlines=False, colorbar=True, cmap='RdBu_r', vmin=None, vmax=None,
-            line_kwargs=dict(), **kwargs):
+            outlines=False, colorbar=True, cmap='RdBu_r', alpha=0.75,
+            vmin=None, vmax=None, line_kwargs=dict(), **kwargs):
     '''Plot heatmap with defaults meaningful for big heatmaps like
     time-frequency representations.
 
@@ -455,8 +455,8 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
     array : 2d numpy array
         The array to be plotted as heatmap.
     mask : 2d boolean array
-        A bit counter to the names - specifies which pixels to unmask.
-        Masking is done with transparency.
+        Matrix specifying which pixels to unmask. Masking is done with
+        transparency.
     axis : matplotlib axis
         Axis to draw in.
     x_axis : 1d array
@@ -469,6 +469,8 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
         Whether to add a colorbar to the image.
     cmap : str
         Colormap to use. Defaults to ``'RdBu_r'``.
+    alpha : float
+        Mask transparency.
     vmin : float | None
         Minimum value for the colormap.
     vmax : float | None
@@ -498,9 +500,9 @@ def heatmap(array, mask=None, axis=None, x_axis=None, y_axis=None,
 
 
     out = masked_image(array, mask=mask, vmin=vmin, vmax=vmax,
-                       cmap='RdBu_r', aspect='auto', extent=ext,
+                       cmap=cmap, aspect='auto', extent=ext,
                        interpolation='nearest', origin='lower',
-                       axis=axis)
+                       axis=axis, alpha=alpha)
     img = out if mask is None else out[0]
 
     # add outlines if necessary
