@@ -1,5 +1,3 @@
-# imports for special_rounding:
-from decimal import localcontext, Decimal, ROUND_HALF_UP, ROUND_HALF_DOWN
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -345,7 +343,7 @@ class TFR_GUI(object):
         ext = self.box_select.extents
 
         # FIXME: change so that we look for closest limits, not round
-        ext = np.array(special_rounding(ext[:2]) + special_rounding(ext[2:]))
+        ext = np.array(_special_rounding(ext[:2]) + _special_rounding(ext[2:]))
 
         bad_idx = ext < 0
         if (bad_idx).any():
@@ -379,12 +377,8 @@ class TFR_GUI(object):
         # self.box_select.update()
 
 
-# some old notes for interactivity:
-# fig.canvas.mpl_connect('pick_event', on_pick)
-# fig.canvas.mpl_connect('lasso_event', pacplot)
-
-
-def special_rounding(vals):
+def _special_rounding(vals):
+    from decimal import localcontext, Decimal, ROUND_HALF_UP, ROUND_HALF_DOWN
     out = list()
     with localcontext() as ctxt:
         ctxt.rounding = ROUND_HALF_UP
