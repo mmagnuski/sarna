@@ -6,18 +6,24 @@ from borsar.channels import find_channels
 
 
 # TODOs:
-# MultiDimView will need review and changes:
-# - [ ] consider merging with TFR_GUI
+# Viewer will need review and changes:
+# 1. API
+#   for TFR: Viewer(data, info) - info lets you know what dims etc. if TFR
+#   Viewer(data, info, view='line') # for chan x freq or chan x time
+#   Viewer(data, view='image') # for chan x freq x time
+#   trials='keys' or trials='slider' or trials='keys, slider'
+#   channels have to be in the first dim
+#   if trials are present - have to be in the second dim
 # - [ ] add colorbar
 # - [ ] cickable (blockable) color bar (??)
-# SignalPlotter:
+
+# some time: pyqtgraph RawViewer:
 # - [ ] design object API (similar to fastplot)
 # - [ ] continuous and epoched signal support
 
 
-# - [ ] lasso selection from mne SelectFromCollection
-# - [ ] better support for time-like dim when matrix is freq-freq
-# - [ ] add pyqt (+pyqtgraph) backend
+# - [ ] review and rename to Viewer, pull out some commonalities from
+#       SpectrumPlot and TFR_GUI
 class MultiDimView(object):
     def __init__(self, data, axislist=None):
         self.data = data
@@ -85,6 +91,8 @@ class MultiDimView(object):
             self.refresh()
 
 
+# - [ ] review and try to pull out some more universal parts
+#       or those overlapping with TFR_GUI
 class SpectrumPlot(object):
     def __init__(self, psd, freq, info):
         from mne.viz.utils import SelectFromCollection
