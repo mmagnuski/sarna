@@ -8,7 +8,10 @@ from scipy.io import loadmat
 
 import mne
 from mne.stats import permutation_cluster_test, ttest_1samp_no_p
+
+import borsar
 from borsar.cluster import Clusters, construct_adjacency_matrix
+from borsar.utils import find_index
 
 from . import utils
 from .stats import ttest_ind_no_p, ttest_rel_no_p
@@ -190,6 +193,27 @@ def plot_neighbours(inst, adj_matrix, color='gray', kind='3d'):
     return fig
 
 
+def contruct_adjacency(info, inst=None):
+    from mne.channels import find_ch_connectivity
+
+    # contruct adjacency with x * 2
+    info1 = info.copy()
+    n_channels = len(info['ch_names'])
+    for idx in range(n_channels):
+        info1['chs'][idx]['loc'][0] *= 2
+    adj1, _ = find_ch_connectivity(info1, 'eeg')
+
+    # contruct adjacency with y * 2
+    info2 = info.copy()
+    for idx in range(n_channels):
+        info2['chs'][idx]['loc'][1] *= 2
+    adj2, _ = find_ch_connectivity(info2, 'eeg')
+
+    # join both adjacency matrices
+    adj = adj1.toarray() | adj2.toarray()
+    return adj
+
+
 def cluster(data, adjacency=None):
     from borsar.cluster import _get_cluster_fun
     clst_fun = _get_cluster_fun(data, adjacency)
@@ -306,7 +330,7 @@ def check_list_inst(data, inst):
                             'belong to supported mne objects (Evoked, '
                             'AverageTFR).')
         tps.append(type(this_data))
-    all_same_type = [tp == tps[0] for tp in tps[1:]]
+    all_same_type = [tp == tps[0] for tp in tps[1:]] if len(tps) > 1 else True
     if not all_same_type:
         raise TypeError('Not all objects in the data list are of the same'
                         ' mne object class.')
@@ -317,7 +341,8 @@ def check_list_inst(data, inst):
 # - [ ] consider renaming to ..._ttest
 def permutation_cluster_t_test(data1, data2, paired=False, n_permutations=1000,
                                threshold=None, p_threshold=0.05,
-                               adjacency=None, tmin=None, tmax=None):
+                               adjacency=None, tmin=None, tmax=None,
+                               fmin=None, fmax=None, trial_level=False):
     '''FIXME: add docs.'''
     if data2 is not None:
         one_sample = False
@@ -335,43 +360,85 @@ def permutation_cluster_t_test(data1, data2, paired=False, n_permutations=1000,
 
     if threshold is None:
         from scipy.stats import distributions
-        df = (len1 - 1 if paired or one_sample else
-              len1 + len2 - 2)
+        if trial_level:
+            df = data1[0].data.shape[0] + data1[0].data.shape[1] - 2
+        else:
+            df = (len1 - 1 if paired or one_sample else
+                  len1 + len2 - 2)
         threshold = np.abs(distributions.t.ppf(p_threshold / 2., df=df))
 
     # data1 and data2 have to be Evokeds or TFRs
-    supported_types = (mne.Evoked, mne.time_frequency.AverageTFR)
+    supported_types = (mne.Evoked, borsar.freq.PSD,
+                       mne.time_frequency.AverageTFR,
+                       mne.time_frequency.EpochsTFR)
     check_list_inst(data1, inst=supported_types)
     if data2 is not None:
         check_list_inst(data2, inst=supported_types)
 
-    tmin = 0 if tmin is None else inst.time_as_index(tmin)[0]
-    tmax = (len(inst.times) if tmax is None
-            else inst.time_as_index(tmax)[0] + 1)
-    time_slice = slice(tmin, tmax)
+    # find time and frequency ranges
+    # ------------------------------
+    if isinstance(inst, (mne.Evoked, mne.time_frequency.AverageTFR)):
+        tmin = 0 if tmin is None else inst.time_as_index(tmin)[0]
+        tmax = (len(inst.times) if tmax is None
+                else inst.time_as_index(tmax)[0] + 1)
+        time_slice = slice(tmin, tmax)
 
-    if isinstance(data1[0], mne.time_frequency.AverageTFR):
+    if isinstance(inst, (borsar.freq.PSD, mne.time_frequency.AverageTFR)):
+        fmin = 0 if fmin is None else find_index(data1[0].freqs, fmin)
+        fmax = (len(inst.freqs) if fmax is None
+                else find_index(data1[0].freqs, fmax))
+        freq_slice = slice(fmin, fmax + 1)
+
+    # handle object-specific data
+    # ---------------------------
+    if isinstance(inst, mne.time_frequency.AverageTFR):
         # + fmin, fmax
-        data1 = np.stack([erp.data[:, :, tmin:tmax] for erp in data1], axis=0)
-        data2 = (np.stack([erp.data[:, :, tmin:tmax] for erp in data2], axis=0)
+        assert not trial_level
+        data1 = np.stack([tfr.data[:, freq_slice, time_slice]
+                          for tfr in data1], axis=0)
+        data2 = (np.stack([tfr.data[:, freq_slice, time_slice]
+                           for tfr in data2], axis=0)
                  if data2 is not None else data2)
+    elif isinstance(inst, mne.time_frequency.EpochsTFR):
+        assert trial_level
+        data1 = inst.data[..., freq_slice, time_slice]
+        data2 = (data2[0].data[..., freq_slice, time_slice]
+                 if data2 is not None else data2)
+    elif isinstance(inst, borsar.freq.PSD):
+        if not inst._has_epochs:
+            assert not trial_level
+            data1 = np.stack([psd.data[:, freq_slice].T for psd in data1],
+                             axis=0)
+            data2 = (np.stack([psd.data[:, freq_slice].T for psd in data2],
+                              axis=0) if data2 is not None else data2)
+        else:
+            assert trial_level
+            data1 = data1[0].data[..., freq_slice].transpose((0, 2, 1))
+            data2 = (data2[0].data[..., freq_slice].transpose((0, 2, 1))
+                     if data2 is not None else data2)
+
     else:
-        data1 = np.stack([erp.data[:, tmin:tmax].T for erp in data1], axis=0)
-        data2 = (np.stack([erp.data[:, tmin:tmax].T for erp in data2], axis=0)
+        data1 = np.stack([erp.data[:, time_slice].T for erp in data1], axis=0)
+        data2 = (np.stack([erp.data[:, time_slice].T for erp in data2], axis=0)
                  if data2 is not None else data2)
 
     data_3d = data1.ndim > 3
     if (isinstance(adjacency, np.ndarray) and not sparse.issparse(adjacency)
-        and not data_3d):
+            and not data_3d):
         adjacency = sparse.coo_matrix(adjacency)
 
     if not data_3d:
         stat, clusters, cluster_p, _ = permutation_cluster_test(
             [data1, data2], stat_fun=stat_fun, threshold=threshold,
             connectivity=adjacency, n_permutations=n_permutations)
-        dimcoords = [inst.ch_names, inst.times[tmin:tmax]]
+        if isinstance(inst, mne.Evoked):
+            dimcoords = [inst.ch_names, inst.times[time_slice]]
+            dimnames = ['chan', 'time']
+        elif isinstance(inst, borsar.freq.PSD):
+            dimcoords = [inst.ch_names, inst.freqs[freq_slice]]
+            dimnames = ['chan', 'freq']
         return Clusters([c.T for c in clusters], cluster_p, stat.T,
-                        info=inst.info, dimnames=['chan', 'time'],
+                        info=inst.info, dimnames=dimnames,
                         dimcoords=dimcoords)
 
     else:
