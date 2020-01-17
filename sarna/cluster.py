@@ -193,6 +193,27 @@ def plot_neighbours(inst, adj_matrix, color='gray', kind='3d'):
     return fig
 
 
+def contruct_adjacency(info, inst=None):
+    from mne.channels import find_ch_connectivity
+
+    # contruct adjacency with x * 2
+    info1 = info.copy()
+    n_channels = len(info['ch_names'])
+    for idx in range(n_channels):
+        info1['chs'][idx]['loc'][0] *= 2
+    adj1, _ = find_ch_connectivity(info1, 'eeg')
+
+    # contruct adjacency with y * 2
+    info2 = info.copy()
+    for idx in range(n_channels):
+        info2['chs'][idx]['loc'][1] *= 2
+    adj2, _ = find_ch_connectivity(info2, 'eeg')
+
+    # join both adjacency matrices
+    adj = adj1.toarray() | adj2.toarray()
+    return adj
+
+
 def cluster(data, adjacency=None):
     from borsar.cluster import _get_cluster_fun
     clst_fun = _get_cluster_fun(data, adjacency)
