@@ -193,25 +193,31 @@ def plot_neighbours(inst, adj_matrix, color='gray', kind='3d'):
     return fig
 
 
-def contruct_adjacency(info, inst=None):
-    from mne.channels import find_ch_connectivity
+def find_adjacency(inst, picks=None):
+    '''Find channel adjacency matrix.'''
+    from scipy.spatial import Delaunay
+    from mne.channels.layout import _find_topomap_coords
+    from mne.source_estimate import spatial_tris_connectivity
 
-    # contruct adjacency with x * 2
-    info1 = info.copy()
-    n_channels = len(info['ch_names'])
-    for idx in range(n_channels):
-        info1['chs'][idx]['loc'][0] *= 2
-    adj1, _ = find_ch_connectivity(info1, 'eeg')
+    n_channels = len(inst.ch_names)
+    picks = np.arange(n_channels) if picks is None else picks
+    ch_names = [inst.info['ch_names'][pick] for pick in picks]
+    xy = _find_topomap_coords(inst.info, picks)
 
-    # contruct adjacency with y * 2
-    info2 = info.copy()
-    for idx in range(n_channels):
-        info2['chs'][idx]['loc'][1] *= 2
-    adj2, _ = find_ch_connectivity(info2, 'eeg')
+    # first on 2x, y
+    coords = xy.copy()
+    coords[:, 0] *= 2
+    tri = Delaunay(coords)
+    neighbors1 = spatial_tris_connectivity(tri.simplices)
 
-    # join both adjacency matrices
-    adj = adj1.toarray() | adj2.toarray()
-    return adj
+    # then on x, 2y
+    coords = xy.copy()
+    coords[:, 1] *= 2
+    tri = Delaunay(coords)
+    neighbors2 = spatial_tris_connectivity(tri.simplices)
+
+    adjacency = neighbors1.toarray() | neighbors2.toarray()
+    return adjacency, ch_names
 
 
 def cluster(data, adjacency=None):
