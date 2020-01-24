@@ -31,7 +31,7 @@ def get_neighbours(captype):
     else:
         # cap type was given
         fls = [f for f in os.listdir(chan_path) if f.endswith('.mat') and
-                '_neighbours' in f]
+               '_neighbours' in f]
         good_file = [f for f in fls if captype in f]
         if len(good_file) > 0:
             file_name = os.path.join(chan_path, good_file[0])
@@ -111,7 +111,6 @@ def plot_neighbours(inst, adj_matrix, color='gray', kind='3d'):
                     this_pos[:, 0], this_pos[:, 1],
                     color=this_color, lw=get_lw())[0]
 
-
     highlighted = list()
     highlighted_scatter = list()
 
@@ -157,10 +156,12 @@ def plot_neighbours(inst, adj_matrix, color='gray', kind='3d'):
                     # add line
                     selected_pos = positions[both_nodes, :]
                     if kind == '3d':
-                        line = axes.plot(selected_pos[:, 0], selected_pos[:, 1],
-                                         selected_pos[:, 2], lw=get_lw())[0]
+                        line = axes.plot(
+                            selected_pos[:, 0], selected_pos[:, 1],
+                            selected_pos[:, 2], lw=get_lw())[0]
                     elif kind == '2d':
-                        line = axes.plot(selected_pos[:, 0], selected_pos[:, 1],
+                        line = axes.plot(selected_pos[:, 0],
+                                         selected_pos[:, 1],
                                          lw=get_lw())[0]
                     # add line to line_dict
                     line_dict[tuple(both_nodes)] = line
@@ -238,7 +239,7 @@ def cluster_spread(cluster, connectivity):
     n_chan = connectivity.shape[0]
     spread = np.zeros((n_chan, n_chan), 'int')
     unrolled = [cluster[ch, :].ravel() for ch in range(n_chan)]
-    for ch in range(n_chan - 1): # last chan will be already checked
+    for ch in range(n_chan - 1):  # last chan will be already checked
         ch1 = unrolled[ch]
 
         # get unchecked neighbours
@@ -266,8 +267,9 @@ def filter_clusters(mat, min_neighbours=4, min_channels=0, connectivity=None):
         size = mat.shape
 
     for ch in range(size[0]):
-        mat[ch, :, :] = mat[ch, :, :] & (signal.convolve2d(mat[ch, :, :],
-                                         kernel, mode='same') >= min_neighbours)
+        enough_ngb = (signal.convolve2d(mat[ch, :, :], kernel, mode='same')
+                      >= min_neighbours)
+        mat[ch, :, :] = mat[ch, :, :] & enough_ngb
     if min_channels > 0:
         assert connectivity is not None
         for ch in range(size[0]):
@@ -322,7 +324,7 @@ def smooth(matrix, sd=2.):
     if matrix.ndim > 2:
         n_chan = matrix.shape[0]
         for ch in range(n_chan):
-            matrix[ch,:] = gaussian_filter(matrix[ch,:], sd)
+            matrix[ch, :] = gaussian_filter(matrix[ch, :], sd)
     else:
         matrix = gaussian_filter(matrix, sd)
     return matrix
@@ -456,6 +458,7 @@ def permutation_cluster_t_test(data1, data2, paired=False, n_permutations=1000,
                         dimnames=['chan', 'freq', 'time'], dimcoords=dimcoords)
 
 
+# FIX this! (or is it in borsar?)
 def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
                                  one_sample=True, p_threshold=0.05,
                                  n_permutations=1000, progressbar=True,
@@ -469,7 +472,7 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
         pbar = tqdm_notebook(total=n_permutations)
 
     n_obs = data[0].shape[0]
-    signs = np.array([-1, 1])
+    # signs = np.array([-1, 1])
     signs_size = tuple([n_obs] + [1] * (data[0].ndim - 1))
 
     pos_dist = np.zeros(n_permutations)
@@ -511,8 +514,8 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
         # permute predictors
         if one_sample:
             idx = np.random.random_integers(0, 1, size=signs_size)
-            perm_signs = signs[idx]
-            perm_data = data[0] * perm_signs
+            # perm_signs = signs[idx]
+            # perm_data = data[0] * perm_signs
             perm_stat = stat_fun(data)
 
         # FIXME/TODO - move the part below to separate clustering function
@@ -534,8 +537,10 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
             max_val = perm_cluster_stats.max()
             min_val = perm_cluster_stats.min()
 
-            if max_val > 0: pos_dist[perm] = max_val
-            if min_val < 0: neg_dist[perm] = min_val
+            if max_val > 0:
+                pos_dist[perm] = max_val
+            if min_val < 0:
+                neg_dist[perm] = min_val
 
         if progressbar:
             pbar.update(1)
