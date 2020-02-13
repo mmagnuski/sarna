@@ -1,8 +1,6 @@
 import numpy as np
-import scipy
 from scipy import stats
-from scipy.stats import ttest_ind, ttest_rel, levene
-from borsar.stats import compute_regression_t
+# from borsar.stats import compute_regression_t
 
 
 # TODO:
@@ -30,7 +28,7 @@ def corr(x, y, method='Pearson'):
     second matrix)
     '''
     x_size = x.shape
-    y_size = y.shape
+    # y_size = y.shape
     if len(x_size) == 1:
         x = x[:, np.newaxis]
         x_size = x.shape
@@ -166,11 +164,11 @@ class Reshaper(object):
         if along == -1:
             along = X.ndim - 1
         if not along == 0:
-            dims = list(range(data.ndim))
+            dims = list(range(X.ndim))
             dims.remove(along)
             self.todims = [along] + dims
         self.along = along
-        self.shape = list(data.shape)
+        self.shape = list(X.shape)
 
     def transform(self, X):
         if not self.along == 0:
@@ -178,7 +176,7 @@ class Reshaper(object):
         if X.ndim > 2:
             this_shape = X.shape
             X = X.reshape([this_shape[0], np.prod(this_shape[1:])])
-        return X.T # may not be necessary if no diff in performance
+        return X.T  # may not be necessary if no diff in performance
 
     def inverse_transform(self, X):
         n_preds = X.shape[-1]

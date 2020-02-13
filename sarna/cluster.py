@@ -75,6 +75,7 @@ def plot_neighbours(inst, adj_matrix, color='gray', kind='3d'):
     if adj_matrix.dtype == 'int':
         max_lw = 5.
         max_conn = adj_matrix.max()
+
         def get_lw():
             return adj_matrix[ch, n] / max_conn * max_lw
     elif adj_matrix.dtype == 'bool' or (np.unique(adj_matrix) ==
@@ -513,7 +514,7 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
     for perm in range(n_permutations):
         # permute predictors
         if one_sample:
-            idx = np.random.random_integers(0, 1, size=signs_size)
+            # idx = np.random.random_integers(0, 1, size=signs_size)
             # perm_signs = signs[idx]
             # perm_data = data[0] * perm_signs
             perm_stat = stat_fun(data)
@@ -549,8 +550,8 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
     cluster_p = np.array([(pos_dist > cluster_stat).mean() if cluster_stat > 0
                           else (neg_dist < cluster_stat).mean()
                           for cluster_stat in cluster_stats])
-    cluster_p *= 2 # because we use two-tail
-    cluster_p[cluster_p > 1.] = 1. # probability has to be <= 1.
+    cluster_p *= 2  # because we use two-tail
+    cluster_p[cluster_p > 1.] = 1.  # probability has to be <= 1.
 
     # FIXME: this may not be needed because Clusters sorts by p val...
     # sort clusters by p value

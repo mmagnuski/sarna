@@ -1,6 +1,5 @@
 import numpy as np
 from scipy.stats import zscore
-import matplotlib.pyplot as plt
 
 from borsar.utils import find_range
 from .utils import mne_types
@@ -147,6 +146,7 @@ modes = dict(N170=[(0.145, 0.21), 5, 'min'],
              P100=[(0.075, 0.125), 5, 'max'],
              P300=[(0.3, 0.5), 5, 'maxmean'])
 
+
 # TODO:
 # - [ ] simplify peak selection
 # - [ ] move different info checks to separate function, possibly even
@@ -261,7 +261,7 @@ class Peakachu(object):
         # select n_channels
         vals = peak_val if 'max' in self.select else -peak_val
         chan_ind = select_channels(vals, N=self.n_channels,
-                        connectivity=self.connectivity)
+                                   connectivity=self.connectivity)
         self._chan_ind = [picks[i] for i in chan_ind]
         self._chan_names = [inst.ch_names[ch] for ch in self._chan_ind]
         self._peak_vals = peak_val
@@ -294,7 +294,6 @@ class Peakachu(object):
         return peak_val, peak_times
 
     def plot_topomap(self, info=None):
-        import matplotlib as mpl
         from .viz import Topo
 
         original_info = False
@@ -320,7 +319,6 @@ class Peakachu(object):
             remove_level_0 = np.sum(overlapping) < ch_num
         else:
             vals = self._peak_vals
-
 
         # topoplot
         tp = Topo(vals, info, show=False)
@@ -375,7 +373,7 @@ class Peakachu(object):
                 peak_val = np.zeros(peak_ind.shape)
                 for ep in range(peak_ind.shape[1]):
                     peak_val[:, ep] = data_segment[range(n_channels),
-                                                      ep, peak_ind[:, ep]]
+                                                   ep, peak_ind[:, ep]]
 
         return peak_val, peak_ind
 
