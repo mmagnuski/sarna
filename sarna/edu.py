@@ -9,7 +9,13 @@ def test_system():
     '''Print simple system info and some other junk, just to see if
     system has been set up and homeworks are from different machines.'''
 
-    modules = ['matplotlib', 'seaborn', 'mne', 'mypy']
+    try:
+        import mne
+    except ImportError:
+        raise ImportError('Nie masz biblioteki `mne`!')
+    mne.sys_info()
+
+    modules = ['seaborn', 'borsar', 'sarna']
     longest_str = max(map(len, modules)) + 8
     txt = '\n{} {}\n{}\n'.format(platform.system(), platform.machine(),
                                  platform.processor())
@@ -23,7 +29,7 @@ def test_system():
             txt += base_txt.format(mdl.__version__)
         except ImportError:
             txt += 'BRAK :('
-        if module in ('mne', 'mypy'):
+        if module in ('borsar', 'sarna'):
             txt += "; instalacja z git'a" if is_git_installed(mdl) \
                 else ";  zwykła instalacja"
 
@@ -47,6 +53,61 @@ def is_git_installed(module):
         git_dir_contents = os.listdir(os.path.join(module_dir, '.git'))
         has_all_dirs = all([x in git_dir_contents for x in subdirs])
     return has_all_dirs
+
+
+def plot_matrix(matrix, colors=False, bgcolor=None, fmt='.2g'):
+    '''Plot 2d matrix.
+
+    Parameters
+    ----------
+    matrix : numpy.ndarray
+        2d numpy array to plot.
+    colors : bool
+        Whether to color the matrix cells according to their values.
+    bgcolor : rgb | None
+        Cell color if ``colors`` is ``False`` (all cells have uniform color
+        then). List of ``[r, g, b]`` values.
+    fmt : string, optional
+        String formatting code to when writing matrix values.
+
+    Returns
+    -------
+    ax : matplotlib.Axes
+        Axes with the heatmap.
+    '''
+    import seaborn as sns
+
+    if matrix.ndim == 1:
+        matrix = matrix[np.newaxis, :]
+
+    # set default parameters
+    longest = max(matrix.shape)
+    base_fonsize = 16 if matrix.dtype == 'int' else 14
+    fontsize = (base_fonsize if longest <= 8 else
+                max(round(base_fonsize - (longest - 8) / 2), 2))
+    fontprops = {'fontsize': fontsize}
+    if not colors:
+        fontprops['color'] = 'k'
+    bgcolor = [[0.9, 0.9, 0.6]] if bgcolor is None else [bgcolor]
+
+    # use seaborn to plot the heatmap
+    ax = sns.heatmap(matrix, annot=True, annot_kws=fontprops, cbar=colors,
+                     linewidths=1, xticklabels=[], yticklabels=[], fmt=fmt)
+
+    # modify seaborn plot to have uniform background color
+    if not colors:
+        qmesh = ax.get_children()[0]
+        color_array = np.ones((25, 4))
+        color_array[:, :3] = bgcolor
+        qmesh.set_facecolors(color_array)
+
+    # change figure size
+    dim1, dim2 = matrix.shape
+    dim1, dim2 = min(dim2, 8), min(dim1, 8)
+    fig = ax.figure
+    fig.set_size_inches((dim1, dim2))
+
+    return ax
 
 
 def spectral_reconstruction(raw, ch_name='Oz', tmin=5., tmax=None):
@@ -135,6 +196,7 @@ def _create_sim(spectrum, upto, mx):
     spect = np.zeros(len(spectrum), dtype='complex')
     all_inds = np.argsort(np.abs(spectrum[:mx]))[::-1]
 
+    # TODO: vectorize
     for ind in all_inds[:upto]:
         spect[ind] = spectrum[ind]
         spect[-ind] = spectrum[-ind]
