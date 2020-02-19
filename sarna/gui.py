@@ -1,5 +1,3 @@
-# imports for special_rounding:
-from decimal import localcontext, Decimal, ROUND_HALF_UP, ROUND_HALF_DOWN
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -8,18 +6,24 @@ from borsar.channels import find_channels
 
 
 # TODOs:
-# MultiDimView will need review and changes:
-# - [ ] consider merging with TFR_GUI
+# Viewer will need review and changes:
+# 1. API
+#   for TFR: Viewer(data, info) - info lets you know what dims etc. if TFR
+#   Viewer(data, info, view='line') # for chan x freq or chan x time
+#   Viewer(data, view='image') # for chan x freq x time
+#   trials='keys' or trials='slider' or trials='keys, slider'
+#   channels have to be in the first dim
+#   if trials are present - have to be in the second dim
 # - [ ] add colorbar
 # - [ ] cickable (blockable) color bar (??)
-# SignalPlotter:
+
+# some time: pyqtgraph RawViewer:
 # - [ ] design object API (similar to fastplot)
 # - [ ] continuous and epoched signal support
 
 
-# - [ ] lasso selection from mne SelectFromCollection
-# - [ ] better support for time-like dim when matrix is freq-freq
-# - [ ] add pyqt (+pyqtgraph) backend
+# - [ ] review and rename to Viewer, pull out some commonalities from
+#       SpectrumPlot and TFR_GUI
 class MultiDimView(object):
     def __init__(self, data, axislist=None):
         self.data = data
@@ -87,6 +91,8 @@ class MultiDimView(object):
             self.refresh()
 
 
+# - [ ] review and try to pull out some more universal parts
+#       or those overlapping with TFR_GUI
 class SpectrumPlot(object):
     def __init__(self, psd, freq, info):
         from mne.viz.utils import SelectFromCollection
@@ -285,18 +291,47 @@ class SpectrumPlot(object):
 # TODOs:
 # - [ ] add colorbars
 # - [ ] allow for auto-scaling vmin, vmax for given topo / image
+# - [ ] add x and y labels and ticklabels
 class TFR_GUI(object):
-    '''Class for interactive plotting of TFR or PAC mutli-channel results.'''
-    def __init__(self, data, info):
-        import mne
+    '''
+    Class for interactive plotting of image-like (for example TFR or PAC)
+    mutli-channel results.
 
+    Parameters
+    ----------
+    data : numpy array
+        Array of shape (channels, dim1, dim2), for example (channels,
+        frequency, time).
+    info : mne.Info
+        Info object containing channel position information.
+    x_axis : numpy array
+        Array of coordinates for the x axis.
+    y_axis : numpy array
+        Array of coordinates for the y axis.
+    x_label : str
+        Label for the x axis.
+    y_label : str
+        Label for the y axis.
+
+    Returns
+    -------
+    TFR_GUI : TFR_GUI object
+        The object containing handles to axes and visual components such as the
+        topomap object (``borsar.viz.Topo``) or the heatmap image.
+    '''
+    def __init__(self, data, info, x_axis=None, y_axis=None, x_label=None,
+                 y_label=None):
+        import mne
         from mne.viz.utils import SelectFromCollection
         from matplotlib.widgets import RectangleSelector
+
+        img_y = 0.05 if x_label is None else 0.12
+        img_h = 0.9 if x_label is None else 0.83
 
         # create figure and panels
         self.fig = plt.figure(figsize=(10, 5))
         self.topo_ax = self.fig.add_axes([0.05, 0.1, 0.3, 0.8])
-        self.image_ax = self.fig.add_axes([0.4, 0.05, 0.45, 0.9])
+        self.image_ax = self.fig.add_axes([0.5, img_y, 0.45, img_h])
 
         self.data = data
         self.info = info
@@ -309,7 +344,7 @@ class TFR_GUI(object):
 
         # TODO change vmin and vmax for TFR vs PAC
         vmin = 0
-        vmax = np.quantile(data, 0.99)
+        vmax = data.max()
         self.topo = Topo(topo_data, info, axes=self.topo_ax,
                          vmin=vmin, vmax=vmax)
 
@@ -323,7 +358,15 @@ class TFR_GUI(object):
         self.image_ax.imshow(avg_img, aspect='auto', origin='lower', vmin=vmin,
                              vmax=vmax)
 
-        # TODO: labels and ticks
+        # labels and ticks
+        if x_axis is not None:
+            _set_img_labels(self.image_ax, x_axis, dim='x')
+        if y_axis is not None:
+            _set_img_labels(self.image_ax, y_axis, dim='y')
+        if x_label:
+            self.image_ax.set_xlabel(x_label)
+        if y_label:
+            self.image_ax.set_ylabel(y_label)
 
         # interfaces
         # ----------
@@ -345,13 +388,13 @@ class TFR_GUI(object):
         ext = self.box_select.extents
 
         # FIXME: change so that we look for closest limits, not round
-        ext = np.array(special_rounding(ext[:2]) + special_rounding(ext[2:]))
+        ext = np.array(_special_rounding(ext[:2]) + _special_rounding(ext[2:]))
 
         bad_idx = ext < 0
         if (bad_idx).any():
             ext[bad_idx] = 0
 
-        # TODO could also check top limits...
+        # TODO could also check edge limits...
 
         # pierwszy wymiar adresujemy: ext[2]:ext[3] + 1
         dim1 = slice(ext[2], ext[3] + 1)
@@ -379,12 +422,8 @@ class TFR_GUI(object):
         # self.box_select.update()
 
 
-# some old notes for interactivity:
-# fig.canvas.mpl_connect('pick_event', on_pick)
-# fig.canvas.mpl_connect('lasso_event', pacplot)
-
-
-def special_rounding(vals):
+def _special_rounding(vals):
+    from decimal import localcontext, Decimal, ROUND_HALF_UP, ROUND_HALF_DOWN
     out = list()
     with localcontext() as ctxt:
         ctxt.rounding = ROUND_HALF_UP
@@ -397,3 +436,20 @@ def special_rounding(vals):
         out.append(int(this_val))
 
     return out
+
+
+def _set_img_labels(ax, labels, dim='x'):
+    if dim == 'x':
+        idx = ax.get_xticks().astype('int')
+    elif dim == 'y':
+        idx = ax.get_yticks().astype('int')
+
+    in_limits = (idx >= 0) & (idx < len(labels))
+    idx[~in_limits] = 0
+    use_labels = labels[idx]
+    use_labels[~in_limits] = np.nan
+
+    if dim == 'x':
+        ax.set_xticklabels(use_labels)
+    elif dim == 'y':
+        ax.set_yticklabels(use_labels)

@@ -8,7 +8,10 @@ from scipy.io import loadmat
 
 import mne
 from mne.stats import permutation_cluster_test, ttest_1samp_no_p
+
+import borsar
 from borsar.cluster import Clusters, construct_adjacency_matrix
+from borsar.utils import find_index
 
 from . import utils
 from .stats import ttest_ind_no_p, ttest_rel_no_p
@@ -28,7 +31,7 @@ def get_neighbours(captype):
     else:
         # cap type was given
         fls = [f for f in os.listdir(chan_path) if f.endswith('.mat') and
-                '_neighbours' in f]
+               '_neighbours' in f]
         good_file = [f for f in fls if captype in f]
         if len(good_file) > 0:
             file_name = os.path.join(chan_path, good_file[0])
@@ -108,7 +111,6 @@ def plot_neighbours(inst, adj_matrix, color='gray', kind='3d'):
                     this_pos[:, 0], this_pos[:, 1],
                     color=this_color, lw=get_lw())[0]
 
-
     highlighted = list()
     highlighted_scatter = list()
 
@@ -154,10 +156,12 @@ def plot_neighbours(inst, adj_matrix, color='gray', kind='3d'):
                     # add line
                     selected_pos = positions[both_nodes, :]
                     if kind == '3d':
-                        line = axes.plot(selected_pos[:, 0], selected_pos[:, 1],
-                                         selected_pos[:, 2], lw=get_lw())[0]
+                        line = axes.plot(
+                            selected_pos[:, 0], selected_pos[:, 1],
+                            selected_pos[:, 2], lw=get_lw())[0]
                     elif kind == '2d':
-                        line = axes.plot(selected_pos[:, 0], selected_pos[:, 1],
+                        line = axes.plot(selected_pos[:, 0],
+                                         selected_pos[:, 1],
                                          lw=get_lw())[0]
                     # add line to line_dict
                     line_dict[tuple(both_nodes)] = line
@@ -190,6 +194,33 @@ def plot_neighbours(inst, adj_matrix, color='gray', kind='3d'):
     return fig
 
 
+def find_adjacency(inst, picks=None):
+    '''Find channel adjacency matrix.'''
+    from scipy.spatial import Delaunay
+    from mne.channels.layout import _find_topomap_coords
+    from mne.source_estimate import spatial_tris_connectivity
+
+    n_channels = len(inst.ch_names)
+    picks = np.arange(n_channels) if picks is None else picks
+    ch_names = [inst.info['ch_names'][pick] for pick in picks]
+    xy = _find_topomap_coords(inst.info, picks)
+
+    # first on 2x, y
+    coords = xy.copy()
+    coords[:, 0] *= 2
+    tri = Delaunay(coords)
+    neighbors1 = spatial_tris_connectivity(tri.simplices)
+
+    # then on x, 2y
+    coords = xy.copy()
+    coords[:, 1] *= 2
+    tri = Delaunay(coords)
+    neighbors2 = spatial_tris_connectivity(tri.simplices)
+
+    adjacency = neighbors1.toarray() | neighbors2.toarray()
+    return adjacency, ch_names
+
+
 def cluster(data, adjacency=None):
     from borsar.cluster import _get_cluster_fun
     clst_fun = _get_cluster_fun(data, adjacency)
@@ -209,7 +240,7 @@ def cluster_spread(cluster, connectivity):
     n_chan = connectivity.shape[0]
     spread = np.zeros((n_chan, n_chan), 'int')
     unrolled = [cluster[ch, :].ravel() for ch in range(n_chan)]
-    for ch in range(n_chan - 1): # last chan will be already checked
+    for ch in range(n_chan - 1):  # last chan will be already checked
         ch1 = unrolled[ch]
 
         # get unchecked neighbours
@@ -238,8 +269,9 @@ def filter_clusters(mat, min_neighbours=4, min_channels=0, connectivity=None):
         size = mat.shape
 
     for ch in range(size[0]):
-        mat[ch, :, :] = mat[ch, :, :] & (signal.convolve2d(mat[ch, :, :],
-                                         kernel, mode='same') >= min_neighbours)
+        enough_ngb = (signal.convolve2d(mat[ch, :, :], kernel, mode='same')
+                      >= min_neighbours)
+        mat[ch, :, :] = mat[ch, :, :] & enough_ngb
     if min_channels > 0:
         assert connectivity is not None
         for ch in range(size[0]):
@@ -294,7 +326,7 @@ def smooth(matrix, sd=2.):
     if matrix.ndim > 2:
         n_chan = matrix.shape[0]
         for ch in range(n_chan):
-            matrix[ch,:] = gaussian_filter(matrix[ch,:], sd)
+            matrix[ch, :] = gaussian_filter(matrix[ch, :], sd)
     else:
         matrix = gaussian_filter(matrix, sd)
     return matrix
@@ -308,7 +340,7 @@ def check_list_inst(data, inst):
                             'belong to supported mne objects (Evoked, '
                             'AverageTFR).')
         tps.append(type(this_data))
-    all_same_type = [tp == tps[0] for tp in tps[1:]]
+    all_same_type = [tp == tps[0] for tp in tps[1:]] if len(tps) > 1 else True
     if not all_same_type:
         raise TypeError('Not all objects in the data list are of the same'
                         ' mne object class.')
@@ -316,15 +348,15 @@ def check_list_inst(data, inst):
 
 # - [x] +fmin, +fmax
 # - [ ] add TFR tests!
-# - [ ] add support for PSD
+# - [x] add support for PSD
 # - [ ] add 2-step tests?
 # - [ ] consider renaming to ..._ttest
 # - [ ] or consider adding ANOVA... (then it would be permutation_cluster_test)
 # - [ ] one_sample is not passed to lower functions...
 def permutation_cluster_t_test(data1, data2, paired=False, n_permutations=1000,
                                threshold=None, p_threshold=0.05,
-                               adjacency=None, tmin=None, tmax=None, fmin=None,
-                               fmax=None):
+                               adjacency=None, tmin=None, tmax=None,
+                               fmin=None, fmax=None, trial_level=False):
     '''Perform cluster-based permutation test with t test as statistic.
 
     data1 : list of mne objects
@@ -377,43 +409,85 @@ def permutation_cluster_t_test(data1, data2, paired=False, n_permutations=1000,
 
     if threshold is None:
         from scipy.stats import distributions
-        df = (len1 - 1 if paired or one_sample else
-              len1 + len2 - 2)
+        if trial_level:
+            df = data1[0].data.shape[0] + data1[0].data.shape[1] - 2
+        else:
+            df = (len1 - 1 if paired or one_sample else
+                  len1 + len2 - 2)
         threshold = np.abs(distributions.t.ppf(p_threshold / 2., df=df))
 
     # data1 and data2 have to be Evokeds or TFRs
-    supported_types = (mne.Evoked, mne.time_frequency.AverageTFR)
+    supported_types = (mne.Evoked, borsar.freq.PSD,
+                       mne.time_frequency.AverageTFR,
+                       mne.time_frequency.EpochsTFR)
     check_list_inst(data1, inst=supported_types)
     if data2 is not None:
         check_list_inst(data2, inst=supported_types)
 
-    tmin = 0 if tmin is None else inst.time_as_index(tmin)[0]
-    tmax = (len(inst.times) if tmax is None
-            else inst.time_as_index(tmax)[0] + 1)
-    time_slice = slice(tmin, tmax)
+    # find time and frequency ranges
+    # ------------------------------
+    if isinstance(inst, (mne.Evoked, mne.time_frequency.AverageTFR)):
+        tmin = 0 if tmin is None else inst.time_as_index(tmin)[0]
+        tmax = (len(inst.times) if tmax is None
+                else inst.time_as_index(tmax)[0] + 1)
+        time_slice = slice(tmin, tmax)
 
-    if isinstance(data1[0], mne.time_frequency.AverageTFR):
+    if isinstance(inst, (borsar.freq.PSD, mne.time_frequency.AverageTFR)):
+        fmin = 0 if fmin is None else find_index(data1[0].freqs, fmin)
+        fmax = (len(inst.freqs) if fmax is None
+                else find_index(data1[0].freqs, fmax))
+        freq_slice = slice(fmin, fmax + 1)
+
+    # handle object-specific data
+    # ---------------------------
+    if isinstance(inst, mne.time_frequency.AverageTFR):
         # + fmin, fmax
-        data1 = np.stack([erp.data[:, :, tmin:tmax] for erp in data1], axis=0)
-        data2 = (np.stack([erp.data[:, :, tmin:tmax] for erp in data2], axis=0)
+        assert not trial_level
+        data1 = np.stack([tfr.data[:, freq_slice, time_slice]
+                          for tfr in data1], axis=0)
+        data2 = (np.stack([tfr.data[:, freq_slice, time_slice]
+                           for tfr in data2], axis=0)
                  if data2 is not None else data2)
+    elif isinstance(inst, mne.time_frequency.EpochsTFR):
+        assert trial_level
+        data1 = inst.data[..., freq_slice, time_slice]
+        data2 = (data2[0].data[..., freq_slice, time_slice]
+                 if data2 is not None else data2)
+    elif isinstance(inst, borsar.freq.PSD):
+        if not inst._has_epochs:
+            assert not trial_level
+            data1 = np.stack([psd.data[:, freq_slice].T for psd in data1],
+                             axis=0)
+            data2 = (np.stack([psd.data[:, freq_slice].T for psd in data2],
+                              axis=0) if data2 is not None else data2)
+        else:
+            assert trial_level
+            data1 = data1[0].data[..., freq_slice].transpose((0, 2, 1))
+            data2 = (data2[0].data[..., freq_slice].transpose((0, 2, 1))
+                     if data2 is not None else data2)
+
     else:
-        data1 = np.stack([erp.data[:, tmin:tmax].T for erp in data1], axis=0)
-        data2 = (np.stack([erp.data[:, tmin:tmax].T for erp in data2], axis=0)
+        data1 = np.stack([erp.data[:, time_slice].T for erp in data1], axis=0)
+        data2 = (np.stack([erp.data[:, time_slice].T for erp in data2], axis=0)
                  if data2 is not None else data2)
 
     data_3d = data1.ndim > 3
     if (isinstance(adjacency, np.ndarray) and not sparse.issparse(adjacency)
-        and not data_3d):
+            and not data_3d):
         adjacency = sparse.coo_matrix(adjacency)
 
     if not data_3d:
         stat, clusters, cluster_p, _ = permutation_cluster_test(
             [data1, data2], stat_fun=stat_fun, threshold=threshold,
             connectivity=adjacency, n_permutations=n_permutations)
-        dimcoords = [inst.ch_names, inst.times[tmin:tmax]]
+        if isinstance(inst, mne.Evoked):
+            dimcoords = [inst.ch_names, inst.times[time_slice]]
+            dimnames = ['chan', 'time']
+        elif isinstance(inst, borsar.freq.PSD):
+            dimcoords = [inst.ch_names, inst.freqs[freq_slice]]
+            dimnames = ['chan', 'freq']
         return Clusters([c.T for c in clusters], cluster_p, stat.T,
-                        info=inst.info, dimnames=['chan', 'time'],
+                        info=inst.info, dimnames=dimnames,
                         dimcoords=dimcoords)
 
     else:
@@ -425,6 +499,7 @@ def permutation_cluster_t_test(data1, data2, paired=False, n_permutations=1000,
                         dimnames=['chan', 'freq', 'time'], dimcoords=dimcoords)
 
 
+# FIX this! (or is it in borsar?)
 def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
                                  one_sample=True, p_threshold=0.05,
                                  n_permutations=1000, progressbar=True,
@@ -438,7 +513,7 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
         pbar = tqdm_notebook(total=n_permutations)
 
     n_obs = data[0].shape[0]
-    signs = np.array([-1, 1])
+    # signs = np.array([-1, 1])
     signs_size = tuple([n_obs] + [1] * (data[0].ndim - 1))
 
     pos_dist = np.zeros(n_permutations)
@@ -480,8 +555,8 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
         # permute predictors
         if one_sample:
             idx = np.random.random_integers(0, 1, size=signs_size)
-            perm_signs = signs[idx]
-            perm_data = data[0] * perm_signs
+            # perm_signs = signs[idx]
+            # perm_data = data[0] * perm_signs
             perm_stat = stat_fun(data)
 
         # FIXME/TODO - move the part below to separate clustering function
@@ -503,8 +578,10 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
             max_val = perm_cluster_stats.max()
             min_val = perm_cluster_stats.min()
 
-            if max_val > 0: pos_dist[perm] = max_val
-            if min_val < 0: neg_dist[perm] = min_val
+            if max_val > 0:
+                pos_dist[perm] = max_val
+            if min_val < 0:
+                neg_dist[perm] = min_val
 
         if progressbar:
             pbar.update(1)
