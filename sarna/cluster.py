@@ -204,6 +204,7 @@ def cluster_1d(data, connectivity=None):
     return _find_clusters(data, 0.5, connectivity=connectivity)
 
 
+# TODO: this needs docs!
 def cluster_spread(cluster, connectivity):
     n_chan = connectivity.shape[0]
     spread = np.zeros((n_chan, n_chan), 'int')
@@ -225,6 +226,7 @@ def cluster_spread(cluster, connectivity):
 
 
 # - [x] add min_channel_neighbours
+# - [ ] add docs!
 # - [ ] min_neighbours as a 0 - 1 float
 # - [ ] include_channels (what was the idea here?)
 def filter_clusters(mat, min_neighbours=4, min_channels=0, connectivity=None):
@@ -312,13 +314,53 @@ def check_list_inst(data, inst):
                         ' mne object class.')
 
 
-# - [~] add TFR tests! - +fmin, +fmax
+# - [x] +fmin, +fmax
+# - [ ] add TFR tests!
+# - [ ] add support for PSD
 # - [ ] add 2-step tests?
 # - [ ] consider renaming to ..._ttest
+# - [ ] or consider adding ANOVA... (then it would be permutation_cluster_test)
+# - [ ] one_sample is not passed to lower functions...
 def permutation_cluster_t_test(data1, data2, paired=False, n_permutations=1000,
                                threshold=None, p_threshold=0.05,
-                               adjacency=None, tmin=None, tmax=None):
-    '''FIXME: add docs.'''
+                               adjacency=None, tmin=None, tmax=None, fmin=None,
+                               fmax=None):
+    '''Perform cluster-based permutation test with t test as statistic.
+
+    data1 : list of mne objects
+        List of objects (Evokeds, TFRs) belonging to condition one.
+    data2 : list of mne objects
+        List of objects (Evokeds, TFRs) belonging to condition two.
+    paired : bool
+        Whether to perform a paired t test. Defaults to ``True``.
+    n_permutations : int
+        How many permutations to perform. Defaults to ``1000``.
+    threshold : value
+        Cluster entry threshold defined by the value of the statistic. Defautls
+        to ``None`` which calculates threshold from p value (see
+        ``p_threshold``)
+    p_threshold : value
+        Cluster entry threshold defined by the p value.
+    adjacency : boolean array | sparse array
+        Information about channel adjacency.
+    tmin : float
+        Start of the time window of interest (in seconds). Defaults to ``None``
+        which takes the earliest possible time.
+    tmax : float
+        End of the time window of interest (in seconds). Defaults to ``None``
+        which takes the latest possible time.
+    fmin : float
+        Start of the frequency window of interest (in seconds). Defaults to
+        ``None`` which takes the lowest possible frequency.
+    fmax : float
+        End of the frequency window of interest (in seconds). Defaults to
+        ``None`` which takes the highest possible frequency.
+
+    Returns
+    -------
+    clst : borsar.cluster.Clusters
+        Obtained clusters.
+    '''
     if data2 is not None:
         one_sample = False
         stat_fun = ttest_rel_no_p if paired else ttest_ind_no_p
