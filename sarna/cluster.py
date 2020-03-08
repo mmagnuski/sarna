@@ -10,8 +10,8 @@ import mne
 from mne.stats import permutation_cluster_test, ttest_1samp_no_p
 
 import borsar
-from borsar.cluster import Clusters, construct_adjacency_matrix
 from borsar.utils import find_index
+from borsar.cluster import Clusters, construct_adjacency_matrix
 
 from . import utils
 from .stats import ttest_ind_no_p, ttest_rel_no_p
@@ -465,7 +465,6 @@ def permutation_cluster_t_test(data1, data2, paired=False, n_permutations=1000,
             data1 = data1[0].data[..., freq_slice].transpose((0, 2, 1))
             data2 = (data2[0].data[..., freq_slice].transpose((0, 2, 1))
                      if data2 is not None else data2)
-
     else:
         data1 = np.stack([erp.data[:, time_slice].T for erp in data1], axis=0)
         data2 = (np.stack([erp.data[:, time_slice].T for erp in data2], axis=0)
