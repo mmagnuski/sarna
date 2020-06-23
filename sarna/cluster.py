@@ -485,7 +485,7 @@ def permutation_cluster_t_test(data1, data2, paired=False, n_permutations=1000,
         elif isinstance(inst, borsar.freq.PSD):
             dimcoords = [inst.ch_names, inst.freqs[freq_slice]]
             dimnames = ['chan', 'freq']
-        return Clusters([c.T for c in clusters], cluster_p, stat.T,
+        return Clusters(stat.T, [c.T for c in clusters], cluster_p,
                         info=inst.info, dimnames=dimnames,
                         dimcoords=dimcoords)
 
@@ -494,7 +494,7 @@ def permutation_cluster_t_test(data1, data2, paired=False, n_permutations=1000,
             [data1, data2], adjacency, stat_fun, threshold=threshold,
             n_permutations=n_permutations)
         dimcoords = [inst.ch_names, inst.freqs, inst.times[tmin:tmax]]
-        return Clusters(clusters, cluster_p, stat, info=inst.info,
+        return Clusters(stat, clusters, cluster_p, info=inst.info,
                         dimnames=['chan', 'freq', 'time'], dimcoords=dimcoords)
 
 
