@@ -4,6 +4,8 @@ from scipy import stats
 from scipy.stats import ttest_ind, ttest_rel, levene
 from borsar.stats import compute_regression_t
 
+from .utils import progressbar as progressbar_function
+
 
 # TODO:
 # - [ ] avoid calculating p, now it is computed but thrown away
@@ -19,7 +21,9 @@ def ttest_rel_no_p(*args):
 
 
 # TODO:
-# - [ ] seems that y has to be a vector now, adapt for matrix - matrix
+# - [x] seems that y has to be a vector now, adapt for matrix - matrix
+#       (done for Pearson)
+# - [ ] look for better implementations
 def corr(x, y, method='Pearson'):
     '''correlate two vectors/matrices.
 
@@ -29,9 +33,7 @@ def corr(x, y, method='Pearson'):
     only pairs of variables where one is from the first and the other from  the
     second matrix)
     '''
-    x_size = x.shape
-    y_size = y.shape
-    if len(x_size) == 1:
+    if x.ndim == 1:
         x = x[:, np.newaxis]
         x_size = x.shape
 
@@ -42,28 +44,40 @@ def corr(x, y, method='Pearson'):
 
     rs = list()
     ps = list()
-    for col in range(x_size[1]):
-        r, p = cor(x[:, col], y)
-        rs.append(r)
-        ps.append(p)
-    return np.array(rs), np.array(ps)
+    if method == 'Spearman':
+        for col in range(x.shape[1]):
+            r, p = cor(x[:, col], y)
+            rs.append(r)
+            ps.append(p)
+        return np.array(rs), np.array(ps)
+    else:
+        rmat = np.zeros((x.shape[1], y.shape[1]))
+        pmat = rmat.copy()
+        for x_idx in range(x.shape[1]):
+            for y_idx in range(y.shape[1]):
+                r, p = cor(x[:, x_idx], y[:, y_idx])
+                rmat[x_idx, y_idx] = r
+                pmat[x_idx, y_idx] = p
+        return rmat, pmat
 
 
-# - [x] progressbar
-# - [x] two modes of prediction: pred -> data; data + pred -> y
-# - [x] refactor the two modes to share code
+# - [x] two modes of prediction: pred -> data; data + covariates -> pred
+# - [ ] consider renaming: data would remain as the multidimensional data
+#       pred would be predictors
+#       and y would be None - that is if y is other than `data`
+#       no need to awkwardly swap the variables then too!
 # - [x] apply model - statsmodels (might be even sklearn)
 # - [ ] merge with apply_test (and corr?)
 # - [ ] add n_jobs to speed up
-# - [ ] use faster function for ols (a wrapper around np.linalg.lstsq)
 def apply_stat(data, pred, along=0, stat_fun='OLS', covariates=None,
-               progressbar=None):
+               interaction=None, center=True, progressbar=None):
     """
     Apply statistical test like ordinary least squares regression along
     specified dimension of the data.
     """
     import statsmodels.api as sm
     has_covar = covariates is not None
+    has_interaction = interaction is not None
 
     # do we want to also add constat to the covariates?
     if not has_covar:
@@ -71,7 +85,11 @@ def apply_stat(data, pred, along=0, stat_fun='OLS', covariates=None,
 
     if stat_fun == 'OLS':
         def stat_fun(dt, pred):
-            mdl = sm.OLS(dt, pred).fit()
+            mdl = sm.OLS(dt, pred).fit(disp=False)
+            return mdl.tvalues, mdl.pvalues
+    elif stat_fun == 'logistic':
+        def stat_fun(dt, pred):
+            mdl = sm.Logit(dt, pred).fit(disp=False)
             return mdl.tvalues, mdl.pvalues
 
     if has_covar:
@@ -89,26 +107,31 @@ def apply_stat(data, pred, along=0, stat_fun='OLS', covariates=None,
     data = data.T
 
     # check dims and allocate output
+    add_dim = 1 if has_interaction else 0
+    add_dim = add_dim + covariates.shape[1] if has_covar else add_dim
     n_comps = data.shape[0]
-    n_preds = pred.shape[1]
+    n_preds = pred.shape[1] + add_dim
     tvals = np.zeros((n_comps, n_preds))
     pvals = np.zeros((n_comps, n_preds))
 
-    if progressbar:
-        from tqdm import tqdm_notebook
-        pbar = tqdm_notebook(total=n_comps)
+    pbar = progressbar_function(progressbar, total=n_comps)
 
     # perform model for each
-    # FIXME: add to notes: for regression using np.linalg.lstsq would be faster
     for ii, dt in enumerate(data):
         if covariates is not None:
             prd = dt[:, np.newaxis]
 
             # center given predictor
-            # FIXME: this could be done at the start to speed up
-            prd -= prd.mean()
-            prd /= prd.std()
+            # TODO - change to center / scale args
+            #        also do that at the beginning to speed up
+            if center:
+                prd -= prd.mean()
+                prd /= prd.std()
             prd = np.concatenate([covariates, prd], axis=1)
+
+            if interaction:
+                add_interaction = interaction(prd)
+                prd = np.concatenate([prd, add_interaction], axis=1)
 
             # run model (we use `pred` as y because data and pred were swapped)
             tval, pval = stat_fun(pred, prd)
@@ -117,73 +140,13 @@ def apply_stat(data, pred, along=0, stat_fun='OLS', covariates=None,
         tvals[ii, :] = tval
         pvals[ii, :] = pval
 
-        if progressbar:
-            pbar.update(1)
+        pbar.update(1)
 
     new_shp = [n_preds] + shp[1:]
     tvals = tvals.T.reshape(new_shp)
     pvals = pvals.T.reshape(new_shp)
 
     return tvals, pvals
-
-
-# - [ ] remove and add example of using `apply_stat` this way
-def apply_test(data, group, test):
-    '''applies test along axis=1
-    data - 2d data array
-    group - group identity (rows)
-    test - 'levene' for example
-            should accept functions too
-    '''
-    n_samples = data.shape[1]
-    if test == 'levene':
-        levene_W = np.zeros(n_samples)
-        levene_p = np.zeros(n_samples)
-        for t_ind in range(n_samples):
-            levene_W[t_ind], levene_p[t_ind] = stats.levene(
-                data[group == 0, t_ind], data[group == 1, t_ind])
-
-        return levene_W, levene_p
-    else:
-        raise NotImplementedError('Only levene is implemented currently...')
-
-
-# TODO:
-# - [ ] rename along to retain
-# - [ ] should the default be along -1?
-# - [ ] add fit_transform
-# - [ ] check whether n_preds is there in inverse_transform
-# - [ ] use rollaxis if not along default
-# - [ ] allow more than one dim in retain?
-class Reshaper(object):
-    def __init__(self):
-        self.shape = None
-        self.along = None
-        self.todims = False
-
-    def fit(self, X, along=-1):
-        # reshape data to ease up regression
-        if along == -1:
-            along = X.ndim - 1
-        if not along == 0:
-            dims = list(range(data.ndim))
-            dims.remove(along)
-            self.todims = [along] + dims
-        self.along = along
-        self.shape = list(data.shape)
-
-    def transform(self, X):
-        if not self.along == 0:
-            X = np.transpose(X, self.todims)
-        if X.ndim > 2:
-            this_shape = X.shape
-            X = X.reshape([this_shape[0], np.prod(this_shape[1:])])
-        return X.T # may not be necessary if no diff in performance
-
-    def inverse_transform(self, X):
-        n_preds = X.shape[-1]
-        new_shp = [n_preds] + self.shape[1:]
-        return X.T.reshape(new_shp)
 
 
 # goodness of fit
