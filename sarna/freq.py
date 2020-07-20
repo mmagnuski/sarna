@@ -16,7 +16,7 @@ import numpy as np
 # from numba import jit
 import mne
 from warnings import warn
-from sarna.utils import group
+from sarna.utils import group, _invert_selection, _transfer_selection_to_raw
 
 
 def dB(x):
@@ -297,16 +297,33 @@ def _find_high_amplitude_periods(data, amp_z_thresh=2.5, min_period=0.1,
     return np.append(epoch_idx, grp, axis=1)
 
 
-def create_amplitude_annotations(raw, amp_inv_samples):
+def create_amplitude_annotations(raw, events, event_id, freq, picks, tmin,
+                                 tmax, amp_z_thresh=2.):
     '''
 
     Parameters
     ----------
     raw : mne.Raw
         Raw file to use.
-    amp_inv_samples : numpy.ndarray
-        Inverted periods in samples. Numpy array of (n_periods, 2) shape. The
-        columns are: sample index of period start, sample index of period end.
+    events: numpy array | None
+        Mne events array of shape (n_events, 3). If None (default) `tmin` and
+        `tmax` are not calculated with respect to events but the whole time
+        range of the `raw` file.
+    event_id: list | numpy array
+        Event types (IDs) to use in defining segments for which psd is
+        computed. If None (default) and events were passed all event types are
+        used.
+    freq : list | numpy array
+        Frequency limits defining a range for which low amplitude periods will
+        be calculated.
+    picks : list
+        List of channels for which low amplitude periods will be calculated.
+    tmin : float
+        Start time before event.
+    tmax : float
+        End time after event.
+    amp_z_thresh : float
+        Z score threshold defining high amplitude periods. Defaults to ``2.5``.
 
     Returns
     -------
@@ -314,6 +331,19 @@ def create_amplitude_annotations(raw, amp_inv_samples):
         Raw files with annotations.
 
     '''
+
+    filt_raw = raw.copy().filter(freq[0], freq[1])
+    epochs = mne.Epochs(filt_raw, events=events, event_id=event_id, tmin=tmin,
+                        tmax=tmax, baseline=None, preload=True,
+                        reject_by_annotation=False)
+
+    filt_hilb_data = epochs.copy().pick(picks).apply_hilbert()
+    hi_amp_epochs = _find_high_amplitude_periods(filt_hilb_data,
+                                                 amp_z_thresh=amp_z_thresh)
+    hi_amp_raw = _transfer_selection_to_raw(raw, epochs,
+                                            selection=hi_amp_epochs)
+    amp_inv_samples = _invert_selection(raw, selection=hi_amp_raw)
+
     sfreq = raw.info['sfreq']
     amp_inv_annot_sec = amp_inv_samples / sfreq
 

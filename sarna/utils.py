@@ -464,7 +464,7 @@ class EmptyProgressbar(object):
         pass
 
 
-def _transfer_selection_to_raw(raw, epochs, hi_amp_epochs):
+def _transfer_selection_to_raw(raw, epochs, selection):
     '''
 
     Parameters
@@ -473,7 +473,7 @@ def _transfer_selection_to_raw(raw, epochs, hi_amp_epochs):
       Raw file to use.
     epochs : mne.Epochs
         Epochs file to use.
-    hi_amp_epochs : numpy.ndarray
+    selection : numpy.ndarray
         High amplitude periods in samples for epochs. Numpy array of
         (n_periods, 3) shape. The columns are: epoch index, within-epoch
         sample index of period start, within-epoch sample index of period end.
@@ -485,7 +485,7 @@ def _transfer_selection_to_raw(raw, epochs, hi_amp_epochs):
         (n_periods, 2) shape. The columns are: sample index of period start,
         sample index of period end.
     '''
-    hi_amp_raw = np.zeros((hi_amp_epochs.shape[0], 2))
+    selection_raw = np.zeros((selection.shape[0], 2))
     sfreq = raw.info['sfreq']
     event_id = epochs.events[:, 2][0]
     events_sel = epochs.events[:, 2] == event_id
@@ -493,17 +493,17 @@ def _transfer_selection_to_raw(raw, epochs, hi_amp_epochs):
     tmin = epochs.tmin
     tmin_samples = int(np.round(tmin * sfreq))
 
-    for idx in range(hi_amp_epochs.shape[0]):
-        epoch_idx, start, end = hi_amp_epochs[idx, :]
-        hi_amp_raw[idx, 0] = (start + epoch_events[epoch_idx] +
-                              tmin_samples)
-        hi_amp_raw[idx, 1] = (end + epoch_events[epoch_idx] +
-                              tmin_samples)
+    for idx in range(selection.shape[0]):
+        epoch_idx, start, end = selection[idx, :]
+        selection_raw[idx, 0] = (start + epoch_events[epoch_idx] +
+                                 tmin_samples)
+        selection_raw[idx, 1] = (end + epoch_events[epoch_idx] +
+                                 tmin_samples)
 
-    return hi_amp_raw
+    return selection_raw
 
 
-def _invert_selection(raw, hi_amp_raw):
+def _invert_selection(raw, selection):
     '''
 
     Parameters
@@ -522,18 +522,18 @@ def _invert_selection(raw, hi_amp_raw):
       columns are: sample index of period start, sample index of period end.
 
     '''
-    amp_inv_samples = np.zeros((hi_amp_raw.shape[0] + 1, 2))
-    start, _ = hi_amp_raw[0, :]
+    amp_inv_samples = np.zeros((selection.shape[0] + 1, 2))
+    start, _ = selection[0, :]
     amp_inv_samples[0, :] = [0, start]
 
-    for idx in range(hi_amp_raw.shape[0] - 1):
-        _, end = hi_amp_raw[idx, :]
-        start, _ = hi_amp_raw[idx + 1, :]
+    for idx in range(selection.shape[0] - 1):
+        _, end = selection[idx, :]
+        start, _ = selection[idx + 1, :]
         amp_inv_samples[idx + 1, 0] = end
         amp_inv_samples[idx + 1, 1] = start - amp_inv_samples[idx + 1, 0]
 
     n_samples = raw._data.shape[1]
-    _, end = hi_amp_raw[-1, :]
+    _, end = selection[-1, :]
     raw_start_samples = end
     amp_inv_samples[-1, :] = [raw_start_samples, n_samples - raw_start_samples]
 
