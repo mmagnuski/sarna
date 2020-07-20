@@ -297,75 +297,29 @@ def _find_high_amplitude_periods(data, amp_z_thresh=2.5, min_period=0.1,
     return np.append(epoch_idx, grp, axis=1)
 
 
-def _create_low_amp_annotations(raw, events, event_id, freq, tmin, sel_chans,
-                                amp_z_thresh=2.):
+def create_amplitude_annotations(raw, amp_inv_samples):
     '''
-    Creates annotations for fragments with low amplitude.
+
     Parameters
     ----------
-    raw: mne.Raw
-          Raw file to use.
-    events: numpy array | None
-        Mne events array of shape (n_events, 3). If None (default) `tmin` and
-        `tmax` are not calculated with respect to events but the whole time
-        range of the `raw` file.
-    event_id: list | numpy array
-        Event types (IDs) to use in defining segments for which psd is
-        computed. If None (default) and events were passed all event types are
-        used.
-    tmin: float
-        Lower edge of each segment in seconds. If events are given the lower
-        edge is with respect to each event. If events are not given only one
-        segment is used and `tmin` denotes the lower edge of the whole `raw`
-        file.
-    freq :
-        Frequencies for which low amplitude periods will be calculated.
-    sel_chans : list
-        List of channels for which low amplitude periods will be calculated.
-    amp_z_thresh : float
-        Z score threshold defining high amplitude periods. Defaults to ``2.``
+    raw : mne.Raw
+        Raw file to use.
+    amp_inv_samples : numpy.ndarray
+        Inverted periods in samples. Numpy array of (n_periods, 2) shape. The
+        columns are: sample index of period start, sample index of period end.
 
     Returns
     -------
-    low_amp_annot : mne.Annotations
-                    Annotations with low amplitude segment
+    raw_annot : mne.Raw
+        Raw files with annotations.
 
     '''
-    filt_raw = raw.copy().filter(freq[0], freq[1])
-    epochs = mne.Epochs(filt_raw, events, event_id=event_id, tmin=tmin,
-                        tmax=60.0, baseline=None, preload=True,
-                        reject_by_annotation=False)
-
-    filt_hilb_data = epochs.copy().pick(sel_chans).apply_hilbert()
-    # find fragments with high amplitude
-    hi_amp = _find_high_amplitude_periods(filt_hilb_data,
-                                          amp_z_thresh=amp_z_thresh)
-    # convert those fragments to annotations with low amplitude
-    amp_neg_annot = np.zeros((hi_amp.shape[0] + 1, 2))
     sfreq = raw.info['sfreq']
-    events_sel = events[:, 2] == event_id
-    epoch_events = events[events_sel, 0]
-    tmin_samples = int(np.round(tmin * sfreq))
-    epoch_idx, start, _ = hi_amp[0, :]
+    amp_inv_annot_sec = amp_inv_samples / sfreq
 
-    amp_neg_annot[0, :] = [0, start + epoch_events[epoch_idx] + tmin_samples]
+    n_segments = amp_inv_samples.shape[0]
+    amp_annot = mne.Annotations(amp_inv_annot_sec[:, 0],
+                                amp_inv_annot_sec[:, 1],
+                                ['BAD_lowamp'] * n_segments)
 
-    for idx in range(hi_amp.shape[0] - 1):
-        epoch_idx1, _, end = hi_amp[idx, :]
-        epoch_idx2, start, _ = hi_amp[idx + 1, :]
-        amp_neg_annot[idx + 1, 0] = (end + epoch_events[epoch_idx1] +
-                                     tmin_samples)
-        amp_neg_annot[idx + 1, 1] = (start + epoch_events[epoch_idx2] +
-                                     tmin_samples - amp_neg_annot[idx + 1, 0])
-
-    n_samples = raw._data.shape[1]
-    epoch_idx, _, end = hi_amp[-1, :]
-    raw_start_samples = end + epoch_events[epoch_idx] + tmin_samples
-    amp_neg_annot[-1, :] = [raw_start_samples, n_samples - raw_start_samples]
-    amp_neg_annot_sec = amp_neg_annot / sfreq
-
-    n_segments = amp_neg_annot.shape[0]
-    low_amp_annot = mne.Annotations(amp_neg_annot_sec[:, 0],
-                                    amp_neg_annot_sec[:, 1],
-                                    ['BAD_lowamp'] * n_segments)
-    return low_amp_annot
+    return amp_annot

@@ -462,3 +462,79 @@ class EmptyProgressbar(object):
 
     def update(self, val):
         pass
+
+
+def _transfer_selection_to_raw(raw, epochs, hi_amp_epochs):
+    '''
+
+    Parameters
+    ----------
+    raw: mne.Raw
+      Raw file to use.
+    epochs : mne.Epochs
+        Epochs file to use.
+    hi_amp_epochs : numpy.ndarray
+        High amplitude periods in samples for epochs. Numpy array of
+        (n_periods, 3) shape. The columns are: epoch index, within-epoch
+        sample index of period start, within-epoch sample index of period end.
+
+    Returns
+    -------
+    hi_amp_raw : numpy.ndarray
+        High amplitude periods in samples for raw file. Numpy array of
+        (n_periods, 2) shape. The columns are: sample index of period start,
+        sample index of period end.
+    '''
+    hi_amp_raw = np.zeros((hi_amp_epochs.shape[0], 2))
+    sfreq = raw.info['sfreq']
+    event_id = epochs.events[:, 2][0]
+    events_sel = epochs.events[:, 2] == event_id
+    epoch_events = epochs.events[events_sel, 0]
+    tmin = epochs.tmin
+    tmin_samples = int(np.round(tmin * sfreq))
+
+    for idx in range(hi_amp_epochs.shape[0]):
+        epoch_idx, start, end = hi_amp_epochs[idx, :]
+        hi_amp_raw[idx, 0] = (start + epoch_events[epoch_idx] +
+                              tmin_samples)
+        hi_amp_raw[idx, 1] = (end + epoch_events[epoch_idx] +
+                              tmin_samples)
+
+    return hi_amp_raw
+
+
+def _invert_selection(raw, hi_amp_raw):
+    '''
+
+    Parameters
+    ----------
+    raw : mne.Raw
+      Raw file to use.
+    hi_amp_raw : numpy.ndarray
+      High amplitude periods in samples for raw file. Numpy array of
+      (n_periods, 2) shape. The columns are: sample index of period start,
+      sample index of period end.
+
+    Returns
+    -------
+    amp_inv_samples : numpy.ndarray
+      Inverted periods in samples. Numpy array of (n_periods, 2) shape. The
+      columns are: sample index of period start, sample index of period end.
+
+    '''
+    amp_inv_samples = np.zeros((hi_amp_raw.shape[0] + 1, 2))
+    start, _ = hi_amp_raw[0, :]
+    amp_inv_samples[0, :] = [0, start]
+
+    for idx in range(hi_amp_raw.shape[0] - 1):
+        _, end = hi_amp_raw[idx, :]
+        start, _ = hi_amp_raw[idx + 1, :]
+        amp_inv_samples[idx + 1, 0] = end
+        amp_inv_samples[idx + 1, 1] = start - amp_inv_samples[idx + 1, 0]
+
+    n_samples = raw._data.shape[1]
+    _, end = hi_amp_raw[-1, :]
+    raw_start_samples = end
+    amp_inv_samples[-1, :] = [raw_start_samples, n_samples - raw_start_samples]
+
+    return amp_inv_samples
