@@ -246,8 +246,8 @@ def _find_high_amplitude_periods(data, amp_z_thresh=2.5, min_period=0.1,
         Minimum length of high amplitude period in seconds.
         Defaults to ``0.1``.
     extend : float | None
-        Extend each period by this many seconds. Defaults to ``None`` which
-        does not extend the periods.
+        Extend each period by this many seconds on both sides (before and
+        after). Defaults to ``None`` which does not extend the periods.
 
     Returns
     -------
@@ -256,6 +256,7 @@ def _find_high_amplitude_periods(data, amp_z_thresh=2.5, min_period=0.1,
         within-epoch sample index of period start, within-epoch sample index of
         period end.
     '''
+    from scipy.stats import zscore
 
     # amplitude periods
     n_epochs, n_channels, n_samples = data._data.shape
@@ -263,7 +264,7 @@ def _find_high_amplitude_periods(data, amp_z_thresh=2.5, min_period=0.1,
 
     # find segments with elevated amplitude
     envelope = np.abs(comp_data).mean(axis=0)
-    envelope_z = envelope / envelope.mean(axis=0, keepdims=True)
+    envelope_z = zscore(envelope)
     grp = group(envelope_z > amp_z_thresh)
     # check if there are some segments that start at one epoch
     # and end in another
@@ -297,8 +298,10 @@ def _find_high_amplitude_periods(data, amp_z_thresh=2.5, min_period=0.1,
     return np.append(epoch_idx, grp, axis=1)
 
 
-def create_amplitude_annotations(raw, events, event_id, freq, picks, tmin,
-                                 tmax, amp_z_thresh=2.):
+def create_amplitude_annotations(raw, freq, events=None, event_id=None,
+                                 picks=None, tmin=- 0.2, tmax=0.5,
+                                 amp_z_thresh=2., min_period=0.1,
+                                 extend=None):
     '''
 
     Parameters
@@ -324,6 +327,12 @@ def create_amplitude_annotations(raw, events, event_id, freq, picks, tmin,
         End time after event.
     amp_z_thresh : float
         Z score threshold defining high amplitude periods. Defaults to ``2.5``.
+    min_period : float
+        Minimum length of high amplitude period in seconds.
+        Defaults to ``0.1``.
+    extend : float | None
+        Extend each period by this many seconds on both sides (before and
+        after). Defaults to ``None`` which does not extend the periods.
 
     Returns
     -------
@@ -333,14 +342,26 @@ def create_amplitude_annotations(raw, events, event_id, freq, picks, tmin,
     '''
 
     filt_raw = raw.copy().filter(freq[0], freq[1])
+
+    if events is None:
+        raise TypeError('Events have to be defined')
+    if event_id is None:
+        event_id = np.unique(events[:, 2]).tolist()
+
     epochs = mne.Epochs(filt_raw, events=events, event_id=event_id, tmin=tmin,
                         tmax=tmax, baseline=None, preload=True,
                         reject_by_annotation=False)
 
-    filt_hilb_data = epochs.copy().pick(picks).apply_hilbert()
+    if picks is None:
+        filt_hilb_data = epochs.copy().apply_hilbert()
+    else:
+        filt_hilb_data = epochs.copy().pick(picks).apply_hilbert()
+
     hi_amp_epochs = _find_high_amplitude_periods(filt_hilb_data,
-                                                 amp_z_thresh=amp_z_thresh)
-    hi_amp_raw = _transfer_selection_to_raw(raw, epochs,
+                                                 amp_z_thresh=amp_z_thresh,
+                                                 min_period=min_period,
+                                                 extend=extend)
+    hi_amp_raw = _transfer_selection_to_raw(epochs, raw,
                                             selection=hi_amp_epochs)
     amp_inv_samples = _invert_selection(raw, selection=hi_amp_raw)
 

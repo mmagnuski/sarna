@@ -464,15 +464,15 @@ class EmptyProgressbar(object):
         pass
 
 
-def _transfer_selection_to_raw(raw, epochs, selection):
+def _transfer_selection_to_raw(epochs, raw, selection):
     '''
 
     Parameters
     ----------
-    raw: mne.Raw
-      Raw file to use.
     epochs : mne.Epochs
         Epochs file to use.
+    raw: mne.Raw
+        Raw file to use.
     selection : numpy.ndarray
         High amplitude periods in samples for epochs. Numpy array of
         (n_periods, 3) shape. The columns are: epoch index, within-epoch
@@ -480,16 +480,14 @@ def _transfer_selection_to_raw(raw, epochs, selection):
 
     Returns
     -------
-    hi_amp_raw : numpy.ndarray
+    hi_amp_raw : numpy.ndarrays
         High amplitude periods in samples for raw file. Numpy array of
         (n_periods, 2) shape. The columns are: sample index of period start,
         sample index of period end.
     '''
     selection_raw = np.zeros((selection.shape[0], 2))
     sfreq = raw.info['sfreq']
-    event_id = epochs.events[:, 2][0]
-    events_sel = epochs.events[:, 2] == event_id
-    epoch_events = epochs.events[events_sel, 0]
+    epoch_events = epochs.events[:, 0].copy()
     tmin = epochs.tmin
     tmin_samples = int(np.round(tmin * sfreq))
 
