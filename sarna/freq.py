@@ -254,9 +254,8 @@ def _correct_overlap(periods):
     correct = list()
 
     for idx in range(1, n_rows):
-        overlap = (periods[idx, 0] ==
-                   current_period[0]) and (periods[idx, 1] <=
-                                           current_period[2])
+        overlap = ((periods[idx, 0] == current_period[0])
+                   and (periods[idx, 1] <= current_period[2]))
 
         if overlap:
             current_period[-1] = periods[idx, -1]
@@ -335,11 +334,8 @@ def _find_high_amplitude_periods(data, amp_z_thresh=2.5, min_period=0.1,
         grp[msk2, 1] = n_samples - 1
 
     periods = np.append(epoch_idx, grp, axis=1)
-    if extend is None:
-        return periods
-    else:
-        periods = _correct_overlap(periods)
-        return periods
+    periods = periods if extend is None else _correct_overlap(periods)
+    return periods
 
 
 def create_amplitude_annotations(raw, freq, events=None, event_id=None,

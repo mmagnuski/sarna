@@ -507,17 +507,17 @@ def _invert_selection(raw, selection):
     Parameters
     ----------
     raw : mne.Raw
-      Raw file to use.
+        Raw file to use.
     hi_amp_raw : numpy.ndarray
-      High amplitude periods in samples for raw file. Numpy array of
-      (n_periods, 2) shape. The columns are: sample index of period start,
-      sample index of period end.
+        High amplitude periods in samples for raw file. Numpy array of
+        (n_periods, 2) shape. The columns are: sample index of period start,
+        sample index of period end.
 
     Returns
     -------
     amp_inv_samples : numpy.ndarray
-      Inverted periods in samples. Numpy array of (n_periods, 2) shape. The
-      columns are: sample index of period start, sample index of period end.
+        Inverted periods in samples. Numpy array of (n_periods, 2) shape. The
+        columns are: sample index of period start, sample index of period end.
 
     '''
     amp_inv_samples = np.zeros((selection.shape[0] + 1, 2))
