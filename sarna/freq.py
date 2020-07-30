@@ -231,6 +231,45 @@ def _cwt_loop(X, times_ind, Ws, W_sizes, w_time_lims):
     return tfr
 
 
+def _correct_overlap(periods):
+    '''
+
+    Parameters
+    ----------
+    periods : np.ndarray
+        Numpy array of (n_periods, 3) shape. The columns are: epoch index,
+        within-epoch sample index of period start, within-epoch sample index of
+        period end.
+
+    Returns
+    -------
+    periods : np.ndarray
+        Corrected numpy array of (n_periods, 3) shape. The columns are: epoch
+        index, within-epoch sample index of period start, within-epoch sample
+        index of period end.
+
+    '''
+    n_rows = periods.shape[0]
+    current_period = periods[0, :].copy()
+    correct = list()
+
+    for idx in range(1, n_rows):
+        overlap = (periods[idx, 0] ==
+                   current_period[0]) and (periods[idx, 1] <=
+                                           current_period[2])
+
+        if overlap:
+            current_period[-1] = periods[idx, -1]
+        else:
+            correct.append(current_period)
+            current_period = periods[idx, :].copy()
+
+    correct.append(current_period)
+    periods = np.stack(correct, axis=0)
+
+    return periods
+
+
 def _find_high_amplitude_periods(data, amp_z_thresh=2.5, min_period=0.1,
                                  extend=None):
     '''
@@ -295,7 +334,12 @@ def _find_high_amplitude_periods(data, amp_z_thresh=2.5, min_period=0.1,
         grp[msk1, 0] = 0
         grp[msk2, 1] = n_samples - 1
 
-    return np.append(epoch_idx, grp, axis=1)
+    periods = np.append(epoch_idx, grp, axis=1)
+    if extend is None:
+        return periods
+    else:
+        periods = _correct_overlap(periods)
+        return periods
 
 
 def create_amplitude_annotations(raw, freq, events=None, event_id=None,
