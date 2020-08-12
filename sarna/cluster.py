@@ -221,10 +221,10 @@ def find_adjacency(inst, picks=None):
     return adjacency, ch_names
 
 
-def cluster(data, adjacency=None):
-    from borsar.cluster import _get_cluster_fun
-    clst_fun = _get_cluster_fun(data, adjacency)
-    return clst_fun(data, adjacency)
+def cluster(data, adjacency=None, min_adj_ch=0):
+    from borsar.cluster.label import _get_cluster_fun
+    clst_fun = _get_cluster_fun(data, adjacency, min_adj_ch=min_adj_ch)
+    return clst_fun(data, adjacency, min_adj_ch=min_adj_ch)
 
 
 # TODO: do not convert to sparse if already sparse
@@ -346,19 +346,19 @@ def check_list_inst(data, inst):
                         ' mne object class.')
 
 
-# - [x] +fmin, +fmax
 # - [ ] add TFR tests!
-# - [x] add support for PSD
-# - [ ] add 2-step tests?
-# - [ ] consider renaming to ..._ttest
-# - [ ] or consider adding ANOVA... (then it would be permutation_cluster_test)
+# - [x] rename to ..._ttest
+# - [ ] add Epochs to supported types if single_trial
 # - [ ] one_sample is not passed to lower functions...
-def permutation_cluster_t_test(data1, data2, paired=False, n_permutations=1000,
+# - [ ] add 2-step tests?
+def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
                                threshold=None, p_threshold=0.05,
                                adjacency=None, tmin=None, tmax=None,
                                fmin=None, fmax=None, trial_level=False):
     '''Perform cluster-based permutation test with t test as statistic.
 
+    Parameters
+    ----------
     data1 : list of mne objects
         List of objects (Evokeds, TFRs) belonging to condition one.
     data2 : list of mne objects
@@ -387,6 +387,8 @@ def permutation_cluster_t_test(data1, data2, paired=False, n_permutations=1000,
     fmax : float
         End of the frequency window of interest (in seconds). Defaults to
         ``None`` which takes the highest possible frequency.
+    trial_level : bool
+        FIXME
 
     Returns
     -------
@@ -410,7 +412,9 @@ def permutation_cluster_t_test(data1, data2, paired=False, n_permutations=1000,
     if threshold is None:
         from scipy.stats import distributions
         if trial_level:
-            df = data1[0].data.shape[0] + data1[0].data.shape[1] - 2
+            # FIXME - add option for one_sample trial level...
+            df = (data1[0].data.shape[0] - 1 if one_sample
+                  else data1[0].data.shape[0] + data1[1].data.shape[0] - 2)
         else:
             df = (len1 - 1 if paired or one_sample else
                   len1 + len2 - 2)
@@ -492,18 +496,19 @@ def permutation_cluster_t_test(data1, data2, paired=False, n_permutations=1000,
     else:
         stat, clusters, cluster_p = _permutation_cluster_test_3d(
             [data1, data2], adjacency, stat_fun, threshold=threshold,
-            n_permutations=n_permutations)
+            n_permutations=n_permutations, one_sample=one_sample)
         dimcoords = [inst.ch_names, inst.freqs, inst.times[tmin:tmax]]
         return Clusters(stat, clusters, cluster_p, info=inst.info,
                         dimnames=['chan', 'freq', 'time'], dimcoords=dimcoords)
 
 
-# FIX this! (or is it in borsar?)
 def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
                                  one_sample=True, p_threshold=0.05,
                                  n_permutations=1000, progressbar=True,
                                  return_distribution=False, backend='auto'):
-    """FIXME: add docs."""
+    """FIXME: add docs.
+    borsar only contains ``label`` 3d version of clustering, n-d clustering
+    is also now available in mne now."""
 
     from borsar.cluster import _get_cluster_fun
 
@@ -512,8 +517,9 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
         pbar = tqdm_notebook(total=n_permutations)
 
     n_obs = data[0].shape[0]
-    # signs = np.array([-1, 1])
-    signs_size = tuple([n_obs] + [1] * (data[0].ndim - 1))
+    if one_sample:
+        signs = np.array([-1, 1])
+        signs_size = tuple([n_obs] + [1] * (data[0].ndim - 1))
 
     pos_dist = np.zeros(n_permutations)
     neg_dist = np.zeros(n_permutations)
@@ -551,12 +557,14 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
 
     # compute permutations
     for perm in range(n_permutations):
-        # permute predictors
+        # permute data / predictors
         if one_sample:
             idx = np.random.random_integers(0, 1, size=signs_size)
-            # perm_signs = signs[idx]
-            # perm_data = data[0] * perm_signs
+            perm_signs = signs[idx]
+            perm_data = data * perm_signs
             perm_stat = stat_fun(data)
+        else:
+            raise NotImpementedError
 
         # FIXME/TODO - move the part below to separate clustering function
         #              consider numba optimization too...
@@ -592,7 +600,6 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
     cluster_p *= 2 # because we use two-tail
     cluster_p[cluster_p > 1.] = 1. # probability has to be <= 1.
 
-    # FIXME: this may not be needed because Clusters sorts by p val...
     # sort clusters by p value
     cluster_order = np.argsort(cluster_p)
     cluster_p = cluster_p[cluster_order]
