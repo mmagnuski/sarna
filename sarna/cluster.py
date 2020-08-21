@@ -354,7 +354,8 @@ def check_list_inst(data, inst):
 def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
                                threshold=None, p_threshold=0.05,
                                adjacency=None, tmin=None, tmax=None,
-                               fmin=None, fmax=None, trial_level=False):
+                               fmin=None, fmax=None, trial_level=False,
+                               min_adj_ch=0):
     '''Perform cluster-based permutation test with t test as statistic.
 
     Parameters
@@ -387,7 +388,7 @@ def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
     fmax : float
         End of the frequency window of interest (in seconds). Defaults to
         ``None`` which takes the highest possible frequency.
-    trial_level : bool
+    min_adj_ch: int
         FIXME
 
     Returns
@@ -409,16 +410,8 @@ def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
     if paired:
         assert len1 == len2
 
-    if threshold is None:
-        from scipy.stats import distributions
-        if trial_level:
-            # FIXME - add option for one_sample trial level...
-            df = (data1[0].data.shape[0] - 1 if one_sample
-                  else data1[0].data.shape[0] + data1[1].data.shape[0] - 2)
-        else:
-            df = (len1 - 1 if paired or one_sample else
-                  len1 + len2 - 2)
-        threshold = np.abs(distributions.t.ppf(p_threshold / 2., df=df))
+    threshold = _compute_threshold([data1, data2], threshold, trial_level,
+                                   paired, one_sample)
 
     # data1 and data2 have to be Evokeds or TFRs
     supported_types = (mne.Evoked, borsar.freq.PSD,
@@ -447,6 +440,7 @@ def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
     if isinstance(inst, mne.time_frequency.AverageTFR):
         # + fmin, fmax
         assert not trial_level
+        # data are in observations x channels x frequencies x time
         data1 = np.stack([tfr.data[:, freq_slice, time_slice]
                           for tfr in data1], axis=0)
         data2 = (np.stack([tfr.data[:, freq_slice, time_slice]
@@ -482,7 +476,8 @@ def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
     if not data_3d:
         stat, clusters, cluster_p, _ = permutation_cluster_test(
             [data1, data2], stat_fun=stat_fun, threshold=threshold,
-            connectivity=adjacency, n_permutations=n_permutations)
+            connectivity=adjacency, n_permutations=n_permutations,
+            min_adj_ch=min_adj_ch)
         if isinstance(inst, mne.Evoked):
             dimcoords = [inst.ch_names, inst.times[time_slice]]
             dimnames = ['chan', 'time']
@@ -503,18 +498,23 @@ def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
 
 
 def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
-                                 one_sample=True, p_threshold=0.05,
-                                 n_permutations=1000, progressbar=True,
-                                 return_distribution=False, backend='auto'):
-    """FIXME: add docs.
-    borsar only contains ``label`` 3d version of clustering, n-d clustering
-    is also now available in mne now."""
+                                 one_sample=True, paired=False,
+                                 trial_level=False, p_threshold=0.05,
+                                 n_permutations=1000, progress=True,
+                                 return_distribution=False, backend='auto',
+                                 min_adj_ch=0):
+    """FIXME: add docs."""
 
-    from borsar.cluster import _get_cluster_fun
+    from .utils import progressbar
+    from borsar.cluster.label import _get_cluster_fun, find_clusters
+    threshold = _compute_threshold(data, threshold, trial_level, paired,
+                                   one_sample)
 
-    if progressbar:
-        from tqdm import tqdm_notebook
-        pbar = tqdm_notebook(total=n_permutations)
+    assert one_sample, ('Currently 3d data (like TFR) are only supported in '
+                        'the `one_sample` cluster-based permutation test.')
+
+    # FIXME - use sarna progressbar
+    pbar = progressbar(progress, total=n_permutations)
 
     n_obs = data[0].shape[0]
     if one_sample:
@@ -525,11 +525,11 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
     neg_dist = np.zeros(n_permutations)
 
     # test on non-permuted data
-    stat = stat_fun(data)
+    stat = stat_fun(data[0])
 
     # use 3d clustering
     cluster_fun = _get_cluster_fun(stat, adjacency=adjacency,
-                                   backend=backend)
+                                   backend=backend, min_adj_ch=min_adj_ch)
 
     # we need to transpose dimensions for 3d clustering
     # FIXME/TODO - this could be eliminated by creating a single unified
@@ -537,16 +537,9 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
     # jdata_dims = list(range(data[0].ndim))
     # data_dims[1], data_dims[-1] = data_dims[-1], 1
     # stat = stat.transpose(data_dims[1:] - 1)
-    pos_clusters = cluster_fun(stat > threshold, adjacency)
-    neg_clusters = cluster_fun(stat < -threshold, adjacency)
-
-    # FIXME/TODO - move the part below to separate clustering function
-    #              consider numba optimization too...
-    pos_cluster_id = np.unique(pos_clusters)[1:]
-    neg_cluster_id = np.unique(neg_clusters)[1:]
-    clusters = ([pos_clusters == id for id in pos_cluster_id]
-                + [neg_clusters == id for id in neg_cluster_id])
-    cluster_stats = np.array([stat[clst].sum() for clst in clusters])
+    clusters, cluster_stats = find_clusters(
+        stat, threshold, adjacency=adjacency, cluster_fun=cluster_fun,
+        min_adj_ch=min_adj_ch)
 
     if not clusters:
         print('No clusters found, permutations are not performed.')
@@ -561,24 +554,12 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
         if one_sample:
             idx = np.random.random_integers(0, 1, size=signs_size)
             perm_signs = signs[idx]
-            perm_data = data * perm_signs
-            perm_stat = stat_fun(data)
-        else:
-            raise NotImpementedError
+            perm_data = data[0] * perm_signs
+            perm_stat = stat_fun(perm_data)
 
-        # FIXME/TODO - move the part below to separate clustering function
-        #              consider numba optimization too...
-        perm_pos_clusters = cluster_fun(perm_stat > threshold, adjacency)
-        perm_neg_clusters = cluster_fun(perm_stat < -threshold, adjacency)
-
-        perm_pos_cluster_id = np.unique(perm_pos_clusters)[1:]
-        perm_neg_cluster_id = np.unique(perm_neg_clusters)[1:]
-        perm_neg_clusters = [perm_neg_clusters == id
-                             for id in perm_neg_cluster_id]
-        perm_clusters = ([perm_pos_clusters == id for id in
-                          perm_pos_cluster_id] + perm_neg_clusters)
-        perm_cluster_stats = np.array([perm_stat[clst].sum()
-                                       for clst in perm_clusters])
+        perm_clusters, perm_cluster_stats = find_clusters(
+            perm_stat, threshold, adjacency=adjacency, cluster_fun=cluster_fun,
+            min_adj_ch=min_adj_ch)
 
         # if any clusters were found - add max statistic
         if len(perm_cluster_stats) > 0:
@@ -609,3 +590,21 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
         return stat, clusters, cluster_p, dict(pos=pos_dist, neg=neg_dist)
     else:
         return stat, clusters, cluster_p
+
+
+def _compute_threshold(data, threshold, trial_level, paired, one_sample):
+    if threshold is None:
+        from scipy.stats import distributions
+        len1 = len(data[0])
+        len2 = len(data[1]) if data[1] is not None else 0
+        if trial_level:
+            raise NotImpementedError
+            # if hasattr(data1[0], 'data'):
+            #     df = data1[0].data.shape[0] + data1[0].data.shape[1] - 2
+            # else:
+            #     df = data1
+        else:
+            df = (len1 - 1 if paired or one_sample else
+                  len1 + len2 - 2)
+        threshold = np.abs(distributions.t.ppf(p_threshold / 2., df=df))
+    return threshold
