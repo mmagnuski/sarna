@@ -301,9 +301,12 @@ def _find_high_amplitude_periods(data, amp_z_thresh=2.5, min_period=0.1,
     comp_data = data._data.transpose([1, 0, 2]).reshape((n_channels, -1))
 
     # find segments with elevated amplitude
-    envelope = np.abs(comp_data).mean(axis=0)
+    envelope = np.abs(comp_data).mean(axis=1)
     envelope_z = zscore(envelope)
     grp = group(envelope_z > amp_z_thresh)
+
+    if len(grp) == 0:
+        raise ValueError('No high amplitude periods were found.')
     # check if there are some segments that start at one epoch
     # and end in another
     # -> if so, they could be split, but we will ignore them for now
@@ -338,7 +341,7 @@ def _find_high_amplitude_periods(data, amp_z_thresh=2.5, min_period=0.1,
     return periods
 
 
-def create_amplitude_annotations(raw, freq, events=None, event_id=None,
+def create_amplitude_annotations(raw, freq=None, events=None, event_id=None,
                                  picks=None, tmin=- 0.2, tmax=0.5,
                                  amp_z_thresh=2., min_period=0.1,
                                  extend=None):
@@ -383,10 +386,13 @@ def create_amplitude_annotations(raw, freq, events=None, event_id=None,
 
     filt_raw = raw.copy().filter(freq[0], freq[1])
 
+    if freq is None:
+        raise TypeError('Frequencies have to be defined')
     if events is None:
         raise TypeError('Events have to be defined')
     if event_id is None:
         event_id = np.unique(events[:, 2]).tolist()
+
 
     epochs = mne.Epochs(filt_raw, events=events, event_id=event_id, tmin=tmin,
                         tmax=tmax, baseline=None, preload=True,
@@ -401,6 +407,7 @@ def create_amplitude_annotations(raw, freq, events=None, event_id=None,
                                                  amp_z_thresh=amp_z_thresh,
                                                  min_period=min_period,
                                                  extend=extend)
+    
     hi_amp_raw = _transfer_selection_to_raw(epochs, raw,
                                             selection=hi_amp_epochs)
     amp_inv_samples = _invert_selection(raw, selection=hi_amp_raw)
