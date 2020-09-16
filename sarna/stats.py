@@ -63,15 +63,22 @@ def corr(x, y, method='Pearson'):
 
 # - [ ] merge with corr?
 # - [ ] add n_jobs to speed up?
-def apply_stat(data, pred, y=None, along=0, stat_fun='OLS', interaction=None,
+def apply_stat(data, pred, y=None, stat_fun='OLS', interaction=None,
                center=True, progressbar=None):
     """
     Apply statistical test like ordinary least squares regression along
-    specified dimension of the data.
+    the first dimension of the data.
     """
     import statsmodels.api as sm
     data_is_dep_var = y is None
     has_interaction = interaction is not None
+    if has_interaction:
+        test_pred = pred.copy()
+        rand = np.random.normal(size=(test_pred.shape[0], 1))
+        test_pred = np.append(test_pred, rand, axis=1)
+        n_interactions = interaction(test_pred).shape[1]
+    else:
+        n_interactions = 0
 
     if data_is_dep_var:
         pred = sm.add_constant(pred)
@@ -85,24 +92,18 @@ def apply_stat(data, pred, y=None, along=0, stat_fun='OLS', interaction=None,
             mdl = sm.Logit(dt, pred).fit(disp=False)
             return mdl.tvalues, mdl.pvalues
 
-    # reshape data to ease up regression
-    if not along == 0:
-        dims = list(range(data.ndim))
-        dims.remove(along)
-        dims = [along] + dims
-        data = np.transpose(data, dims)
-
     orig_data_shape = list(data.shape)
     if data.ndim > 2:
         data = data.reshape([orig_data_shape[0], np.prod(orig_data_shape[1:])])
 
-    if center:
+    # FIXME - scale and center; do the same to predictors
+    if center and not data_is_dep_var:
         data = ((data - data.mean(axis=0, keepdims=True)) /
                  data.std(axis=0, keepdims=True))
 
     # check dims and allocate output
     n_preds, n_comps = pred.shape[1], data.shape[1]
-    n_preds += int(has_interaction) + int(not data_is_dep_var)
+    n_preds += n_interactions + int(not data_is_dep_var)
     tvals = np.zeros((n_preds, n_comps))
     pvals = np.zeros((n_preds, n_comps))
 
@@ -111,16 +112,18 @@ def apply_stat(data, pred, y=None, along=0, stat_fun='OLS', interaction=None,
     # perform model for each
     for idx in range(n_comps):
         if not data_is_dep_var:
-            prd = data[:, [idx]]
-            prd = np.concatenate([pred, prd], axis=1)
+            data_pred = data[:, [idx]]
+            data_pred = np.concatenate([pred, data_pred], axis=1)
 
             if interaction:
-                prd = np.concatenate([prd, interaction(prd)], axis=1)
+                data_pred = np.concatenate([data_pred, interaction(data_pred)],
+                                           axis=1)
 
             # run model
-            tval, pval = stat_fun(y, prd)
+            tval, pval = stat_fun(y, data_pred)
         else:
-            tval, pval = stat_fun(dt, pred)
+            # FIXME - if OLS -> use borsar.stats.compute_regression_t
+            tval, pval = stat_fun(data, pred)
         tvals[:, idx] = tval
         pvals[:, idx] = pval
 
