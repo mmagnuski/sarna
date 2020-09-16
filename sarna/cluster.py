@@ -410,8 +410,8 @@ def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
     if paired:
         assert len1 == len2
 
-    threshold = _compute_threshold([data1, data2], threshold, trial_level,
-                                   paired, one_sample)
+    threshold = _compute_threshold([data1, data2], threshold, p_threshold,
+                                   trial_level, paired, one_sample)
 
     # data1 and data2 have to be Evokeds or TFRs
     supported_types = (mne.Evoked, borsar.freq.PSD,
@@ -507,8 +507,8 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
 
     from .utils import progressbar
     from borsar.cluster.label import _get_cluster_fun, find_clusters
-    threshold = _compute_threshold(data, threshold, trial_level, paired,
-                                   one_sample)
+    threshold = _compute_threshold(data, threshold, p_threshold, trial_level,
+                                   paired, one_sample)
 
     assert one_sample, ('Currently 3d data (like TFR) are only supported in '
                         'the `one_sample` cluster-based permutation test.')
@@ -592,11 +592,12 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
         return stat, clusters, cluster_p
 
 
-def _compute_threshold(data, threshold, trial_level, paired, one_sample):
+def _compute_threshold(data, threshold, p_threshold, trial_level, paired,
+                       one_sample):
     if threshold is None:
         from scipy.stats import distributions
         len1 = len(data[0])
-        len2 = len(data[1]) if data[1] is not None else 0
+        len2 = len(data[1]) if (len(data) > 1 and data[1] is not None) else 0
         if trial_level:
             raise NotImpementedError
             # if hasattr(data1[0], 'data'):
