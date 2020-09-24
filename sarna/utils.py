@@ -462,3 +462,72 @@ class EmptyProgressbar(object):
 
     def update(self, val):
         pass
+
+
+def _transfer_selection_to_raw(epochs, raw, selection):
+    '''
+    Parameters
+    ----------
+    epochs : mne.Epochs
+        Epochs file to use.
+    raw: mne.Raw
+        Raw file to use.
+    selection : numpy.ndarray
+        High amplitude periods in samples for epochs. Numpy array of
+        (n_periods, 3) shape. The columns are: epoch index, within-epoch
+        sample index of period start, within-epoch sample index of period end.
+    Returns
+    -------
+    hi_amp_raw : numpy.ndarrays
+        High amplitude periods in samples for raw file. Numpy array of
+        (n_periods, 2) shape. The columns are: sample index of period start,
+        sample index of period end.
+    '''
+    selection_raw = np.zeros((selection.shape[0], 2))
+    sfreq = raw.info['sfreq']
+    epoch_events = epochs.events[:, 0].copy()
+    tmin = epochs.tmin
+    tmin_samples = int(np.round(tmin * sfreq))
+
+    for idx in range(selection.shape[0]):
+        epoch_idx, start, end = selection[idx, :]
+        selection_raw[idx, 0] = (start + epoch_events[epoch_idx] +
+                                 tmin_samples)
+        selection_raw[idx, 1] = (end + epoch_events[epoch_idx] +
+                                 tmin_samples)
+
+    return selection_raw
+
+
+def _invert_selection(raw, selection):
+    '''
+    Parameters
+    ----------
+    raw : mne.Raw
+        Raw file to use.
+    hi_amp_raw : numpy.ndarray
+        High amplitude periods in samples for raw file. Numpy array of
+        (n_periods, 2) shape. The columns are: sample index of period start,
+        sample index of period end.
+    Returns
+    -------
+    amp_inv_samples : numpy.ndarray
+        Inverted periods in samples. Numpy array of (n_periods, 2) shape. The
+        columns are: sample index of period start, sample index of period end.
+    '''
+    amp_inv_samples = np.zeros((selection.shape[0] + 1, 2))
+    start, _ = selection[0, :]
+    amp_inv_samples[0, :] = [0, start]
+
+    for idx in range(selection.shape[0] - 1):
+        _, end = selection[idx, :]
+        start, _ = selection[idx + 1, :]
+        amp_inv_samples[idx + 1, 0] = end
+        amp_inv_samples[idx + 1, 1] = start - amp_inv_samples[idx + 1, 0]
+
+    n_samples = raw._data.shape[1]
+    _, end = selection[-1, :]
+    raw_start_samples = end
+    amp_inv_samples[-1, :] = [raw_start_samples, n_samples - raw_start_samples]
+
+    return amp_inv_samples

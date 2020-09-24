@@ -13,6 +13,9 @@
 # ...
 
 import numpy as np
+import mne
+from warnings import warn
+from sarna.utils import group, _invert_selection, _transfer_selection_to_raw
 # from numba import jit
 
 
@@ -226,3 +229,195 @@ def _cwt_loop(X, times_ind, Ws, W_sizes, w_time_lims):
         for ti, tind in enumerate(times_ind[t_start:t_end]):
             tfr[ii, :, ti + t_start] = np.dot(X[:, tind + l:tind + r], W)
     return tfr
+
+
+def _correct_overlap(periods):
+    '''
+
+    Parameters
+    ----------
+    periods : np.ndarray
+        Numpy array of (n_periods, 3) shape. The columns are: epoch index,
+        within-epoch sample index of period start, within-epoch sample index of
+        period end.
+
+    Returns
+    -------
+    periods : np.ndarray
+        Corrected numpy array of (n_periods, 3) shape. The columns are: epoch
+        index, within-epoch sample index of period start, within-epoch sample
+        index of period end.
+
+    '''
+    n_rows = periods.shape[0]
+    current_period = periods[0, :].copy()
+    correct = list()
+
+    for idx in range(1, n_rows):
+        overlap = ((periods[idx, 0] == current_period[0])
+                   and (periods[idx, 1] <= current_period[2]))
+
+        if overlap:
+            current_period[-1] = periods[idx, -1]
+        else:
+            correct.append(current_period)
+            current_period = periods[idx, :].copy()
+
+    correct.append(current_period)
+    periods = np.stack(correct, axis=0)
+
+    return periods
+
+
+def _find_high_amplitude_periods(data, amp_z_thresh=2.5, min_period=0.1,
+                                 extend=None):
+    '''
+    Find segments of high amplitude in filtered, hilbert-transformed signal.
+
+    Parameters
+    ----------
+    data : mne.Epochs
+        Epoched data. Must be filtered and hilbert-transformed.
+    amp_z_thresh : float
+        Z score threshold defining high amplitude periods. Defaults to ``2.5``.
+    min_period : float
+        Minimum length of high amplitude period in seconds.
+        Defaults to ``0.1``.
+    extend : float | None
+        Extend each period by this many seconds on both sides (before and
+        after). Defaults to ``None`` which does not extend the periods.
+
+    Returns
+    -------
+    periods : np.ndarray
+        Numpy array of (n_periods, 3) shape. The columns are: epoch index,
+        within-epoch sample index of period start, within-epoch sample index of
+        period end.
+    '''
+    from scipy.stats import zscore
+
+    # amplitude periods
+    n_epochs, n_channels, n_samples = data._data.shape
+    comp_data = data._data.transpose([1, 0, 2]).reshape((n_channels, -1))
+
+    # find segments with elevated amplitude
+    comp_data_abs = np.abs(comp_data)
+    envelope = np.nanmean(comp_data_abs, axis=0)
+    envelope_z = zscore(envelope, nan_policy='omit')
+    grp = group(envelope_z > amp_z_thresh)
+
+    if len(grp) == 0:
+        raise ValueError('No high amplitude periods were found.')
+    # check if there are some segments that start at one epoch
+    # and end in another
+    # -> if so, they could be split, but we will ignore them for now
+    epoch_idx = np.floor(grp / n_samples)
+    epoch_diff = np.diff(epoch_idx, axis=0)
+    epochs_joint = epoch_diff > 0
+    if epochs_joint.any():
+        msg = ('{:d} high-amplitude segments will be ignored because'
+               ' the developer was lazy.')
+        warn(msg.format(epochs_joint.sum()))
+        epoch_diff = epoch_diff[~epochs_joint]
+
+    segment_len = np.diff(grp, axis=1)
+    good_length = segment_len[:, 0] * (1 / data.info['sfreq']) > min_period
+    grp = grp[good_length, :]
+    epoch_idx = np.floor(grp[:, [0]] / n_samples).astype('int')
+    grp -= epoch_idx * n_samples
+
+    if extend is not None:
+        extend_samples = int(np.round(extend * data.info['sfreq']))
+        extend_samples = np.array([-extend_samples, extend_samples])
+        grp += extend_samples[np.newaxis, :]
+
+        # check for limits
+        msk1 = grp[:, 0] < 0
+        msk2 = grp[:, 1] >= n_samples
+        grp[msk1, 0] = 0
+        grp[msk2, 1] = n_samples - 1
+
+    periods = np.append(epoch_idx, grp, axis=1)
+    periods = periods if extend is None else _correct_overlap(periods)
+    return periods
+
+
+def create_amplitude_annotations(raw, freq=None, events=None, event_id=None,
+                                 picks=None, tmin=-0.2, tmax=0.5,
+                                 amp_z_thresh=2., min_period=0.1,
+                                 extend=None):
+    '''
+
+    Parameters
+    ----------
+    raw : mne.Raw
+        Raw file to use.
+    events: numpy array | None
+        Mne events array of shape (n_events, 3). If None (default) `tmin` and
+        `tmax` are not calculated with respect to events but the whole time
+        range of the `raw` file.
+    event_id: list | numpy array
+        Event types (IDs) to use in defining segments for which psd is
+        computed. If None (default) and events were passed all event types are
+        used.
+    freq : list | numpy array
+        Frequency limits defining a range for which low amplitude periods will
+        be calculated.
+    picks : list
+        List of channels for which low amplitude periods will be calculated.
+    tmin : float
+        Start time before event.
+    tmax : float
+        End time after event.
+    amp_z_thresh : float
+        Z score threshold defining high amplitude periods. Defaults to ``2.5``.
+    min_period : float
+        Minimum length of high amplitude period in seconds.
+        Defaults to ``0.1``.
+    extend : float | None
+        Extend each period by this many seconds on both sides (before and
+        after). Defaults to ``None`` which does not extend the periods.
+
+    Returns
+    -------
+    raw_annot : mne.Raw
+        Raw files with annotations.
+
+    '''
+
+    filt_raw = raw.copy().filter(freq[0], freq[1])
+
+    if freq is None:
+        raise TypeError('Frequencies have to be defined')
+    if events is None:
+        raise TypeError('Events have to be defined')
+    if event_id is None:
+        event_id = np.unique(events[:, 2]).tolist()
+
+    epochs = mne.Epochs(filt_raw, events=events, event_id=event_id, tmin=tmin,
+                        tmax=tmax, baseline=None, preload=True,
+                        reject_by_annotation=False)
+
+    if picks is None:
+        filt_hilb_data = epochs.copy().apply_hilbert()
+    else:
+        filt_hilb_data = epochs.copy().pick(picks).apply_hilbert()
+
+    hi_amp_epochs = _find_high_amplitude_periods(filt_hilb_data,
+                                                 amp_z_thresh=amp_z_thresh,
+                                                 min_period=min_period,
+                                                 extend=extend)
+
+    hi_amp_raw = _transfer_selection_to_raw(epochs, raw,
+                                            selection=hi_amp_epochs)
+    amp_inv_samples = _invert_selection(raw, selection=hi_amp_raw)
+
+    sfreq = raw.info['sfreq']
+    amp_inv_annot_sec = amp_inv_samples / sfreq
+
+    n_segments = amp_inv_samples.shape[0]
+    amp_annot = mne.Annotations(amp_inv_annot_sec[:, 0],
+                                amp_inv_annot_sec[:, 1],
+                                ['BAD_lowamp'] * n_segments)
+
+    return amp_annot
