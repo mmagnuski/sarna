@@ -6,37 +6,6 @@ import numpy as np
 from borsar.utils import get_info, find_index, find_range
 
 
-# TODO:
-# - [ ] should check type and size of the vars (check how mne-python does it)
-# - [ ] detect if in notebook/qtconsole and ignore 'Out' and similar vars
-# - [ ] display numpy arrays as "5 x 2 int array"
-#       lists as "list of strings" etc.
-def whos():
-    """Print the local variables in the caller's frame.
-    Copied from stack overflow:
-    http://stackoverflow.com/questions/6618795/get-locals-from-calling-namespace-in-python"""
-    import inspect
-    frame = inspect.currentframe()
-    ignore_vars = []
-    ignore_starting = ['__']
-    try:
-        lcls = frame.f_back.f_locals
-        # test if ipython
-        ipy_vars = ['In', 'Out', 'get_ipython', '_oh', '_sh']
-        in_ipython = all([var in lcls for var in ipy_vars])
-        if in_ipython:
-            ignore_vars = ipy_vars + ['_']
-            ignore_starting += ['_i']
-        for name, var in lcls.items():
-            if name in ignore_vars:
-                continue
-            if any([name.startswith(s) for s in ignore_starting]):
-                continue
-            print(name, type(var), var)
-    finally:
-        del frame
-
-
 def find_files(directory, ends=None):
     '''FIXME - add docs.'''
     files = os.listdir(directory)
@@ -116,46 +85,6 @@ def group(vec, diff=False, return_slice=False):
         return grp
 
 
-# - [ ] I never actually used this, maybe just remove
-def subselect_keys(key, mapping, sep='/'):
-    '''
-    Select keys with subselection by a separator.
-    This code was shared by Dennis Engemann on github.
-
-    Parameters
-    ----------
-    key : string | list of strings
-        Keys to subselect with.
-    mapping : dict
-        Dictionary that is being selected.
-    sep : string
-        Separator to use in subselection.
-    '''
-
-    if isinstance(key, str):
-        key = [key]
-
-    mapping = deepcopy(mapping)
-
-    if any(sep in k_i for k_i in mapping.keys()):
-        if any(k_e not in mapping for k_e in key):
-            # Select a given key if the requested set of
-            # '/'-separated types are a subset of the types in that key
-
-            for k in mapping.keys():
-                if not all(set(k_i.split('/')).issubset(k.split('/'))
-                           for k_i in key):
-                    del mapping[k]
-
-            if len(key) == 0:
-                raise KeyError('Attempting selection of keys via '
-                               'multiple/partial matching, but no '
-                               'event matches all criteria.')
-    else:
-        raise ValueError('Your keys are bad formatted.')
-    return mapping
-
-
 # TODO: add evoked (for completeness)
 # - [ ] check: mne now has _validate_type ...
 def mne_types():
@@ -174,23 +103,6 @@ def mne_types():
         types['epochs'] = BaseEpochs
     types['info'] = Info
     return types
-
-
-# see if there is a standard library implementation of something similar
-class AtribDict(dict):
-    """Just like a dictionary, except that you can access keys with obj.key.
-
-    Copied from psychopy.data.TrialType
-    """
-    def __getattribute__(self, name):
-        try:  # to get attr from dict in normal way (passing self)
-            return dict.__getattribute__(self, name)
-        except AttributeError:
-            try:
-                return self[name]
-            except KeyError:
-                msg = "TrialType has no attribute (or key) \'%s\'"
-                raise AttributeError(msg % name)
 
 
 # TODO
