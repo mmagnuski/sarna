@@ -75,6 +75,7 @@ def plot_neighbours(inst, adj_matrix, color='gray', kind='3d'):
     if adj_matrix.dtype == 'int':
         max_lw = 5.
         max_conn = adj_matrix.max()
+
         def get_lw():
             return adj_matrix[ch, n] / max_conn * max_lw
     elif adj_matrix.dtype == 'bool' or (np.unique(adj_matrix) ==
@@ -352,10 +353,10 @@ def check_list_inst(data, inst):
 # - [ ] one_sample is not passed to lower functions...
 # - [ ] add 2-step tests?
 def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
-                               threshold=None, p_threshold=0.05,
-                               adjacency=None, tmin=None, tmax=None,
-                               fmin=None, fmax=None, trial_level=False,
-                               min_adj_ch=0):
+                              threshold=None, p_threshold=0.05,
+                              adjacency=None, tmin=None, tmax=None,
+                              fmin=None, fmax=None, trial_level=False,
+                              min_adj_ch=0):
     '''Perform cluster-based permutation test with t test as statistic.
 
     Parameters
@@ -389,7 +390,8 @@ def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
         End of the frequency window of interest (in seconds). Defaults to
         ``None`` which takes the highest possible frequency.
     min_adj_ch: int
-        FIXME
+        Minimum number of adjacent in-cluster channels to retain a point in
+        the cluster.
 
     Returns
     -------
@@ -473,11 +475,15 @@ def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
             and not data_3d):
         adjacency = sparse.coo_matrix(adjacency)
 
+    # perform cluster-based test
+    # --------------------------
     if not data_3d:
         stat, clusters, cluster_p, _ = permutation_cluster_test(
             [data1, data2], stat_fun=stat_fun, threshold=threshold,
             connectivity=adjacency, n_permutations=n_permutations,
             min_adj_ch=min_adj_ch)
+
+        # pack into Clusters object
         if isinstance(inst, mne.Evoked):
             dimcoords = [inst.ch_names, inst.times[time_slice]]
             dimnames = ['chan', 'time']
@@ -492,6 +498,8 @@ def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
         stat, clusters, cluster_p = _permutation_cluster_test_3d(
             [data1, data2], adjacency, stat_fun, threshold=threshold,
             n_permutations=n_permutations, one_sample=one_sample)
+
+        # pack into Clusters object
         dimcoords = [inst.ch_names, inst.freqs, inst.times[tmin:tmax]]
         return Clusters(stat, clusters, cluster_p, info=inst.info,
                         dimnames=['chan', 'freq', 'time'], dimcoords=dimcoords)
@@ -513,13 +521,10 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
     assert one_sample, ('Currently 3d data (like TFR) are only supported in '
                         'the `one_sample` cluster-based permutation test.')
 
-    # FIXME - use sarna progressbar
-    pbar = progressbar(progress, total=n_permutations)
-
     n_obs = data[0].shape[0]
+    signs_size = tuple([n_obs] + [1] * (data[0].ndim - 1))
     if one_sample:
         signs = np.array([-1, 1])
-        signs_size = tuple([n_obs] + [1] * (data[0].ndim - 1))
 
     pos_dist = np.zeros(n_permutations)
     neg_dist = np.zeros(n_permutations)
@@ -548,14 +553,27 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
         msg = 'Found {} clusters, computing permutations.'
         print(msg.format(len(clusters)))
 
+    # FIXME - use sarna progressbar
+    pbar = progressbar(progress, total=n_permutations)
+
     # compute permutations
     for perm in range(n_permutations):
         # permute data / predictors
         if one_sample:
+            # one-sample sign-flip
             idx = np.random.random_integers(0, 1, size=signs_size)
             perm_signs = signs[idx]
             perm_data = data[0] * perm_signs
-            perm_stat = stat_fun(perm_data)
+        elif paired:
+            # this is analogous to one-sample sign-flip but with paired data
+            # (we could also perform one sample t test on condition differences
+            #  with sign-flip in the permutation step)
+            idx1 = np.random.random_integers(0, 1, size=signs_size)
+            idx2 = 1 - idx1
+            perm_data = list()
+            perm_data.append(data[0] * idx1 + data[1] * idx2)
+            perm_data.append(data[0] * idx2 + data[1] * idx1)
+        perm_stat = stat_fun(perm_data)
 
         perm_clusters, perm_cluster_stats = find_clusters(
             perm_stat, threshold, adjacency=adjacency, cluster_fun=cluster_fun,
@@ -578,8 +596,8 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
     cluster_p = np.array([(pos_dist > cluster_stat).mean() if cluster_stat > 0
                           else (neg_dist < cluster_stat).mean()
                           for cluster_stat in cluster_stats])
-    cluster_p *= 2 # because we use two-tail
-    cluster_p[cluster_p > 1.] = 1. # probability has to be <= 1.
+    cluster_p *= 2  # because we use two-tail
+    cluster_p[cluster_p > 1.] = 1.  # probability has to be <= 1.
 
     # sort clusters by p value
     cluster_order = np.argsort(cluster_p)
@@ -599,11 +617,11 @@ def _compute_threshold(data, threshold, p_threshold, trial_level, paired,
         len1 = len(data[0])
         len2 = len(data[1]) if (len(data) > 1 and data[1] is not None) else 0
         if trial_level:
-            raise NotImpementedError
-            # if hasattr(data1[0], 'data'):
-            #     df = data1[0].data.shape[0] + data1[0].data.shape[1] - 2
-            # else:
-            #     df = data1
+            # or maybe just use len()
+            if hasattr(data[0], 'data'):
+                df = data[0].data.shape[0] + data[1].data.shape[0] - 2
+            else:
+                df = data[0]._data.shape[0] + data[1]._data.shape[0] - 2
         else:
             df = (len1 - 1 if paired or one_sample else
                   len1 + len2 - 2)
