@@ -278,8 +278,10 @@ def _find_high_amplitude_periods(data, amp_z_thresh=2.5, min_period=0.1,
     ----------
     data : mne.Epochs
         Epoched data. Must be filtered and hilbert-transformed.
-    amp_z_thresh : float
-        Z score threshold defining high amplitude periods. Defaults to ``2.5``.
+    amp_z_thresh : float, str
+        Z score threshold defining high amplitude periods or str percent of
+        time series with higher amplitude to select in format 'x%'. Defaults to
+        ``2.5``.
     min_period : float
         Minimum length of high amplitude period in seconds.
         Defaults to ``0.1``.
@@ -304,7 +306,13 @@ def _find_high_amplitude_periods(data, amp_z_thresh=2.5, min_period=0.1,
     comp_data_abs = np.abs(comp_data)
     envelope = np.nanmean(comp_data_abs, axis=0)
     envelope_z = zscore(envelope, nan_policy='omit')
-    grp = group(envelope_z > amp_z_thresh)
+
+    if isinstance(amp_z_thresh, str) and '%' in amp_z_thresh:
+        perc = 100 - float(amp_z_thresh.replace('%', ''))
+        amp_thresh_perc = np.nanpercentile(envelope_z, perc)
+        grp = group(envelope_z > amp_thresh_perc)
+    else:
+        grp = group(envelope_z > amp_z_thresh)
 
     if len(grp) == 0:
         raise ValueError('No high amplitude periods were found.')
