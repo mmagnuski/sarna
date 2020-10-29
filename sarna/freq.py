@@ -377,8 +377,10 @@ def create_amplitude_annotations(raw, freq=None, events=None, event_id=None,
         Start time before event.
     tmax : float
         End time after event.
-    amp_z_thresh : float
-        Z score threshold defining high amplitude periods. Defaults to ``2.5``.
+    amp_z_thresh : float, str
+        Z score threshold defining high amplitude periods or str percent of
+        time series with higher amplitude to select in format 'x%'. Defaults to
+        ``2.5``.
     min_period : float
         Minimum length of high amplitude period in seconds.
         Defaults to ``0.1``.
