@@ -347,6 +347,7 @@ def _find_high_amplitude_periods(data, amp_z_thresh=2.5, min_period=0.1,
 
     periods = np.append(epoch_idx, grp, axis=1)
     periods = periods if extend is None else _correct_overlap(periods)
+
     return periods
 
 
