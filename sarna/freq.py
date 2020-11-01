@@ -269,7 +269,7 @@ def _correct_overlap(periods):
     return periods
 
 
-def _find_high_amplitude_periods(data, amp_z_thresh=2.5, min_period=0.1,
+def _find_high_amplitude_periods(data, threshold=2.5, min_period=0.1,
                                  extend=None):
     '''
     Find segments of high amplitude in filtered, hilbert-transformed signal.
@@ -278,10 +278,10 @@ def _find_high_amplitude_periods(data, amp_z_thresh=2.5, min_period=0.1,
     ----------
     data : mne.Epochs
         Epoched data. Must be filtered and hilbert-transformed.
-    amp_z_thresh : float, str
-        Z score threshold defining high amplitude periods or str percent of
-        time series with higher amplitude to select in format 'x%'. Defaults to
-        ``2.5``.
+    threshold : float, str
+        Threshold defining high amplitude periods to select: if float, it
+        is interpreted as a z value threshold; if str, as percentage in the
+        form of ``'xx%'`` (for example ``'95%'``). Defaults to ``2.5``.
     min_period : float
         Minimum length of high amplitude period in seconds.
         Defaults to ``0.1``.
@@ -307,12 +307,11 @@ def _find_high_amplitude_periods(data, amp_z_thresh=2.5, min_period=0.1,
     envelope = np.nanmean(comp_data_abs, axis=0)
     envelope_z = zscore(envelope, nan_policy='omit')
 
-    if isinstance(amp_z_thresh, str) and '%' in amp_z_thresh:
-        perc = 100 - float(amp_z_thresh.replace('%', ''))
-        amp_thresh_perc = np.nanpercentile(envelope_z, perc)
-        grp = group(envelope_z > amp_thresh_perc)
-    else:
-        grp = group(envelope_z > amp_z_thresh)
+    if isinstance(threshold, str) and '%' in threshold:
+        perc = 100 - float(threshold.replace('%', ''))
+        threshold = np.nanpercentile(envelope_z, perc)
+
+    grp = group(envelope_z > threshold)
 
     if len(grp) == 0:
         raise ValueError('No high amplitude periods were found.')
