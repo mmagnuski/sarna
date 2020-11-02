@@ -269,7 +269,7 @@ def _correct_overlap(periods):
     return periods
 
 
-def _find_high_amplitude_periods(data, amp_z_thresh=2.5, min_period=0.1,
+def _find_high_amplitude_periods(data, threshold=2.5, min_period=0.1,
                                  extend=None):
     '''
     Find segments of high amplitude in filtered, hilbert-transformed signal.
@@ -278,8 +278,12 @@ def _find_high_amplitude_periods(data, amp_z_thresh=2.5, min_period=0.1,
     ----------
     data : mne.Epochs
         Epoched data. Must be filtered and hilbert-transformed.
-    amp_z_thresh : float
-        Z score threshold defining high amplitude periods. Defaults to ``2.5``.
+    threshold : float, str
+        Threshold defining high amplitude periods to select: if float, it
+        is interpreted as a z value threshold; if str, as percentage of
+        fragments with in the highest amplitude in form of ``'xx%'``
+        (for example with ``'25%'`` 25% of singal with highest amplitude will
+        be selected ). Defaults to ``2.5``.
     min_period : float
         Minimum length of high amplitude period in seconds.
         Defaults to ``0.1``.
@@ -303,8 +307,14 @@ def _find_high_amplitude_periods(data, amp_z_thresh=2.5, min_period=0.1,
     # find segments with elevated amplitude
     comp_data_abs = np.abs(comp_data)
     envelope = np.nanmean(comp_data_abs, axis=0)
-    envelope_z = zscore(envelope, nan_policy='omit')
-    grp = group(envelope_z > amp_z_thresh)
+
+    if isinstance(threshold, str) and '%' in threshold:
+        perc = 100 - float(threshold.replace('%', ''))
+        threshold = np.nanpercentile(envelope, perc)
+    else:
+        envelope = zscore(envelope, nan_policy='omit')
+
+    grp = group(envelope > threshold)
 
     if len(grp) == 0:
         raise ValueError('No high amplitude periods were found.')
@@ -339,12 +349,13 @@ def _find_high_amplitude_periods(data, amp_z_thresh=2.5, min_period=0.1,
 
     periods = np.append(epoch_idx, grp, axis=1)
     periods = periods if extend is None else _correct_overlap(periods)
+
     return periods
 
 
 def create_amplitude_annotations(raw, freq=None, events=None, event_id=None,
                                  picks=None, tmin=-0.2, tmax=0.5,
-                                 amp_z_thresh=2., min_period=0.1,
+                                 threshold=2., min_period=0.1,
                                  extend=None):
     '''
 
@@ -369,8 +380,12 @@ def create_amplitude_annotations(raw, freq=None, events=None, event_id=None,
         Start time before event.
     tmax : float
         End time after event.
-    amp_z_thresh : float
-        Z score threshold defining high amplitude periods. Defaults to ``2.5``.
+    threshold : float, str
+        Threshold defining high amplitude periods to select: if float, it
+        is interpreted as a z value threshold; if str, as percentage of
+        fragments with in the highest amplitude in form of ``'xx%'``
+        (for example with ``'25%'`` 25% of singal with highest amplitude will
+        be selected ). Defaults to ``2.5``.
     min_period : float
         Minimum length of high amplitude period in seconds.
         Defaults to ``0.1``.
@@ -404,7 +419,7 @@ def create_amplitude_annotations(raw, freq=None, events=None, event_id=None,
         filt_hilb_data = epochs.copy().pick(picks).apply_hilbert()
 
     hi_amp_epochs = _find_high_amplitude_periods(filt_hilb_data,
-                                                 amp_z_thresh=amp_z_thresh,
+                                                 threshold=threshold,
                                                  min_period=min_period,
                                                  extend=extend)
 
