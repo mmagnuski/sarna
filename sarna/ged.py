@@ -10,7 +10,8 @@ from borsar.viz import Topo
 # TODO: we use eig.real - maybe a warning should be added if we get complex
 #       values
 class GED(object):
-    def __init__(self, cov_S, cov_R, reg=None):
+    def __init__(self, cov_S=None, cov_R=None, reg=None, eig=None,
+                 filters=None, patterns=None, description=None):
         '''
         Compute Generalized Eigendecomposition (GED) of two covariance
         matrices.
@@ -25,34 +26,40 @@ class GED(object):
             Regularization factor, from 0 - 1. If ``None`` then regularization
             is not performed.
         '''
-        if not isinstance(cov_R, np.ndarray):
-            cov_R = cov_R.data
-        if not isinstance(cov_S, np.ndarray):
-            cov_S = cov_S.data
+        if filters is None and eig is None:
+            # compute the GED from covariance matrices
+            if not isinstance(cov_R, np.ndarray):
+                cov_R = cov_R.data
+            if not isinstance(cov_S, np.ndarray):
+                cov_S = cov_S.data
 
-        n_channels = cov_R.shape[0]
+            n_channels = cov_R.shape[0]
 
-        # regularization
-        if reg is not None:
-            reg_eig = reg * np.abs(np.linalg.eig(cov_R)[0].mean())
-            cov_R = (1 - reg) * cov_R + reg_eig * np.eye(n_channels)
+            # regularization
+            if reg is not None:
+                reg_eig = reg * np.abs(np.linalg.eig(cov_R)[0].mean())
+                cov_R = (1 - reg) * cov_R + reg_eig * np.eye(n_channels)
 
-        # compute GED and sort by eigenvalue
-        eig, vec = scipy.linalg.eig(cov_S, cov_R)
-        eig = eig.real
-        srt = np.argsort(eig)[::-1]
-        eig, vec = eig[srt], vec[:, srt]
+            # compute GED and sort by eigenvalue
+            eig, filters = scipy.linalg.eig(cov_S, cov_R)
+            eig = eig.real
+            srt = np.argsort(eig)[::-1]
+            eig, filters = eig[srt], filters[:, srt]
 
         # compose attributes
         self.eig = eig
-        self.filters = vec
-        self.patterns = _get_patterns(self.filters, cov_S)
+        self.filters = filters
+        if patterns is None:
+            self.patterns = _get_patterns(self.filters, cov_S)
+        else:
+            self.patterns = patterns
+        self.description = description
 
     def plot(self, info, idx=None, axes=None, **args):
         '''
         Plot GED component topographical patterns.
 
-        info  : mne Info instance
+        info: mne Info instance
             mne-python Info object - used for topomap plotting.
         '''
         if idx is None:
@@ -86,9 +93,25 @@ class GED(object):
 
         return inst_copy
 
-    def save(self):
+    def save(self, fname, overwrite=False):
         '''save to hdf5: filters, patterns, eig'''
-        raise NotImplementedError
+        from mne.externals import h5io
+
+        data_dict = {'eig': self.eig, 'filters': self.filters,
+                     'patterns': self.patterns,
+                     'description': self.description}
+        h5io.write_hdf5(fname, data_dict, overwrite=overwrite)
+
+
+def read_ged(fname):
+    from mne.externals import h5io
+
+    data_dict = h5io.read_hdf5(fname)
+    ged = GED(
+        eig=data_dict['eig'], filters=data_dict['filters'],
+        patterns=data_dict['patterns'],
+        description=data_dict['description'])
+    return ged
 
 
 def _get_patterns(vec, cov):
@@ -103,5 +126,8 @@ def _get_patterns(vec, cov):
 
 def _deal_with_idx(idx):
     if not isinstance(idx, (list, np.ndarray)):
-        idx = [idx]
+        if isinstance(idx, range):
+            idx = list(idx)
+        else:
+            idx = [idx]
     return idx
