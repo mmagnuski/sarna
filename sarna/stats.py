@@ -61,26 +61,26 @@ def corr(x, y, method='Pearson'):
         return rmat, pmat
 
 
-# - [x] two modes of prediction: pred -> data; data + covariates -> pred
-# - [ ] consider renaming: data would remain as the multidimensional data
-#       pred would be predictors
-#       and y would be None - that is if y is other than `data`
-#       no need to awkwardly swap the variables then too!
-# - [x] apply model - statsmodels (might be even sklearn)
-# - [ ] merge with apply_test (and corr?)
-# - [ ] add n_jobs to speed up
-def apply_stat(data, pred, along=0, stat_fun='OLS', covariates=None,
-               interaction=None, center=True, progressbar=None):
+# - [ ] merge with corr?
+# - [ ] add n_jobs to speed up?
+def apply_stat(data, pred, y=None, stat_fun='OLS', interaction=None,
+               center=True, progressbar=None):
     """
     Apply statistical test like ordinary least squares regression along
-    specified dimension of the data.
+    the first dimension of the data.
     """
     import statsmodels.api as sm
-    has_covar = covariates is not None
+    data_is_dep_var = y is None
     has_interaction = interaction is not None
+    if has_interaction:
+        test_pred = pred.copy()
+        rand = np.random.normal(size=(test_pred.shape[0], 1))
+        test_pred = np.append(test_pred, rand, axis=1)
+        n_interactions = interaction(test_pred).shape[1]
+    else:
+        n_interactions = 0
 
-    # do we want to also add constat to the covariates?
-    if not has_covar:
+    if data_is_dep_var:
         pred = sm.add_constant(pred)
 
     if stat_fun == 'OLS':
@@ -92,60 +92,47 @@ def apply_stat(data, pred, along=0, stat_fun='OLS', covariates=None,
             mdl = sm.Logit(dt, pred).fit(disp=False)
             return mdl.tvalues, mdl.pvalues
 
-    if has_covar:
-        data, pred = pred, data
-
-    # reshape data to ease up regression
-    if not along == 0:
-        dims = list(range(data.ndim))
-        dims.remove(along)
-        dims = [along] + dims
-        data = np.transpose(data, dims)
-    shp = list(data.shape)
+    orig_data_shape = list(data.shape)
     if data.ndim > 2:
-        data = data.reshape([shp[0], np.prod(shp[1:])])
-    data = data.T
+        data = data.reshape([orig_data_shape[0], np.prod(orig_data_shape[1:])])
+
+    # FIXME - scale and center; do the same to predictors
+    if center and not data_is_dep_var:
+        data = ((data - data.mean(axis=0, keepdims=True)) /
+                 data.std(axis=0, keepdims=True))
 
     # check dims and allocate output
-    add_dim = 1 if has_interaction else 0
-    add_dim = add_dim + covariates.shape[1] if has_covar else add_dim
-    n_comps = data.shape[0]
-    n_preds = pred.shape[1] + add_dim
-    tvals = np.zeros((n_comps, n_preds))
-    pvals = np.zeros((n_comps, n_preds))
+    n_preds, n_comps = pred.shape[1], data.shape[1]
+    n_preds += n_interactions + int(not data_is_dep_var)
+    tvals = np.zeros((n_preds, n_comps))
+    pvals = np.zeros((n_preds, n_comps))
 
     pbar = progressbar_function(progressbar, total=n_comps)
 
     # perform model for each
-    for ii, dt in enumerate(data):
-        if covariates is not None:
-            prd = dt[:, np.newaxis]
-
-            # center given predictor
-            # TODO - change to center / scale args
-            #        also do that at the beginning to speed up
-            if center:
-                prd -= prd.mean()
-                prd /= prd.std()
-            prd = np.concatenate([covariates, prd], axis=1)
+    for idx in range(n_comps):
+        if not data_is_dep_var:
+            data_pred = data[:, [idx]]
+            data_pred = np.concatenate([pred, data_pred], axis=1)
 
             if interaction:
-                add_interaction = interaction(prd)
-                prd = np.concatenate([prd, add_interaction], axis=1)
+                data_pred = np.concatenate([data_pred, interaction(data_pred)],
+                                           axis=1)
 
-            # run model (we use `pred` as y because data and pred were swapped)
-            tval, pval = stat_fun(pred, prd)
+            # run model
+            tval, pval = stat_fun(y, data_pred)
         else:
-            tval, pval = stat_fun(dt, pred)
-        tvals[ii, :] = tval
-        pvals[ii, :] = pval
+            # FIXME - if OLS -> use borsar.stats.compute_regression_t
+            tval, pval = stat_fun(data, pred)
+        tvals[:, idx] = tval
+        pvals[:, idx] = pval
 
         pbar.update(1)
 
-    new_shp = [n_preds] + shp[1:]
-    tvals = tvals.T.reshape(new_shp)
-    pvals = pvals.T.reshape(new_shp)
-
+    new_shp = [n_preds] + orig_data_shape[1:]
+    tvals = tvals.reshape(new_shp)
+    pvals = pvals.reshape(new_shp)
+    pbar.close()
     return tvals, pvals
 
 
