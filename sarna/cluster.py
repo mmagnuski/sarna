@@ -199,7 +199,10 @@ def find_adjacency(inst, picks=None):
     '''Find channel adjacency matrix.'''
     from scipy.spatial import Delaunay
     from mne.channels.layout import _find_topomap_coords
-    from mne.source_estimate import spatial_tris_connectivity
+    try:
+        from mne.source_estimate import spatial_tris_connectivity as adjacency
+    except:
+        from mne.source_estimate import spatial_tris_adjacency as adjacency
 
     n_channels = len(inst.ch_names)
     picks = np.arange(n_channels) if picks is None else picks
@@ -210,13 +213,13 @@ def find_adjacency(inst, picks=None):
     coords = xy.copy()
     coords[:, 0] *= 2
     tri = Delaunay(coords)
-    neighbors1 = spatial_tris_connectivity(tri.simplices)
+    neighbors1 = adjacency(tri.simplices)
 
     # then on x, 2y
     coords = xy.copy()
     coords[:, 1] *= 2
     tri = Delaunay(coords)
-    neighbors2 = spatial_tris_connectivity(tri.simplices)
+    neighbors2 = adjacency(tri.simplices)
 
     adjacency = neighbors1.toarray() | neighbors2.toarray()
     return adjacency, ch_names
@@ -348,7 +351,7 @@ def check_list_inst(data, inst):
 
 
 # - [ ] add TFR tests!
-# - [x] rename to ..._ttest
+# - [ ] make sure min_adj_ch works with 2d
 # - [ ] add Epochs to supported types if single_trial
 # - [ ] one_sample is not passed to lower functions...
 # - [ ] add 2-step tests?
@@ -404,6 +407,13 @@ def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
     else:
         one_sample = True
         stat_fun = lambda data: ttest_1samp_no_p(data[0])
+
+    try:
+        kwarg = 'connectivity'
+        from mne.source_estimate import spatial_tris_connectivity
+    except:
+        kwarg = 'adjacency'
+        from mne.source_estimate import spatial_tris_adjacency
 
     inst = data1[0]
     len1 = len(data1)
@@ -472,18 +482,17 @@ def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
 
     data_3d = data1.ndim > 3
     if (isinstance(adjacency, np.ndarray) and not sparse.issparse(adjacency)
-            and not data_3d):
+        and not data_3d):
         adjacency = sparse.coo_matrix(adjacency)
 
     # perform cluster-based test
     # --------------------------
     if not data_3d:
+        assert min_adj_ch == 0
+        adj_param = {kwarg: adjacency}
         stat, clusters, cluster_p, _ = permutation_cluster_test(
             [data1, data2], stat_fun=stat_fun, threshold=threshold,
-            connectivity=adjacency, n_permutations=n_permutations,
-            min_adj_ch=min_adj_ch)
-
-        # pack into Clusters object
+            n_permutations=n_permutations, out_type='mask', **adj_param)
         if isinstance(inst, mne.Evoked):
             dimcoords = [inst.ch_names, inst.times[time_slice]]
             dimnames = ['chan', 'time']
@@ -497,7 +506,8 @@ def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
     else:
         stat, clusters, cluster_p = _permutation_cluster_test_3d(
             [data1, data2], adjacency, stat_fun, threshold=threshold,
-            n_permutations=n_permutations, one_sample=one_sample)
+            n_permutations=n_permutations, one_sample=one_sample,
+            min_adj_ch=min_adj_ch)
 
         # pack into Clusters object
         dimcoords = [inst.ch_names, inst.freqs, inst.times[tmin:tmax]]
@@ -536,12 +546,6 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
     cluster_fun = _get_cluster_fun(stat, adjacency=adjacency,
                                    backend=backend, min_adj_ch=min_adj_ch)
 
-    # we need to transpose dimensions for 3d clustering
-    # FIXME/TODO - this could be eliminated by creating a single unified
-    #              clustering function / API
-    # jdata_dims = list(range(data[0].ndim))
-    # data_dims[1], data_dims[-1] = data_dims[-1], 1
-    # stat = stat.transpose(data_dims[1:] - 1)
     clusters, cluster_stats = find_clusters(
         stat, threshold, adjacency=adjacency, cluster_fun=cluster_fun,
         min_adj_ch=min_adj_ch)
