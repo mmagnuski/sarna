@@ -198,7 +198,7 @@ def find_adjacency(inst, picks=None):
     '''Find channel adjacency matrix.'''
     from scipy.spatial import Delaunay
     from mne.channels.layout import _find_topomap_coords
-    from mne.source_estimate import spatial_tris_connectivity
+    from mne.source_estimate import spatial_tris_adjacency
 
     n_channels = len(inst.ch_names)
     picks = np.arange(n_channels) if picks is None else picks
@@ -209,13 +209,13 @@ def find_adjacency(inst, picks=None):
     coords = xy.copy()
     coords[:, 0] *= 2
     tri = Delaunay(coords)
-    neighbors1 = spatial_tris_connectivity(tri.simplices)
+    neighbors1 = spatial_tris_adjacency(tri.simplices)
 
     # then on x, 2y
     coords = xy.copy()
     coords[:, 1] *= 2
     tri = Delaunay(coords)
-    neighbors2 = spatial_tris_connectivity(tri.simplices)
+    neighbors2 = spatial_tris_adjacency(tri.simplices)
 
     adjacency = neighbors1.toarray() | neighbors2.toarray()
     return adjacency, ch_names
