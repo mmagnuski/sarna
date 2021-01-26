@@ -1,3 +1,4 @@
+import os
 import warnings
 from copy import deepcopy
 from itertools import product
@@ -47,10 +48,9 @@ def extend_slice(slc, val, maxval, minval=0):
 
 
 # TODO:
-# - [ ] more detailed docs
-# - [ ] profile, compare to cythonized version?
-# - [x] diff mode
-# - [x] option to return slice
+# - [ ] ! more detailed docs
+# - [ ] ! add tests !
+# - [ ] profile, maybe check numba version
 def group(vec, diff=False, return_slice=False):
     '''
     Group values in a vector into ranges of adjacent identical values.
@@ -65,12 +65,12 @@ def group(vec, diff=False, return_slice=False):
 
     # group
     for ii, el in enumerate(vec):
-        if in_grp and not el:
-            in_grp = False
-            group_lims.append([start_ind, ii-1])
-        elif not in_grp and el:
+        if not in_grp and el:
             in_grp = True
             start_ind = ii
+        elif in_grp and not el:
+            in_grp = False
+            group_lims.append([start_ind, ii-1])
     grp = np.array(group_lims)
 
     # format output
@@ -89,8 +89,8 @@ def group(vec, diff=False, return_slice=False):
 # - [ ] check: mne now has _validate_type ...
 def mne_types():
     import mne
-    types = dict()
     from mne.io.meas_info import Info
+    types = dict()
     try:
         from mne.io import _BaseRaw
         from mne.epochs import _BaseEpochs
@@ -102,11 +102,12 @@ def mne_types():
         types['raw'] = BaseRaw
         types['epochs'] = BaseEpochs
     types['info'] = Info
+    types['evoked'] = mne.Evoked
     return types
 
 
 # TODO
-# - [ ] move to borsar
+# - [ ] move to borsar?
 # - [ ] more input validation
 #       validate dim_names, dim_values
 # - [x] groups could be any of following
@@ -193,18 +194,13 @@ def array2df(arr, dim_names=None, groups=None, value_name='value'):
 
     # iterate through dimensions producing tuples of relevant dims...
     for idx, adr in enumerate(product(*map(range, shape))):
-        df.loc[idx, value_name] = arr[adr] # this could be vectorized easily
+        df.loc[idx, value_name] = arr[adr]  # this could be vectorized easily
         # add relevant values to dim columns
         for dim_idx, dim_adr in enumerate(adr):
             df.loc[idx, dim_names[dim_idx]] = groups[dim_idx][dim_adr]
 
     # column dtype inference
-    try: # for pandas 0.22 or higher
-        df = df.infer_objects()
-    except: # otherwise
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-            df = df.convert_objects(convert_numeric=True)
+    df = df.infer_objects()
     return df
 
 
@@ -283,7 +279,6 @@ def epochs_to_ft(epochs, fname, var_name='data', trialinfo=None):
 
     if not isinstance(fname, str):
         raise TypeError('fname must be a str, got %s.' % type(fname))
-
 
     # get basic information from the epochs file
     sfreq = epochs.info['sfreq']
@@ -378,6 +373,8 @@ class EmptyProgressbar(object):
 
 def _transfer_selection_to_raw(epochs, raw, selection):
     '''
+    Translate epoch-level selections back to raw signal.
+
     Parameters
     ----------
     epochs : mne.Epochs
@@ -388,6 +385,7 @@ def _transfer_selection_to_raw(epochs, raw, selection):
         High amplitude periods in samples for epochs. Numpy array of
         (n_periods, 3) shape. The columns are: epoch index, within-epoch
         sample index of period start, within-epoch sample index of period end.
+
     Returns
     -------
     hi_amp_raw : numpy.ndarrays
