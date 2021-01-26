@@ -441,3 +441,65 @@ def _invert_selection(raw, selection):
     amp_inv_samples[-1, :] = [raw_start_samples, n_samples - raw_start_samples]
 
     return amp_inv_samples
+
+
+def fix_channel_pos(inst):
+    '''Scale channel positions to default mne head radius.
+    FIXME - add docs'''
+    import borsar
+    from mne.bem import _fit_sphere
+
+    # get channel positions matrix
+    pos = borsar.channels.get_ch_pos(inst)
+
+    # remove channels without positions
+    no_pos = np.isnan(pos).any(axis=1) | (pos == 0).any(axis=1)
+    pos = pos[~no_pos, :]
+
+    # fit sphere to channel positions
+    radius, origin = _fit_sphere(pos)
+
+    default_sphere = 0.095
+    scale = radius / default_sphere
+    for idx, chs in enumerate(inst.info['chs']):
+        if chs['kind'] == 2:
+            chs['loc'][:3] -= origin
+            chs['loc'][:3] /= scale
+
+    return inst
+
+
+def create_eeglab_sphere(inst):
+    '''Create sphere settings (x, y, z, radius) that produce eeglab-like
+    topomap projection. The projection places Oz channel at the head outline
+    because it is at the level of head circumference in the 10-20 system.
+
+    Parameters
+    ----------
+    inst : mne object instance
+        Mne object that contains info dictionary.
+
+    Returns
+    -------
+    (x, y, z, radius)
+        First three values are x, y and z coordinates of the sphere center.
+        The last value is the sphere radius.
+    '''
+    check_ch = ['oz', 'fpz', 't7', 't8']
+    ch_names_lower = [ch.lower() for ch in inst.ch_names]
+    ch_idx = [ch_names_lower.index(ch) for ch in check_ch]
+    pos = np.stack([inst.info['chs'][idx]['loc'][:3] for idx in ch_idx])
+
+    # first we obtain the x, y, z of the sphere center:
+    x = pos[0, 0]
+    y = pos[-1, 1]
+    z = pos[:, -1].mean()
+
+    # now we calculate the radius from T7 and T8 x position
+    # but correcting for sphere center
+    pos_corrected = pos - np.array([[x, y, z]])
+    radius1 = np.abs(pos_corrected[[2, 3], 0]).mean()
+    radius2 = np.abs(pos_corrected[[0, 1], 1]).mean()
+    radius = np.mean([radius1, radius2])
+
+    return (x, y, z, radius)
