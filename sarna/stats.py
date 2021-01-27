@@ -15,6 +15,11 @@ def ttest_ind_no_p(*args):
     return t
 
 
+def ttest_ind_welch_no_p(*args):
+    t, p = stats.ttest_ind(*args, equal_var=False)
+    return t
+
+
 def ttest_rel_no_p(*args):
     t, p = stats.ttest_rel(*args)
     return t

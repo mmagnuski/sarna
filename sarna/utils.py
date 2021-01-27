@@ -1,3 +1,4 @@
+import os
 import warnings
 from copy import deepcopy
 from itertools import product
@@ -47,10 +48,9 @@ def extend_slice(slc, val, maxval, minval=0):
 
 
 # TODO:
-# - [ ] more detailed docs
-# - [ ] profile, compare to cythonized version?
-# - [x] diff mode
-# - [x] option to return slice
+# - [ ] ! more detailed docs
+# - [ ] ! add tests !
+# - [ ] profile, maybe check numba version
 def group(vec, diff=False, return_slice=False):
     '''
     Group values in a vector into ranges of adjacent identical values.
@@ -65,12 +65,12 @@ def group(vec, diff=False, return_slice=False):
 
     # group
     for ii, el in enumerate(vec):
-        if in_grp and not el:
-            in_grp = False
-            group_lims.append([start_ind, ii-1])
-        elif not in_grp and el:
+        if not in_grp and el:
             in_grp = True
             start_ind = ii
+        elif in_grp and not el:
+            in_grp = False
+            group_lims.append([start_ind, ii-1])
     grp = np.array(group_lims)
 
     # format output
@@ -89,8 +89,8 @@ def group(vec, diff=False, return_slice=False):
 # - [ ] check: mne now has _validate_type ...
 def mne_types():
     import mne
-    types = dict()
     from mne.io.meas_info import Info
+    types = dict()
     try:
         from mne.io import _BaseRaw
         from mne.epochs import _BaseEpochs
@@ -102,11 +102,12 @@ def mne_types():
         types['raw'] = BaseRaw
         types['epochs'] = BaseEpochs
     types['info'] = Info
+    types['evoked'] = mne.Evoked
     return types
 
 
 # TODO
-# - [ ] move to borsar
+# - [ ] move to borsar?
 # - [ ] more input validation
 #       validate dim_names, dim_values
 # - [x] groups could be any of following
@@ -193,18 +194,13 @@ def array2df(arr, dim_names=None, groups=None, value_name='value'):
 
     # iterate through dimensions producing tuples of relevant dims...
     for idx, adr in enumerate(product(*map(range, shape))):
-        df.loc[idx, value_name] = arr[adr] # this could be vectorized easily
+        df.loc[idx, value_name] = arr[adr]  # this could be vectorized easily
         # add relevant values to dim columns
         for dim_idx, dim_adr in enumerate(adr):
             df.loc[idx, dim_names[dim_idx]] = groups[dim_idx][dim_adr]
 
     # column dtype inference
-    try: # for pandas 0.22 or higher
-        df = df.infer_objects()
-    except: # otherwise
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-            df = df.convert_objects(convert_numeric=True)
+    df = df.infer_objects()
     return df
 
 
@@ -283,7 +279,6 @@ def epochs_to_ft(epochs, fname, var_name='data', trialinfo=None):
 
     if not isinstance(fname, str):
         raise TypeError('fname must be a str, got %s.' % type(fname))
-
 
     # get basic information from the epochs file
     sfreq = epochs.info['sfreq']
@@ -378,6 +373,8 @@ class EmptyProgressbar(object):
 
 def _transfer_selection_to_raw(epochs, raw, selection):
     '''
+    Translate epoch-level selections back to raw signal.
+
     Parameters
     ----------
     epochs : mne.Epochs
@@ -388,6 +385,7 @@ def _transfer_selection_to_raw(epochs, raw, selection):
         High amplitude periods in samples for epochs. Numpy array of
         (n_periods, 3) shape. The columns are: epoch index, within-epoch
         sample index of period start, within-epoch sample index of period end.
+
     Returns
     -------
     hi_amp_raw : numpy.ndarrays
@@ -443,3 +441,65 @@ def _invert_selection(raw, selection):
     amp_inv_samples[-1, :] = [raw_start_samples, n_samples - raw_start_samples]
 
     return amp_inv_samples
+
+
+def fix_channel_pos(inst):
+    '''Scale channel positions to default mne head radius.
+    FIXME - add docs'''
+    import borsar
+    from mne.bem import _fit_sphere
+
+    # get channel positions matrix
+    pos = borsar.channels.get_ch_pos(inst)
+
+    # remove channels without positions
+    no_pos = np.isnan(pos).any(axis=1) | (pos == 0).any(axis=1)
+    pos = pos[~no_pos, :]
+
+    # fit sphere to channel positions
+    radius, origin = _fit_sphere(pos)
+
+    default_sphere = 0.095
+    scale = radius / default_sphere
+    for idx, chs in enumerate(inst.info['chs']):
+        if chs['kind'] == 2:
+            chs['loc'][:3] -= origin
+            chs['loc'][:3] /= scale
+
+    return inst
+
+
+def create_eeglab_sphere(inst):
+    '''Create sphere settings (x, y, z, radius) that produce eeglab-like
+    topomap projection. The projection places Oz channel at the head outline
+    because it is at the level of head circumference in the 10-20 system.
+
+    Parameters
+    ----------
+    inst : mne object instance
+        Mne object that contains info dictionary.
+
+    Returns
+    -------
+    (x, y, z, radius)
+        First three values are x, y and z coordinates of the sphere center.
+        The last value is the sphere radius.
+    '''
+    check_ch = ['oz', 'fpz', 't7', 't8']
+    ch_names_lower = [ch.lower() for ch in inst.ch_names]
+    ch_idx = [ch_names_lower.index(ch) for ch in check_ch]
+    pos = np.stack([inst.info['chs'][idx]['loc'][:3] for idx in ch_idx])
+
+    # first we obtain the x, y, z of the sphere center:
+    x = pos[0, 0]
+    y = pos[-1, 1]
+    z = pos[:, -1].mean()
+
+    # now we calculate the radius from T7 and T8 x position
+    # but correcting for sphere center
+    pos_corrected = pos - np.array([[x, y, z]])
+    radius1 = np.abs(pos_corrected[[2, 3], 0]).mean()
+    radius2 = np.abs(pos_corrected[[0, 1], 1]).mean()
+    radius = np.mean([radius1, radius2])
+
+    return (x, y, z, radius)
