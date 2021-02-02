@@ -461,7 +461,9 @@ def fix_channel_pos(inst):
 
     default_sphere = 0.095
     scale = radius / default_sphere
-    for idx, chs in enumerate(inst.info['chs']):
+
+    info = get_info(inst)
+    for idx, chs in enumerate(info['chs']):
         if chs['kind'] == 2:
             chs['loc'][:3] -= origin
             chs['loc'][:3] /= scale
