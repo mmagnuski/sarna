@@ -507,7 +507,7 @@ def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
         stat, clusters, cluster_p = _permutation_cluster_test_3d(
             [data1, data2], adjacency, stat_fun, threshold=threshold,
             n_permutations=n_permutations, one_sample=one_sample,
-            min_adj_ch=min_adj_ch)
+            paired=paired, min_adj_ch=min_adj_ch)
 
         # pack into Clusters object
         dimcoords = [inst.ch_names, inst.freqs, inst.times[tmin:tmax]]
@@ -516,7 +516,7 @@ def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
 
 
 def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
-                                 one_sample=True, paired=False,
+                                 one_sample=False, paired=False,
                                  trial_level=False, p_threshold=0.05,
                                  n_permutations=1000, progress=True,
                                  return_distribution=False, backend='auto',
@@ -528,8 +528,9 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
     threshold = _compute_threshold(data, threshold, p_threshold, trial_level,
                                    paired, one_sample)
 
-    assert one_sample, ('Currently 3d data (like TFR) are only supported in '
-                        'the `one_sample` cluster-based permutation test.')
+    if not paired and not one_sample or (one_sample and paired):
+        raise ValueError('Currently you have to use either one_sample=True or'
+                         ' paired=True')
 
     n_obs = data[0].shape[0]
     signs_size = tuple([n_obs] + [1] * (data[0].ndim - 1))
@@ -540,7 +541,7 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
     neg_dist = np.zeros(n_permutations)
 
     # test on non-permuted data
-    stat = stat_fun(data[0])
+    stat = stat_fun(*data)
 
     # use 3d clustering
     cluster_fun = _get_cluster_fun(stat, adjacency=adjacency,
@@ -567,7 +568,7 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
             # one-sample sign-flip
             idx = np.random.random_integers(0, 1, size=signs_size)
             perm_signs = signs[idx]
-            perm_data = data[0] * perm_signs
+            perm_data = [data[0] * perm_signs]
         elif paired:
             # this is analogous to one-sample sign-flip but with paired data
             # (we could also perform one sample t test on condition differences
@@ -577,7 +578,7 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
             perm_data = list()
             perm_data.append(data[0] * idx1 + data[1] * idx2)
             perm_data.append(data[0] * idx2 + data[1] * idx1)
-        perm_stat = stat_fun(perm_data)
+        perm_stat = stat_fun(*perm_data)
 
         perm_clusters, perm_cluster_stats = find_clusters(
             perm_stat, threshold, adjacency=adjacency, cluster_fun=cluster_fun,
