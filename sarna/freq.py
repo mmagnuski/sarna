@@ -290,3 +290,50 @@ def create_amplitude_annotations(raw, freq=None, events=None, event_id=None,
                                 ['BAD_lowamp'] * n_segments)
 
     return amp_annot
+
+
+def grand_average_psd(psd_list):
+    '''Perform grand average on a list of PSD objects.
+
+    Parameters
+    ----------
+    psd_list : list
+        List of ``borsar.freq.PSD`` objects.
+
+    Returns
+    -------
+    grand_psd : borsar.freq.PSD
+        Grand averaged spectrum.
+    '''
+    assert isinstance(psd_list, list)
+
+    # make sure that all psds have the same number and order of channels
+    # and the same frequencies
+    freq1 = psd_list[0].freqs
+    ch_names1 = psd_list[0].ch_names
+    n_channels = len(ch_names1)
+    for psd in psd_list:
+        assert len(psd.freqs) == len(freq1)
+        assert (psd.freqs == freq1).all()
+        assert len(psd.ch_names) == n_channels
+        assert all([ch_names1[idx] == psd.ch_names[idx]
+                    for idx in range(n_channels)])
+
+    all_psds = list()
+    for this_psd in psd_list:
+        # upewniamy się, że epoki są uśrednione
+        this_psd = this_psd.copy().average()
+        all_psds.append(this_psd.data)
+
+    # łączymy widma w macierz (osoby x kanały x częstotliwości)
+    all_psds = np.stack(all_psds, axis=0)
+
+    # uśredniamy wymiar osób, zostają nam kanały x częstotliwości
+    all_psds = all_psds.mean(axis=0)
+
+    # kopiujemy wybrane psd z listy
+    grand_psd = this_psd.copy()
+    # i wypełniamy wartościamy średniej po osobach
+    grand_psd._data = all_psds
+
+    return grand_psd
