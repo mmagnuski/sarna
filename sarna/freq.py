@@ -1,17 +1,3 @@
-# this module is currently way more messy than it should be
-# but this should change pretty soon, hopfully
-
-# test
-# ----
-# from mne import time_frequency.tfr as tfr
-#
-# # import any dataset
-#
-# freqs = np.arange(1., 25.1, 0.5)
-# W = trf.morlet(sfreq, freqs, n_cycles=freqs)
-# TFR1 = tfr._cwt(signal, W)
-# ...
-
 import numpy as np
 import mne
 from warnings import warn
@@ -23,7 +9,7 @@ def dB(x):
     return 10 * np.log10(x)
 
 
-# - [ ] add detrending (1 + x + 1/x)
+# - [ ] add detrending (1 + x + 1/x) or FOOOF cooperation
 def transform_spectrum(spectrum, dB=False, normalize=False, detrend=False):
     """Common spectrum transformations.
 
@@ -43,58 +29,6 @@ def transform_spectrum(spectrum, dB=False, normalize=False, detrend=False):
             spectrum -= min_val
         spectrum /= spectrum.sum(axis=1)[:, np.newaxis]
     return spectrum
-
-
-# - [?] figure out a good way of including rej
-#       (currently - don't include)
-# - [ ] switch to scipy.signal.welch ?
-def segments_freq(eeg, win_len=2., win_step=0.5, n_fft=None,
-                  n_overlap=None, picks=None, progress=True):
-    from mne.io import _BaseRaw
-    from mne.epochs import _BaseEpochs
-    from mne.utils import _get_inst_data
-    from mne.time_frequency import psd_welch
-
-    sfreq = eeg.info['sfreq']
-    t_min = eeg.times[0]
-    time_length = len(eeg.times) / eeg.info['sfreq']
-    n_win = int(np.floor((time_length - win_len) / win_step) + 1.)
-    win_samples = int(np.floor(win_len * sfreq))
-
-    # check and set n_fft and n_overlap
-    if n_fft is None:
-        n_fft = int(np.floor(sfreq))
-    if n_overlap is None:
-        n_overlap = int(np.floor(n_fft / 4.))
-    if n_fft > win_samples:
-        n_fft = win_samples
-        n_overlap = 0
-    if picks is None:
-        picks = range(_get_inst_data(eeg).shape[-2])
-
-    n_freqs = int(np.floor(n_fft / 2)) + 1
-    if isinstance(eeg, _BaseRaw):
-        n_channels, _ = _get_inst_data(eeg).shape
-        psd = np.zeros((n_win, len(picks), n_freqs))
-    elif isinstance(eeg, _BaseEpochs):
-        n_epochs, n_channels, _ = _get_inst_data(eeg).shape
-        psd = np.zeros((n_win, n_epochs, len(picks), n_freqs))
-    else:
-        raise TypeError('unsupported data type - has to be epochs or '
-                        'raw, got {}.'.format(type(eeg)))
-
-    # BTW: doing this with n_jobs=2 is about 100 times slower than with one job
-    p_bar = progressbar.ProgressBar(max_value=n_win)
-    for w in range(n_win):
-        psd_temp, freqs = psd_welch(
-            eeg, tmin=t_min + w * win_step,
-            tmax=t_min + w * win_step + win_len,
-            n_fft=n_fft, n_overlap=n_overlap, n_jobs=1,
-            picks=picks, verbose=False, proj=True)
-        psd[w, :] = psd_temp
-        if progress:
-            p_bar.update(w)
-    return psd.swapaxes(0, 1), freqs
 
 
 # - [ ] consider moving to utils
@@ -145,24 +79,6 @@ def plot_topo_and_psd(inst, mean_psd, freqs, channels):
     chan_avg = mean_psd[channels, :].mean(axis=0)
     ax[1].plot(freqs[plot_freq], chan_avg[plot_freq], color='k', lw=2)
     return fig
-
-
-# @jit
-def _cwt_loop(X, times_ind, Ws, W_sizes, w_time_lims):
-    # allocate output
-    n_freqs = len(Ws)
-    tfr = np.empty([n_freqs] + [X.shape[0]] + [len(times_ind)],
-                   dtype=np.complex128)
-    tfr.fill(np.nan)
-
-    # Loop across wavelets, compute power
-    for ii, W in enumerate(Ws):
-        l, r = map(int, np.floor(W_sizes[ii] / 2. * np.array([-1, 1])))
-        t_start, t_end = w_time_lims[ii, :] + [0, 1]
-        # loop across time windows
-        for ti, tind in enumerate(times_ind[t_start:t_end]):
-            tfr[ii, :, ti + t_start] = np.dot(X[:, tind + l:tind + r], W)
-    return tfr
 
 
 def _correct_overlap(periods):
@@ -291,7 +207,6 @@ def create_amplitude_annotations(raw, freq=None, events=None, event_id=None,
                                  threshold=2., min_period=0.1,
                                  extend=None):
     '''
-
     Parameters
     ----------
     raw : mne.Raw
@@ -375,3 +290,50 @@ def create_amplitude_annotations(raw, freq=None, events=None, event_id=None,
                                 ['BAD_lowamp'] * n_segments)
 
     return amp_annot
+
+
+def grand_average_psd(psd_list):
+    '''Perform grand average on a list of PSD objects.
+
+    Parameters
+    ----------
+    psd_list : list
+        List of ``borsar.freq.PSD`` objects.
+
+    Returns
+    -------
+    grand_psd : borsar.freq.PSD
+        Grand averaged spectrum.
+    '''
+    assert isinstance(psd_list, list)
+
+    # make sure that all psds have the same number and order of channels
+    # and the same frequencies
+    freq1 = psd_list[0].freqs
+    ch_names1 = psd_list[0].ch_names
+    n_channels = len(ch_names1)
+    for psd in psd_list:
+        assert len(psd.freqs) == len(freq1)
+        assert (psd.freqs == freq1).all()
+        assert len(psd.ch_names) == n_channels
+        assert all([ch_names1[idx] == psd.ch_names[idx]
+                    for idx in range(n_channels)])
+
+    all_psds = list()
+    for this_psd in psd_list:
+        # upewniamy się, że epoki są uśrednione
+        this_psd = this_psd.copy().average()
+        all_psds.append(this_psd.data)
+
+    # łączymy widma w macierz (osoby x kanały x częstotliwości)
+    all_psds = np.stack(all_psds, axis=0)
+
+    # uśredniamy wymiar osób, zostają nam kanały x częstotliwości
+    all_psds = all_psds.mean(axis=0)
+
+    # kopiujemy wybrane psd z listy
+    grand_psd = this_psd.copy()
+    # i wypełniamy wartościamy średniej po osobach
+    grand_psd._data = all_psds
+
+    return grand_psd
