@@ -26,6 +26,8 @@ class GED(object):
             Regularization factor, from 0 - 1. If ``None`` then regularization
             is not performed.
         '''
+        # CONSIDER - could also be first constructed and the ``.fit``
+        #            to be complementary with sklearn...
         if filters is None and eig is None:
             # compute the GED from covariance matrices
             if not isinstance(cov_R, np.ndarray):
@@ -49,18 +51,29 @@ class GED(object):
         # compose attributes
         self.eig = eig
         self.filters = filters
-        if patterns is None:
-            self.patterns = _get_patterns(self.filters, cov_S)
-        else:
-            self.patterns = patterns
+        self.patterns = (patterns if patterns is not None
+                         else _get_patterns(self.filters, cov_S))
         self.description = description
 
     def plot(self, info, idx=None, axes=None, **args):
         '''
         Plot GED component topographical patterns.
 
+        Parameters
+        ----------
         info: mne Info instance
             mne-python Info object - used for topomap plotting.
+        idx : int or array-like of int
+            Index or indices for components to plot.
+        axes : matplotlib.Axes
+            Axes to plot the topomaps in.
+        **args : dict
+            Additional arguments are passed to ``borsar.viz.Topo``.
+
+        Returns
+        -------
+        topo : borsar.viz.Topo
+            Topography object. Allows to fine-tune topography presentation.
         '''
         if idx is None:
             idx = np.arange(6)
@@ -94,7 +107,16 @@ class GED(object):
         return inst_copy
 
     def save(self, fname, overwrite=False):
-        '''save to hdf5: filters, patterns, eig'''
+        '''Save to fitted GED object to hdf5 file.
+
+        Parameters
+        ----------
+        fname : str
+            File name or full path to the file.
+        overwrite : bool
+            Whether to overwrite the file if it exists.
+        '''
+
         from mne.externals import h5io
 
         data_dict = {'eig': self.eig, 'filters': self.filters,
@@ -104,6 +126,18 @@ class GED(object):
 
 
 def read_ged(fname):
+    '''Read GED object from hdf5 file.
+
+    Parameters
+    ----------
+    fname : str
+        File name or full file path.
+
+    Returns
+    -------
+    ged : sarna.ged.GED
+        Read GED object.
+    '''
     from mne.externals import h5io
 
     data_dict = h5io.read_hdf5(fname)
@@ -115,6 +149,7 @@ def read_ged(fname):
 
 
 def _get_patterns(vec, cov):
+    '''Turn filters to patterns.'''
     n_signals = vec.shape[0]
     patterns = np.zeros((n_signals, n_signals))
 
@@ -125,6 +160,9 @@ def _get_patterns(vec, cov):
 
 
 def _deal_with_idx(idx):
+    '''Helper function to deal with various ways in which indices can be
+    passed. Lists and arrays are passed unchanged, but ranges are turned
+    to lists, and all other values are wrapped in a list.'''
     if not isinstance(idx, (list, np.ndarray)):
         if isinstance(idx, range):
             idx = list(idx)
