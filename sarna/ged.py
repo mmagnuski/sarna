@@ -10,7 +10,8 @@ from borsar.viz import Topo
 # TODO: we use eig.real - maybe a warning should be added if we get complex
 #       values
 class GED(object):
-    def __init__(self, cov_S, cov_R, reg=None):
+    def __init__(self, cov_S=None, cov_R=None, reg=None, eig=None,
+                 filters=None, patterns=None, description=None):
         '''
         Compute Generalized Eigendecomposition (GED) of two covariance
         matrices.
@@ -25,35 +26,54 @@ class GED(object):
             Regularization factor, from 0 - 1. If ``None`` then regularization
             is not performed.
         '''
-        if not isinstance(cov_R, np.ndarray):
-            cov_R = cov_R.data
-        if not isinstance(cov_S, np.ndarray):
-            cov_S = cov_S.data
+        # CONSIDER - could also be first constructed and the ``.fit``
+        #            to be complementary with sklearn...
+        if filters is None and eig is None:
+            # compute the GED from covariance matrices
+            if not isinstance(cov_R, np.ndarray):
+                cov_R = cov_R.data
+            if not isinstance(cov_S, np.ndarray):
+                cov_S = cov_S.data
 
-        n_channels = cov_R.shape[0]
+            n_channels = cov_R.shape[0]
 
-        # regularization
-        if reg is not None:
-            reg_eig = reg * np.abs(np.linalg.eig(cov_R)[0].mean())
-            cov_R = (1 - reg) * cov_R + reg_eig * np.eye(n_channels)
+            # regularization
+            if reg is not None:
+                reg_eig = reg * np.abs(np.linalg.eig(cov_R)[0].mean())
+                cov_R = (1 - reg) * cov_R + reg_eig * np.eye(n_channels)
 
-        # compute GED and sort by eigenvalue
-        eig, vec = scipy.linalg.eig(cov_S, cov_R)
-        eig = eig.real
-        srt = np.argsort(eig)[::-1]
-        eig, vec = eig[srt], vec[:, srt]
+            # compute GED and sort by eigenvalue
+            eig, filters = scipy.linalg.eig(cov_S, cov_R)
+            eig = eig.real
+            srt = np.argsort(eig)[::-1]
+            eig, filters = eig[srt], filters[:, srt]
 
         # compose attributes
         self.eig = eig
-        self.filters = vec
-        self.patterns = _get_patterns(self.filters, cov_S)
+        self.filters = filters
+        self.patterns = (patterns if patterns is not None
+                         else _get_patterns(self.filters, cov_S))
+        self.description = description
 
     def plot(self, info, idx=None, axes=None, **args):
         '''
         Plot GED component topographical patterns.
 
-        info  : mne Info instance
+        Parameters
+        ----------
+        info: mne Info instance
             mne-python Info object - used for topomap plotting.
+        idx : int or array-like of int
+            Index or indices for components to plot.
+        axes : matplotlib.Axes
+            Axes to plot the topomaps in.
+        **args : dict
+            Additional arguments are passed to ``borsar.viz.Topo``.
+
+        Returns
+        -------
+        topo : borsar.viz.Topo
+            Topography object. Allows to fine-tune topography presentation.
         '''
         if idx is None:
             idx = np.arange(6)
@@ -86,12 +106,50 @@ class GED(object):
 
         return inst_copy
 
-    def save(self):
-        '''save to hdf5: filters, patterns, eig'''
-        raise NotImplementedError
+    def save(self, fname, overwrite=False):
+        '''Save to fitted GED object to hdf5 file.
+
+        Parameters
+        ----------
+        fname : str
+            File name or full path to the file.
+        overwrite : bool
+            Whether to overwrite the file if it exists.
+        '''
+
+        from mne.externals import h5io
+
+        data_dict = {'eig': self.eig, 'filters': self.filters,
+                     'patterns': self.patterns,
+                     'description': self.description}
+        h5io.write_hdf5(fname, data_dict, overwrite=overwrite)
+
+
+def read_ged(fname):
+    '''Read GED object from hdf5 file.
+
+    Parameters
+    ----------
+    fname : str
+        File name or full file path.
+
+    Returns
+    -------
+    ged : sarna.ged.GED
+        Read GED object.
+    '''
+    from mne.externals import h5io
+
+    data_dict = h5io.read_hdf5(fname)
+    ged = GED(
+        eig=data_dict['eig'], filters=data_dict['filters'],
+        patterns=data_dict['patterns'],
+        description=data_dict['description'])
+    return ged
 
 
 def _get_patterns(vec, cov):
+    '''Turn filters to patterns.'''
     n_signals = vec.shape[0]
     patterns = np.zeros((n_signals, n_signals))
 
@@ -102,6 +160,12 @@ def _get_patterns(vec, cov):
 
 
 def _deal_with_idx(idx):
+    '''Helper function to deal with various ways in which indices can be
+    passed. Lists and arrays are passed unchanged, but ranges are turned
+    to lists, and all other values are wrapped in a list.'''
     if not isinstance(idx, (list, np.ndarray)):
-        idx = [idx]
+        if isinstance(idx, range):
+            idx = list(idx)
+        else:
+            idx = [idx]
     return idx
