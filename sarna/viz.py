@@ -146,7 +146,8 @@ def imscatter(x, y, images, ax=None, zoom=1, selection='random'):
 # - [ ] `level` and `height` are unused but should allow for highlight that
 #       takes only a fraction of the axis
 #       kind='patch', level=0.04, height=0.03
-def highlight(x_values, highlight, color=None, alpha=0.3, axis=None):
+def highlight(x_values, highlight, color=None, alpha=0.3, bottom_bar=False,
+              axis=None):
     '''Highlight ranges along x axis.
 
     Parameters
@@ -160,6 +161,8 @@ def highlight(x_values, highlight, color=None, alpha=0.3, axis=None):
         Color in format understood by matplotlib. The default is 'orange'.
     alpha : float
         Highlight patch transparency. 0.3 by default.
+    bottom_bar : bool
+        Whether to place a highlight bar at the bottom of the figure.
     axis : matplotlib Axes | None
         Highligh on an already present axis. Default is ``None`` which creates
         a new figure with one axis.
@@ -178,13 +181,25 @@ def highlight(x_values, highlight, color=None, alpha=0.3, axis=None):
     elif isinstance(highlight, slice):
         grp = [highlight]
 
+    args = dict(lw=0, facecolor=color, alpha=alpha)
+    if alpha == 1.:
+        args['zorder'] = 0
+
     for slc in grp:
         this_x = x_values[slc]
         start = this_x[0] - hlf_dist
         length = np.diff(this_x[[0, -1]]) + hlf_dist * 2
-        ptch = Rectangle((start, ylims[0]), length, y_rng, lw=0,
-                         facecolor=color, alpha=alpha)
+        ptch = Rectangle((start, ylims[0]), length, y_rng, **args)
         axis.add_patch(ptch)
+
+        if bottom_bar:
+            bar_h = y_rng * 0.05
+            ptch = Rectangle((start, ylims[0] - bar_h / 2), length, bar_h, lw=0,
+                             facecolor='k', alpha=1.)
+            axis.add_patch(ptch)
+
+    if bottom_bar:
+        axis.set_ylim((ylims[0] - bar_h * 1, ylims[1]))
 
 
 # - [ ] test a little and change the API and options
