@@ -54,36 +54,8 @@ def set_3d_axes_equal(ax):
 #     self.chans[ch].set_zorder(4)
 
 
-# - [ ] enhance Topo with that functionality
-# - [ ] later will not be needed when masking is smarter in mne
-def selected_Topo(values, info, indices, replace='zero', **kawrgs):
-    # if a different info is passed - compare and
-    # fill unused channels with 0
-    ch_num = len(info['ch_names'])
-
-    if replace == 'zero':
-        vals = np.zeros(ch_num)
-    elif replace == 'min':
-        vals = np.ones(ch_num) * min(values)
-    elif replace == 'max':
-        vals = np.ones(ch_num) * max(values)
-
-    vals[indices] = values
-
-    # topoplot
-    tp = Topo(vals, info, show=False, **kawrgs)
-
-    # make all topography lines solid
-    tp.solid_lines()
-    tp.remove_levels(0.)
-
-    # final touches
-    tp.fig.set_facecolor('white')
-
-    return tp
-
-
-# TODO - [ ] consider moving selection out to some simple interface
+# TODO - [ ] ! missing imports !: OffsetImage, sample and AnnotationBbox
+# #    - [ ] consider moving selection out to some simple interface
 #            with .__init__ and .next()?
 #      - [ ] or maybe just use np.random.choice
 #      - [ ] change zoom to size
