@@ -145,10 +145,10 @@ def highlight(x_values, highlight, color=None, alpha=0.3, bottom_bar=False,
     axis = plt.gca() if axis is None else axis
 
     ylims = axis.get_ylim()
-    y_rng = np.diff(ylims)
+    y_rng = np.diff(ylims)[0]
     hlf_dist = np.diff(x_values).mean() / 2
 
-    if isinstance(highlight, np.ndarray):
+    if isinstance(highlight, (np.ndarray, list)):
         grp = group(highlight, return_slice=True)
     elif isinstance(highlight, slice):
         grp = [highlight]
@@ -160,7 +160,7 @@ def highlight(x_values, highlight, color=None, alpha=0.3, bottom_bar=False,
     for slc in grp:
         this_x = x_values[slc]
         start = this_x[0] - hlf_dist
-        length = np.diff(this_x[[0, -1]]) + hlf_dist * 2
+        length = np.diff(this_x[[0, -1]])[0] + hlf_dist * 2
         ptch = Rectangle((start, ylims[0]), length, y_rng, **args)
         axis.add_patch(ptch)
 
