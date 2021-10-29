@@ -205,6 +205,8 @@ def compute_cov_raw(raw, events, event_id=11, tmin=1., tmax=60.):
 def compute_narrowband_ged(raw, events, freq, cov_raw=None, freq_around=None,
                            filter_args=None, reg=0.05):
     # default values
+    from numbers import Real
+
     freq_around = np.array([-0.5, 0.5]) if freq_around is None else freq_around
     filter_args = dict(h_trans_bandwidth=0.5, l_trans_bandwidth=0.5,
                        verbose=False) if filter_args is None else filter_args
@@ -223,8 +225,8 @@ def compute_narrowband_ged(raw, events, freq, cov_raw=None, freq_around=None,
 
 # TODO: could use more than one component per frequency and then return
 #       an array of components x channels x frequencies (for example)
-def ged_scan_freqs(raw, freq_centers, freq_around=None, filter_args=None,
-                   reg=0.05):
+def ged_scan_freqs(raw, events, freq_centers, freq_around=None,
+                   filter_args=None, reg=0.05):
     '''Compute narrowband GED for a range of frequencies.
 
     Only the first component per frequency is saved (or rather - its filter and
@@ -258,7 +260,6 @@ def ged_scan_freqs(raw, freq_centers, freq_around=None, filter_args=None,
         Channels by frequencies array of component eigenvectors. Only the
         first component's eigenvector is saved for each frequency.
     '''
-    from numbers import Real
     from tqdm import tqdm
     cov_raw = compute_cov_raw(raw, events)
 
@@ -281,6 +282,8 @@ def ged_scan_freqs(raw, freq_centers, freq_around=None, filter_args=None,
 # TODO: allow to show other number of components than 6
 # TODO: in eigenvalues plot mark also which components are shown
 def plot_ged_comps(ged, info, psd=None, fmin=1., fmax=15.):
+    import matplotlib.pyplot as plt
+
     fig = plt.figure(figsize=(15, 5))
     gs = plt.GridSpec(2, 5)
 
