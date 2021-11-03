@@ -120,7 +120,7 @@ def _correct_overlap(periods):
 
 
 def _find_sel_amplitude_periods(epochs, threshold=2.5, min_period=0.1,
-                                 periods = 'high', extend=None):
+                                 periods='high', extend=None):
     '''
     Find segments of high or low amplitude in filtered, hilbert-transformed signal.
 
@@ -167,11 +167,13 @@ def _find_sel_amplitude_periods(epochs, threshold=2.5, min_period=0.1,
 
     if periods == 'high':
         grp = group(envelope > threshold)
-    else:
+    elif periods == 'low':
         grp = group(envelope < threshold)
+    else:
+        raise ValueError('Unrecognised `periods` option "{}".'.format(periods))    
 
     if len(grp) == 0:
-        raise ValueError('No high amplitude periods were found.')
+        raise ValueError('No {} amplitude periods were found.'.format(periods))
     # check if there are some segments that start at one epoch
     # and end in another
     # -> if so, they could be split, but we will ignore them for now
@@ -209,7 +211,7 @@ def _find_sel_amplitude_periods(epochs, threshold=2.5, min_period=0.1,
 
 def create_amplitude_annotations(raw, freq=None, events=None, event_id=None,
                                  picks=None, tmin=-0.2, tmax=0.5,
-                                 threshold=2., min_period=0.1, periods = 'high',
+                                 threshold=2., min_period=0.1, periods='high',
                                  extend=None):
     '''
     Parameters
@@ -292,14 +294,10 @@ def create_amplitude_annotations(raw, freq=None, events=None, event_id=None,
     amp_inv_annot_sec = amp_inv_samples / sfreq
 
     n_segments = amp_inv_samples.shape[0]
-    if periods == 'high':
-        amp_annot = mne.Annotations(amp_inv_annot_sec[:, 0],
-                                    amp_inv_annot_sec[:, 1],
-                                    ['BAD_lowamp'] * n_segments)
-    else:
-        amp_annot = mne.Annotations(amp_inv_annot_sec[:, 0],
-                                    amp_inv_annot_sec[:, 1],
-                                    ['BAD_highamp'] * n_segments)
+    annot_name = 'BAD_{}amp'.format(periods)
+    amp_annot = mne.Annotations(amp_inv_annot_sec[:, 0],
+                                amp_inv_annot_sec[:, 1],
+                                annot_name * n_segments)
     return amp_annot
 
 
