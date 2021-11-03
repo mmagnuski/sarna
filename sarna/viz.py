@@ -157,21 +157,28 @@ def highlight(x_values, highlight, color=None, alpha=0.3, bottom_bar=False,
     if alpha == 1.:
         args['zorder'] = 0
 
+    patch_low = ylims[0]
+    if bottom_bar:
+        bar_h = y_rng * 0.05
+        bar_low = (ylims[0] - bar_h / 2 if bottom_extend
+                   else ylims[0] + bar_h / 2)
+        patch_low = bar_low + bar_h / 2
+
     for slc in grp:
         this_x = x_values[slc]
         start = this_x[0] - hlf_dist
         length = np.diff(this_x[[0, -1]])[0] + hlf_dist * 2
-        ptch = Rectangle((start, ylims[0]), length, y_rng, **args)
+
+        ptch = Rectangle((start, patch_low), length, y_rng, **args)
         axis.add_patch(ptch)
 
         if bottom_bar:
-            bar_h = y_rng * 0.05
-            ptch = Rectangle((start, ylims[0] - bar_h / 2), length, bar_h, lw=0,
+            ptch = Rectangle((start, bar_low), length, bar_h, lw=0,
                              facecolor='k', alpha=1.)
             axis.add_patch(ptch)
 
-    if bottom_bar:
-        axis.set_ylim((ylims[0] - bar_h * 1, ylims[1]))
+    if bottom_bar and bottom_extend:
+        axis.set_ylim((ylims[0] - bar_h, ylims[1]))
 
 
 # - [ ] test a little and change the API and options
