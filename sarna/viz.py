@@ -114,21 +114,21 @@ def imscatter(x, y, images, ax=None, zoom=1, selection='random'):
     return artists
 
 
-# - [ ] support list/tuple of slices for which_highligh?
+# - [ ] support list/tuple of slices for which_highlight?
 # - [ ] `level` and `height` are unused but should allow for highlight that
 #       takes only a fraction of the axis
 #       kind='patch', level=0.04, height=0.03
 def highlight(x_values, highlight, color=None, alpha=0.3, bottom_bar=False,
-              axis=None):
+              bottom_extend=True, axis=None):
     '''Highlight ranges along x axis.
 
     Parameters
     ----------
     x_values : numpy array
-        Values specifying x axis points along which which_highligh operates.
+        Values specifying x axis points along which which_highlight operates.
     highlight : slice | numpy array
         Slice or boolean numpy array defining which values in ``x_values``
-        should be highlighed.
+        should be highlighted.
     color : str | list | numpy array, optional
         Color in format understood by matplotlib. The default is 'orange'.
     alpha : float
@@ -136,7 +136,7 @@ def highlight(x_values, highlight, color=None, alpha=0.3, bottom_bar=False,
     bottom_bar : bool
         Whether to place a highlight bar at the bottom of the figure.
     axis : matplotlib Axes | None
-        Highligh on an already present axis. Default is ``None`` which creates
+        Highlight on an already present axis. Default is ``None`` which creates
         a new figure with one axis.
     '''
     from matplotlib.patches import Rectangle
