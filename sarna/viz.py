@@ -169,13 +169,13 @@ def highlight(x_values, highlight, color=None, alpha=0.3, bottom_bar=False,
         start = this_x[0] - hlf_dist
         length = np.diff(this_x[[0, -1]])[0] + hlf_dist * 2
 
-        ptch = Rectangle((start, patch_low), length, y_rng, **args)
-        axis.add_patch(ptch)
+        patch = Rectangle((start, patch_low), length, y_rng, **args)
+        axis.add_patch(patch)
 
         if bottom_bar:
-            ptch = Rectangle((start, bar_low), length, bar_h, lw=0,
+            patch = Rectangle((start, bar_low), length, bar_h, lw=0,
                              facecolor='k', alpha=1.)
-            axis.add_patch(ptch)
+            axis.add_patch(patch)
 
     if bottom_bar and bottom_extend:
         axis.set_ylim((ylims[0] - bar_h, ylims[1]))
