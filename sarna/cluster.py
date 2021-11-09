@@ -533,6 +533,7 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
                          ' paired=True')
 
     n_obs = data[0].shape[0]
+    n_groups = len(data)
     signs_size = tuple([n_obs] + [1] * (data[0].ndim - 1))
     if one_sample:
         signs = np.array([-1, 1])
@@ -558,6 +559,12 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
         msg = 'Found {} clusters, computing permutations.'
         print(msg.format(len(clusters)))
 
+    if paired and n_groups > 2:
+        orders = [np.arange(n_groups)]
+        for _ in range(n_groups - 1):
+            orders.append(np.roll(orders[-1], shift=-1))
+        data_all = np.stack(data, axis=0)
+
     # FIXME - use sarna progressbar
     pbar = progressbar(progress, total=n_permutations)
 
@@ -569,7 +576,7 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
             idx = np.random.random_integers(0, 1, size=signs_size)
             perm_signs = signs[idx]
             perm_data = [data[0] * perm_signs]
-        elif paired:
+        elif paired and n_groups == 2:
             # this is analogous to one-sample sign-flip but with paired data
             # (we could also perform one sample t test on condition differences
             #  with sign-flip in the permutation step)
@@ -578,6 +585,13 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
             perm_data = list()
             perm_data.append(data[0] * idx1 + data[1] * idx2)
             perm_data.append(data[0] * idx2 + data[1] * idx1)
+        elif paired and n_groups > 2:
+            ord_idx = np.random.randint(0, n_groups, size=n_obs)
+            perm_data = data_all.copy()
+            for obs_idx in range(n_obs):
+                this_order = orders[ord_idx[obs_idx]]
+                perm_data[:, obs_idx] = data_all[this_order, obs_idx]
+
         perm_stat = stat_fun(*perm_data)
 
         perm_clusters, perm_cluster_stats = find_clusters(
