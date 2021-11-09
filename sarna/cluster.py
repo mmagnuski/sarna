@@ -170,7 +170,7 @@ def plot_neighbours(inst, adj_matrix, color='gray', kind='3d'):
                     adj_matrix[both_nodes[0], both_nodes[1]] = True
                     adj_matrix[both_nodes[1], both_nodes[0]] = True
 
-                # highlight new node, de-highligh previous
+                # highlight new node, de-highlight previous
                 highlighted.append(node_ind)
                 if kind == '3d':
                     scatter = axes.scatter(positions[node_ind, 0],
@@ -373,7 +373,7 @@ def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
     n_permutations : int
         How many permutations to perform. Defaults to ``1000``.
     threshold : value
-        Cluster entry threshold defined by the value of the statistic. Defautls
+        Cluster entry threshold defined by the value of the statistic. Defaults
         to ``None`` which calculates threshold from p value (see
         ``p_threshold``)
     p_threshold : value
