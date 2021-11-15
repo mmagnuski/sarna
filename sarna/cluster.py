@@ -515,12 +515,12 @@ def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
                         dimnames=['chan', 'freq', 'time'], dimcoords=dimcoords)
 
 
-def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
+def _permutation_cluster_test_3d(data, adjacency, stat_fun=None, threshold=None,
                                  one_sample=False, paired=False,
                                  trial_level=False, p_threshold=0.05,
                                  n_permutations=1000, progress=True,
                                  return_distribution=False, backend='auto',
-                                 min_adj_ch=0):
+                                 min_adj_ch=0, tail='both'):
     """FIXME: add docs."""
 
     from .utils import progressbar
@@ -528,18 +528,22 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
     threshold = _compute_threshold(data, threshold, p_threshold, trial_level,
                                    paired, one_sample)
 
+    n_groups = len(data)
+    if stat_fun is None:
+        stat_fun = _find_stat_fun(n_groups, paired, tail)
+
     if not paired and not one_sample or (one_sample and paired):
         raise ValueError('Currently you have to use either one_sample=True or'
                          ' paired=True')
 
     n_obs = data[0].shape[0]
-    n_groups = len(data)
     signs_size = tuple([n_obs] + [1] * (data[0].ndim - 1))
     if one_sample:
         signs = np.array([-1, 1])
 
     pos_dist = np.zeros(n_permutations)
-    neg_dist = np.zeros(n_permutations)
+    if tail == 'both':
+        neg_dist = np.zeros(n_permutations)
 
     # test on non-permuted data
     stat = stat_fun(*data)
@@ -601,12 +605,14 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
         # if any clusters were found - add max statistic
         if len(perm_cluster_stats) > 0:
             max_val = perm_cluster_stats.max()
-            min_val = perm_cluster_stats.min()
 
             if max_val > 0:
                 pos_dist[perm] = max_val
-            if min_val < 0:
-                neg_dist[perm] = min_val
+
+            if tail == 'both':
+                min_val = perm_cluster_stats.min()
+                if min_val < 0:
+                    neg_dist[perm] = min_val
 
         if progressbar:
             pbar.update(1)
@@ -615,8 +621,9 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
     cluster_p = np.array([(pos_dist > cluster_stat).mean() if cluster_stat > 0
                           else (neg_dist < cluster_stat).mean()
                           for cluster_stat in cluster_stats])
-    cluster_p *= 2  # because we use two-tail
-    cluster_p[cluster_p > 1.] = 1.  # probability has to be <= 1.
+    if tail == 'both':
+        cluster_p *= 2  # because we use two-tail
+        cluster_p[cluster_p > 1.] = 1.  # probability has to be <= 1.
 
     # sort clusters by p value
     cluster_order = np.argsort(cluster_p)
@@ -633,16 +640,41 @@ def _compute_threshold(data, threshold, p_threshold, trial_level, paired,
                        one_sample):
     if threshold is None:
         from scipy.stats import distributions
-        len1 = len(data[0])
-        len2 = len(data[1]) if (len(data) > 1 and data[1] is not None) else 0
-        if trial_level:
-            # or maybe just use len()
-            if hasattr(data[0], 'data'):
-                df = data[0].data.shape[0] + data[1].data.shape[0] - 2
+        n_groups = len(data)
+        if n_groups < 3:
+            len1 = len(data[0])
+            len2 = len(data[1]) if (len(data) > 1 and data[1] is not None) else 0
+            if trial_level:
+                # or maybe just use len()
+                if hasattr(data[0], 'data'):
+                    df = data[0].data.shape[0] + data[1].data.shape[0] - 2
+                else:
+                    df = data[0]._data.shape[0] + data[1]._data.shape[0] - 2
             else:
-                df = data[0]._data.shape[0] + data[1]._data.shape[0] - 2
-        else:
-            df = (len1 - 1 if paired or one_sample else
-                  len1 + len2 - 2)
-        threshold = np.abs(distributions.t.ppf(p_threshold / 2., df=df))
+                df = (len1 - 1 if paired or one_sample else
+                    len1 + len2 - 2)
+            threshold = np.abs(distributions.t.ppf(p_threshold / 2., df=df))
+        elif paired:
+            # ANOVA F
+            n_trials = data[0].shape[0]
+            dfn = n_groups - 1
+            dfd = n_trials - n_groups
+            threshold = distributions.f.ppf(1. - p_threshold, dfn, dfd)
     return threshold
+
+
+def _find_stat_fun(n_groups, paired, tail):
+    if n_groups > 2 and not tail == 'both':
+        if paired:
+            # repeated measures ANOVA
+            return rm_anova_stat_fun
+
+
+def rm_anova_stat_fun(*args):
+    from mne.stats import f_mway_rm
+
+    data = np.stack(args, axis=1)
+    n_factors = data.shape[1]
+    fval, _ = f_mway_rm(data, factor_levels=[n_factors],
+                        return_pvals=False)
+    return fval
