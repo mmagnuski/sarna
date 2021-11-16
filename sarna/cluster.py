@@ -515,17 +515,17 @@ def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
                         dimnames=['chan', 'freq', 'time'], dimcoords=dimcoords)
 
 
+# TODO: this is no longer 3d - will work for 1d as well (and maybe 2d)
 def _permutation_cluster_test_3d(data, adjacency, stat_fun=None, threshold=None,
                                  one_sample=False, paired=False,
-                                 trial_level=False, p_threshold=0.05,
-                                 n_permutations=1000, progress=True,
-                                 return_distribution=False, backend='auto',
-                                 min_adj_ch=0, tail='both'):
+                                 p_threshold=0.05, n_permutations=1000,
+                                 progress=True, return_distribution=False,
+                                 backend='auto', min_adj_ch=0, tail='both'):
     """FIXME: add docs."""
 
     from .utils import progressbar
     from borsar.cluster.label import _get_cluster_fun, find_clusters
-    threshold = _compute_threshold(data, threshold, p_threshold, trial_level,
+    threshold = _compute_threshold(data, threshold, p_threshold,
                                    paired, one_sample)
 
     n_groups = len(data)
@@ -636,7 +636,7 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun=None, threshold=None,
         return stat, clusters, cluster_p
 
 
-def _compute_threshold(data, threshold, p_threshold, trial_level, paired,
+def _compute_threshold(data, threshold, p_threshold, paired,
                        one_sample):
     if threshold is None:
         from scipy.stats import distributions
@@ -644,15 +644,7 @@ def _compute_threshold(data, threshold, p_threshold, trial_level, paired,
         if n_groups < 3:
             len1 = len(data[0])
             len2 = len(data[1]) if (len(data) > 1 and data[1] is not None) else 0
-            if trial_level:
-                # or maybe just use len()
-                if hasattr(data[0], 'data'):
-                    df = data[0].data.shape[0] + data[1].data.shape[0] - 2
-                else:
-                    df = data[0]._data.shape[0] + data[1]._data.shape[0] - 2
-            else:
-                df = (len1 - 1 if paired or one_sample else
-                    len1 + len2 - 2)
+            df = (len1 - 1 if paired or one_sample else len1 + len2 - 2)
             threshold = np.abs(distributions.t.ppf(p_threshold / 2., df=df))
         elif paired:
             # ANOVA F
