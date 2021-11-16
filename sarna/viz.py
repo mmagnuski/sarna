@@ -141,14 +141,19 @@ def highlight(x_values, highlight, color=None, alpha=1., bottom_bar=False,
     '''
     from matplotlib.patches import Rectangle
 
-    color = 'orange' if color is None else color
+    color = [0.95] * 3 if color is None else color
     axis = plt.gca() if axis is None else axis
 
     ylims = axis.get_ylim()
     y_rng = np.diff(ylims)[0]
     hlf_dist = np.diff(x_values).mean() / 2
 
-    if isinstance(highlight, (np.ndarray, list)):
+    if isinstance(highlight, list):
+        if all([isinstance(x, slice) for x in highlight]):
+            grp = highlight
+        elif all([isinstance(x, np.ndarray) for x in highlight]):
+            grp = [group(x, return_slice=True)[0] for x in highlight]
+    elif isinstance(highlight, np.ndarray) and highlight.dtype == 'bool':
         grp = group(highlight, return_slice=True)
     elif isinstance(highlight, slice):
         grp = [highlight]
