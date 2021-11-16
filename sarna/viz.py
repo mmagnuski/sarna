@@ -114,18 +114,18 @@ def imscatter(x, y, images, ax=None, zoom=1, selection='random'):
     return artists
 
 
-# - [ ] support list/tuple of slices for which_highlight?
-# - [ ] `level` and `height` are unused but should allow for highlight that
-#       takes only a fraction of the axis
-#       kind='patch', level=0.04, height=0.03
-def highlight(x_values, highlight, color=None, alpha=0.3, bottom_bar=False,
+# - [ ] support list/tuple of slices for highlight?
+# - [ ] `level` / `height` could allow for highlight that takes only a fraction
+#       of the axis
+#       kind='patch', level=0.04, height=0.03 ?
+def highlight(x_values, highlight, color=None, alpha=1., bottom_bar=False,
               bottom_extend=True, axis=None):
     '''Highlight ranges along x axis.
 
     Parameters
     ----------
     x_values : numpy array
-        Values specifying x axis points along which which_highlight operates.
+        Values specifying x axis points along which highlight operates.
     highlight : slice | numpy array
         Slice or boolean numpy array defining which values in ``x_values``
         should be highlighted.
