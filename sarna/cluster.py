@@ -641,16 +641,18 @@ def _compute_threshold(data, threshold, p_threshold, paired,
     if threshold is None:
         from scipy.stats import distributions
         n_groups = len(data)
+        lens = [len(d) for d in data]
+
         if n_groups < 3:
             len1 = len(data[0])
             len2 = len(data[1]) if (len(data) > 1 and data[1] is not None) else 0
             df = (len1 - 1 if paired or one_sample else len1 + len2 - 2)
             threshold = np.abs(distributions.t.ppf(p_threshold / 2., df=df))
-        elif paired:
+        else:
             # ANOVA F
-            n_trials = data[0].shape[0]
+            n_obs = data[0].shape[0] if paired else sum(lens)
             dfn = n_groups - 1
-            dfd = n_trials - n_groups
+            dfd = n_obs - n_groups
             threshold = distributions.f.ppf(1. - p_threshold, dfn, dfd)
     return threshold
 
@@ -660,6 +662,25 @@ def _find_stat_fun(n_groups, paired, tail):
         if paired:
             # repeated measures ANOVA
             return rm_anova_stat_fun
+        else:
+            from scipy.stats import f_oneway
+
+            def stat_fun(*args):
+                fval, _ = f_oneway(*args)
+                return fval
+            return stat_fun
+    else:
+        if paired:
+            from scipy.stats import ttest_rel
+
+            def stat_fun(*args):
+                tval, _ = ttest_rel(*args)
+                return tval
+            return stat_fun
+        else:
+            # TODO: always assume non-equal variance?
+            from mne.stats import ttest_ind_no_p
+            return ttest_ind_no_p
 
 
 def rm_anova_stat_fun(*args):
