@@ -54,36 +54,8 @@ def set_3d_axes_equal(ax):
 #     self.chans[ch].set_zorder(4)
 
 
-# - [ ] enhance Topo with that functionality
-# - [ ] later will not be needed when masking is smarter in mne
-def selected_Topo(values, info, indices, replace='zero', **kawrgs):
-    # if a different info is passed - compare and
-    # fill unused channels with 0
-    ch_num = len(info['ch_names'])
-
-    if replace == 'zero':
-        vals = np.zeros(ch_num)
-    elif replace == 'min':
-        vals = np.ones(ch_num) * min(values)
-    elif replace == 'max':
-        vals = np.ones(ch_num) * max(values)
-
-    vals[indices] = values
-
-    # topoplot
-    tp = Topo(vals, info, show=False, **kawrgs)
-
-    # make all topography lines solid
-    tp.solid_lines()
-    tp.remove_levels(0.)
-
-    # final touches
-    tp.fig.set_facecolor('white')
-
-    return tp
-
-
-# TODO - [ ] consider moving selection out to some simple interface
+# TODO - [ ] ! missing imports !: OffsetImage, sample and AnnotationBbox
+# #    - [ ] consider moving selection out to some simple interface
 #            with .__init__ and .next()?
 #      - [ ] or maybe just use np.random.choice
 #      - [ ] change zoom to size
@@ -142,49 +114,76 @@ def imscatter(x, y, images, ax=None, zoom=1, selection='random'):
     return artists
 
 
-# - [ ] support list/tuple of slices for which_highligh?
-# - [ ] `level` and `height` are unused but should allow for highlight that
-#       takes only a fraction of the axis
-#       kind='patch', level=0.04, height=0.03
-def highlight(x_values, highlight, color=None, alpha=0.3, axis=None):
+# - [ ] support list/tuple of slices for highlight?
+# - [ ] `level` / `height` could allow for highlight that takes only a fraction
+#       of the axis
+#       kind='patch', level=0.04, height=0.03 ?
+def highlight(x_values, highlight, color=None, alpha=1., bottom_bar=False,
+              bottom_extend=True, axis=None):
     '''Highlight ranges along x axis.
 
     Parameters
     ----------
     x_values : numpy array
-        Values specifying x axis points along which which_highligh operates.
+        Values specifying x axis points along which highlight operates.
     highlight : slice | numpy array
         Slice or boolean numpy array defining which values in ``x_values``
-        should be highlighed.
+        should be highlighted.
     color : str | list | numpy array, optional
         Color in format understood by matplotlib. The default is 'orange'.
     alpha : float
         Highlight patch transparency. 0.3 by default.
+    bottom_bar : bool
+        Whether to place a highlight bar at the bottom of the figure.
     axis : matplotlib Axes | None
-        Highligh on an already present axis. Default is ``None`` which creates
+        Highlight on an already present axis. Default is ``None`` which creates
         a new figure with one axis.
     '''
     from matplotlib.patches import Rectangle
 
-    color = 'orange' if color is None else color
+    color = [0.95] * 3 if color is None else color
     axis = plt.gca() if axis is None else axis
 
     ylims = axis.get_ylim()
-    y_rng = np.diff(ylims)
+    y_rng = np.diff(ylims)[0]
     hlf_dist = np.diff(x_values).mean() / 2
 
-    if isinstance(highlight, np.ndarray):
+    if isinstance(highlight, list):
+        if all([isinstance(x, slice) for x in highlight]):
+            grp = highlight
+        elif all([isinstance(x, np.ndarray) for x in highlight]):
+            grp = [group(x, return_slice=True)[0] for x in highlight]
+    elif isinstance(highlight, np.ndarray) and highlight.dtype == 'bool':
         grp = group(highlight, return_slice=True)
     elif isinstance(highlight, slice):
         grp = [highlight]
 
+    args = dict(lw=0, facecolor=color, alpha=alpha)
+    if alpha == 1.:
+        args['zorder'] = 0
+
+    patch_low = ylims[0]
+    if bottom_bar:
+        bar_h = y_rng * 0.05
+        bar_low = (ylims[0] - bar_h / 2 if bottom_extend
+                   else ylims[0] + bar_h / 2)
+        patch_low = bar_low + bar_h / 2
+
     for slc in grp:
         this_x = x_values[slc]
         start = this_x[0] - hlf_dist
-        length = np.diff(this_x[[0, -1]]) + hlf_dist * 2
-        ptch = Rectangle((start, ylims[0]), length, y_rng, lw=0,
-                         facecolor=color, alpha=alpha)
-        axis.add_patch(ptch)
+        length = np.diff(this_x[[0, -1]])[0] + hlf_dist * 2
+
+        patch = Rectangle((start, patch_low), length, y_rng, **args)
+        axis.add_patch(patch)
+
+        if bottom_bar:
+            patch = Rectangle((start, bar_low), length, bar_h, lw=0,
+                             facecolor='k', alpha=1.)
+            axis.add_patch(patch)
+
+    if bottom_bar and bottom_extend:
+        axis.set_ylim((ylims[0] - bar_h, ylims[1]))
 
 
 # - [ ] test a little and change the API and options
