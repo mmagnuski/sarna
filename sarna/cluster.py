@@ -577,8 +577,6 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
 
     from .utils import progressbar
     from borsar.cluster.label import _get_cluster_fun, find_clusters
-    threshold = _compute_threshold(data, threshold, p_threshold,
-                                   paired, one_sample)
 
     n_groups = len(data)
     if stat_fun is None:
@@ -599,6 +597,17 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
 
     # test on non-permuted data
     stat = stat_fun(*data)
+
+    # compute threshold from stat, use permutation distribution if
+    # n_stat_permutations > 0
+    # FIXME: streamline/simplify permutation reshaping and transposing
+    # FIXME: time and see whether a different solution (numba?) is better
+    if n_stat_permutations > 0:
+        threshold = _compute_threshold_via_permutations(
+            data, paired, tail, stat_fun, p_threshold, n_stat_permutations)
+    else:
+        threshold = _compute_threshold(data, threshold, p_threshold,
+                                       paired, one_sample)
 
     # use 3d clustering
     cluster_fun = _get_cluster_fun(stat, adjacency=adjacency,
@@ -740,6 +749,55 @@ def rm_anova_stat_fun(*args):
 
     data = np.stack(args, axis=1)
     n_factors = data.shape[1]
+
     fval, _ = f_mway_rm(data, factor_levels=[n_factors],
                         return_pvals=False)
+
+    if data.ndim > 3:
+        fval = fval.reshape(data.shape[2:])
     return fval
+
+
+def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
+                                        p_threshold, n_perm):
+    '''Assumes n_conditions x n_observations x ... data array.
+    Note that the permutations are implemented via shuffling of the condition
+    labels, not randomization of independent condition orders.'''
+    assert paired, "Unpaired permutations are not implemented."
+
+    # concatenate condition dimension if needed
+    if isinstance(data, list):
+        data = np.stack(data, axis=0)
+
+    dims = np.arange(data.ndim)
+    dims[:2] = [1, 0]
+    n_cond, n_obs = data.shape[:2]
+    data_unr = data.transpose(*dims).reshape(n_cond * n_obs,
+                                *data.shape[2:])
+    stats = np.zeros(shape=(n_perm, *data.shape[2:]))
+
+    # compute permutations of the stat
+    for perm_idx in range(n_perm):
+        rnd = (np.random.random(size=(n_cond, n_obs))).argsort(axis=0)
+        idx = (rnd + np.arange(n_obs)[None, :] * n_cond).T.ravel()
+        this_data = data_unr[idx].reshape(
+            n_obs, n_cond, *data.shape[2:]).transpose(*dims)
+        stats[perm_idx] = stat_fun(*this_data)
+
+    # now check threshold
+    if tail == 'pos':
+        percentile = 100 - p_threshold * 100
+        threshold = np.percentile(stats, percentile, axis=0)
+    elif tail == 'neg':
+        percentile = p_threshold * 100
+        threshold = np.percentile(stats, percentile, axis=0)
+    elif tail == 'both':
+        percentile_neg = p_threshold / 2 * 100
+        percentile_pos = 100 - p_threshold / 2 * 100
+        threshold = [np.percentile(stats, perc, axis=0)
+                     for perc in [percentile_pos, percentile_neg]]
+    else:
+        raise ValueError(f'Unrecognized tail "{tail}"')
+
+    return threshold
+
