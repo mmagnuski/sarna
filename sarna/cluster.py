@@ -487,6 +487,7 @@ def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
 
     # perform cluster-based test
     # --------------------------
+    # TODO: now our cluster-based works also for 1d and 2d etc.
     if not data_3d:
         assert min_adj_ch == 0
         adj_param = {kwarg: adjacency}
@@ -504,7 +505,7 @@ def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
                         dimcoords=dimcoords)
 
     else:
-        stat, clusters, cluster_p = _permutation_cluster_test_3d(
+        stat, clusters, cluster_p = permutation_cluster_test_array(
             [data1, data2], adjacency, stat_fun, threshold=threshold,
             n_permutations=n_permutations, one_sample=one_sample,
             paired=paired, min_adj_ch=min_adj_ch)
@@ -515,13 +516,64 @@ def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
                         dimnames=['chan', 'freq', 'time'], dimcoords=dimcoords)
 
 
-# TODO: this is no longer 3d - will work for 1d as well (and maybe 2d)
-def _permutation_cluster_test_3d(data, adjacency, stat_fun=None, threshold=None,
-                                 one_sample=False, paired=False,
-                                 p_threshold=0.05, n_permutations=1000,
-                                 progress=True, return_distribution=False,
-                                 backend='auto', min_adj_ch=0, tail='both'):
-    """FIXME: add docs."""
+# TODO: add condition order argument? This may require a large refactoring of
+#       the function to allow for 2-step tests (step 1 - within subjects,
+#       step 2 - across subjects)
+# TODO: move `min_adj_ch` up and add `min_adj`
+def permutation_cluster_test_array(data, adjacency, stat_fun=None,
+                                   threshold=None, p_threshold=0.05,
+                                   paired=False, one_sample=False, tail='both',
+                                   n_permutations=1000, n_stat_permutations=0,
+                                   progress=True, return_distribution=False,
+                                   backend='auto', min_adj_ch=0):
+    """Permutation cluster test on array data.
+
+    Parameters
+    ----------
+    data : np.ndarray | list of np.ndarray
+        An array where first two dimensions are ``conditions x observations``
+        or list of arrays where each array has observations in the first
+        dimension. If the data contains channels it should be in the dimension
+        immediately after observations.
+    adjacency : 2d boolean array | None
+        Array that denotes adjacency between channels (or vertices). If
+        ``None`` it is assumed that no channels/vertices are present.
+    stat_fun : function | None
+        Statistical function to use. It should allow as many arguments as
+        conditions and should return one array of computed statistics.
+    threshold : float | None
+        Cluster entry threshold for the test statistic. If ``None`` (defult)
+        the ``p_threshold`` argument is used.
+    p_threshold : float
+        P value threshold to use in cluster entry threshold computation. For
+        standard parametric tests (t test, ANOVA) it is computed from
+        theoretical test distribution; if ``n_stat_permutations`` is above zero
+        the threshold is obtained from percentile of permutation distribution.
+    paired : bool
+        Whether the permutations should be conducted for paired samples
+        scenario (randomization of condition orders within observations).
+        Currently the condition orders are randomized even if they are the same
+        for all subjects. This argument is also used to automatically pick
+        a statistical test if ``stat_fun`` is ``None``.
+    one_sample : bool
+        Whether the permutations should be conducted for a one sample scenario
+        (sign flipping randomization). This argument is also used to
+        automatically pick a statistical test if ``stat_fun`` is ``None``.
+    tail : FIXME
+        FIXME
+    n_permutations : int
+        Number of cluster based permutations to perform. Defaults to ``1000``.
+    n_stat_permutations : int
+        FIXME
+    progress : FIXME
+        FIXME
+    return_distribution : FIXME
+        FIXME
+    backend : FIXME
+        FIXME
+    min_adj_ch : FIXME
+        FIXME
+    """
 
     from .utils import progressbar
     from borsar.cluster.label import _get_cluster_fun, find_clusters
