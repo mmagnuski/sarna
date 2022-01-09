@@ -516,6 +516,7 @@ def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
                         dimnames=['chan', 'freq', 'time'], dimcoords=dimcoords)
 
 
+# TODO: tail 'pos' vs 'neg' seems to not be implemented
 # TODO: add condition order argument? This may require a large refactoring of
 #       the function to allow for 2-step tests (step 1 - within subjects,
 #       step 2 - across subjects)
@@ -559,20 +560,34 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
         Whether the permutations should be conducted for a one sample scenario
         (sign flipping randomization). This argument is also used to
         automatically pick a statistical test if ``stat_fun`` is ``None``.
-    tail : FIXME
-        FIXME
+    tail : str
+        Which differences to test. ``'both'`` tests positive and negative
+        effects, while ``'pos'`` - only positive.
+        NEG is not implemented! 
     n_permutations : int
         Number of cluster based permutations to perform. Defaults to ``1000``.
     n_stat_permutations : int
-        FIXME
-    progress : FIXME
-        FIXME
-    return_distribution : FIXME
-        FIXME
-    backend : FIXME
-        FIXME
-    min_adj_ch : FIXME
-        FIXME
+        Whether to compute ``threshold`` using permutations (this is separate
+        from cluster-based permutations when the computed thresholds are used).
+        If ``n_stat_permutations > 0`` then this many permutations will be used
+        to compute statistical cluster-entry thresholds. The treshold is set to
+        ``p_threshold`` of the computed permutation distribution.
+    progress : bool | str | tqdm progressbar
+        Whether to show a progressbar (if boolean) or what kind of progressbar
+        to show (``'notebook'`` or ``'text'``). Alternatively a progressbar can
+        be passed that will be reset and set to a new maximum.
+    return_distribution : bool
+        Whether to return the distribution of cluster-based permutations.
+        If ``True`` a dictionary of positive and negative cluster statistics
+        from permutations is returned.
+    backend : str
+        Clustering backend to use. Can be ``'auto'``, ``'mne'``, ``'borsar'``
+        or ``'numpy'``. Depending on the search space, different backend may be
+        optimal. Defaults to ``'auto'`` which selects the backend
+        automatically.
+    min_adj_ch: int
+        Minimum number of adjacent in-cluster channels to retain a point in
+        the cluster.
     """
 
     from .utils import progressbar
@@ -600,8 +615,6 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
 
     # compute threshold from stat, use permutation distribution if
     # n_stat_permutations > 0
-    # FIXME: streamline/simplify permutation reshaping and transposing
-    # FIXME: time and see whether a different solution (numba?) is better
     if n_stat_permutations > 0:
         threshold = _compute_threshold_via_permutations(
             data, paired, tail, stat_fun, p_threshold, n_stat_permutations)
@@ -719,6 +732,11 @@ def _compute_threshold(data, threshold, p_threshold, paired,
 
 
 def _find_stat_fun(n_groups, paired, tail):
+    '''Find relevant stat_fun given ``n_groups``, ``paired`` and ``tail``.'''
+    if n_groups > 2 and tail == 'both':
+        raise ValueError('Number of compared groups is > 2, but tail is set'
+                         ' to "both". If you want to use ANOVA, set tail to'
+                         ' "pos".')
     if n_groups > 2 and not tail == 'both':
         if paired:
             # repeated measures ANOVA
@@ -745,6 +763,7 @@ def _find_stat_fun(n_groups, paired, tail):
 
 
 def rm_anova_stat_fun(*args):
+    '''Stat fun that does one-way repeated measures ANOVA.'''
     from mne.stats import f_mway_rm
 
     data = np.stack(args, axis=1)
@@ -758,6 +777,9 @@ def rm_anova_stat_fun(*args):
     return fval
 
 
+# FIXME: streamline/simplify permutation reshaping and transposing
+# FIXME: time and see whether a different solution (numba?) is better
+# TODO: separate progressbar for threshold permutations
 def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
                                         p_threshold, n_perm):
     '''Assumes n_conditions x n_observations x ... data array.
