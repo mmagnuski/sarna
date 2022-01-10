@@ -170,7 +170,7 @@ def plot_neighbours(inst, adj_matrix, color='gray', kind='3d'):
                     adj_matrix[both_nodes[0], both_nodes[1]] = True
                     adj_matrix[both_nodes[1], both_nodes[0]] = True
 
-                # highlight new node, de-highligh previous
+                # highlight new node, de-highlight previous
                 highlighted.append(node_ind)
                 if kind == '3d':
                     scatter = axes.scatter(positions[node_ind, 0],
@@ -373,7 +373,7 @@ def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
     n_permutations : int
         How many permutations to perform. Defaults to ``1000``.
     threshold : value
-        Cluster entry threshold defined by the value of the statistic. Defautls
+        Cluster entry threshold defined by the value of the statistic. Defaults
         to ``None`` which calculates threshold from p value (see
         ``p_threshold``)
     p_threshold : value
@@ -487,6 +487,7 @@ def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
 
     # perform cluster-based test
     # --------------------------
+    # TODO: now our cluster-based works also for 1d and 2d etc.
     if not data_3d:
         assert min_adj_ch == 0
         adj_param = {kwarg: adjacency}
@@ -504,7 +505,7 @@ def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
                         dimcoords=dimcoords)
 
     else:
-        stat, clusters, cluster_p = _permutation_cluster_test_3d(
+        stat, clusters, cluster_p = permutation_cluster_test_array(
             [data1, data2], adjacency, stat_fun, threshold=threshold,
             n_permutations=n_permutations, one_sample=one_sample,
             paired=paired, min_adj_ch=min_adj_ch)
@@ -515,18 +516,86 @@ def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
                         dimnames=['chan', 'freq', 'time'], dimcoords=dimcoords)
 
 
-def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
-                                 one_sample=False, paired=False,
-                                 trial_level=False, p_threshold=0.05,
-                                 n_permutations=1000, progress=True,
-                                 return_distribution=False, backend='auto',
-                                 min_adj_ch=0):
-    """FIXME: add docs."""
+# TODO: tail 'pos' vs 'neg' seems to not be implemented
+# TODO: add condition order argument? This may require a large refactoring of
+#       the function to allow for 2-step tests (step 1 - within subjects,
+#       step 2 - across subjects)
+# TODO: move `min_adj_ch` up and add `min_adj`
+def permutation_cluster_test_array(data, adjacency, stat_fun=None,
+                                   threshold=None, p_threshold=0.05,
+                                   paired=False, one_sample=False, tail='both',
+                                   n_permutations=1000, n_stat_permutations=0,
+                                   progress=True, return_distribution=False,
+                                   backend='auto', min_adj_ch=0):
+    """Permutation cluster test on array data.
+
+    Parameters
+    ----------
+    data : np.ndarray | list of np.ndarray
+        An array where first two dimensions are ``conditions x observations``
+        or list of arrays where each array has observations in the first
+        dimension. If the data contains channels it should be in the dimension
+        immediately after observations.
+    adjacency : 2d boolean array | None
+        Array that denotes adjacency between channels (or vertices). If
+        ``None`` it is assumed that no channels/vertices are present.
+    stat_fun : function | None
+        Statistical function to use. It should allow as many arguments as
+        conditions and should return one array of computed statistics.
+    threshold : float | None
+        Cluster entry threshold for the test statistic. If ``None`` (defult)
+        the ``p_threshold`` argument is used.
+    p_threshold : float
+        P value threshold to use in cluster entry threshold computation. For
+        standard parametric tests (t test, ANOVA) it is computed from
+        theoretical test distribution; if ``n_stat_permutations`` is above zero
+        the threshold is obtained from percentile of permutation distribution.
+    paired : bool
+        Whether the permutations should be conducted for paired samples
+        scenario (randomization of condition orders within observations).
+        Currently the condition orders are randomized even if they are the same
+        for all subjects. This argument is also used to automatically pick
+        a statistical test if ``stat_fun`` is ``None``.
+    one_sample : bool
+        Whether the permutations should be conducted for a one sample scenario
+        (sign flipping randomization). This argument is also used to
+        automatically pick a statistical test if ``stat_fun`` is ``None``.
+    tail : str
+        Which differences to test. ``'both'`` tests positive and negative
+        effects, while ``'pos'`` - only positive.
+        NEG is not implemented! 
+    n_permutations : int
+        Number of cluster based permutations to perform. Defaults to ``1000``.
+    n_stat_permutations : int
+        Whether to compute ``threshold`` using permutations (this is separate
+        from cluster-based permutations when the computed thresholds are used).
+        If ``n_stat_permutations > 0`` then this many permutations will be used
+        to compute statistical cluster-entry thresholds. The treshold is set to
+        ``p_threshold`` of the computed permutation distribution.
+    progress : bool | str | tqdm progressbar
+        Whether to show a progressbar (if boolean) or what kind of progressbar
+        to show (``'notebook'`` or ``'text'``). Alternatively a progressbar can
+        be passed that will be reset and set to a new maximum.
+    return_distribution : bool
+        Whether to return the distribution of cluster-based permutations.
+        If ``True`` a dictionary of positive and negative cluster statistics
+        from permutations is returned.
+    backend : str
+        Clustering backend to use. Can be ``'auto'``, ``'mne'``, ``'borsar'``
+        or ``'numpy'``. Depending on the search space, different backend may be
+        optimal. Defaults to ``'auto'`` which selects the backend
+        automatically.
+    min_adj_ch: int
+        Minimum number of adjacent in-cluster channels to retain a point in
+        the cluster.
+    """
 
     from .utils import progressbar
     from borsar.cluster.label import _get_cluster_fun, find_clusters
-    threshold = _compute_threshold(data, threshold, p_threshold, trial_level,
-                                   paired, one_sample)
+
+    n_groups = len(data)
+    if stat_fun is None:
+        stat_fun = _find_stat_fun(n_groups, paired, tail)
 
     if not paired and not one_sample or (one_sample and paired):
         raise ValueError('Currently you have to use either one_sample=True or'
@@ -538,10 +607,20 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
         signs = np.array([-1, 1])
 
     pos_dist = np.zeros(n_permutations)
-    neg_dist = np.zeros(n_permutations)
+    if tail == 'both':
+        neg_dist = np.zeros(n_permutations)
 
     # test on non-permuted data
     stat = stat_fun(*data)
+
+    # compute threshold from stat, use permutation distribution if
+    # n_stat_permutations > 0
+    if n_stat_permutations > 0:
+        threshold = _compute_threshold_via_permutations(
+            data, paired, tail, stat_fun, p_threshold, n_stat_permutations)
+    else:
+        threshold = _compute_threshold(data, threshold, p_threshold,
+                                       paired, one_sample)
 
     # use 3d clustering
     cluster_fun = _get_cluster_fun(stat, adjacency=adjacency,
@@ -558,6 +637,12 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
         msg = 'Found {} clusters, computing permutations.'
         print(msg.format(len(clusters)))
 
+    if paired and n_groups > 2:
+        orders = [np.arange(n_groups)]
+        for _ in range(n_groups - 1):
+            orders.append(np.roll(orders[-1], shift=-1))
+        data_all = np.stack(data, axis=0)
+
     # FIXME - use sarna progressbar
     pbar = progressbar(progress, total=n_permutations)
 
@@ -569,7 +654,7 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
             idx = np.random.random_integers(0, 1, size=signs_size)
             perm_signs = signs[idx]
             perm_data = [data[0] * perm_signs]
-        elif paired:
+        elif paired and n_groups == 2:
             # this is analogous to one-sample sign-flip but with paired data
             # (we could also perform one sample t test on condition differences
             #  with sign-flip in the permutation step)
@@ -578,6 +663,13 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
             perm_data = list()
             perm_data.append(data[0] * idx1 + data[1] * idx2)
             perm_data.append(data[0] * idx2 + data[1] * idx1)
+        elif paired and n_groups > 2:
+            ord_idx = np.random.randint(0, n_groups, size=n_obs)
+            perm_data = data_all.copy()
+            for obs_idx in range(n_obs):
+                this_order = orders[ord_idx[obs_idx]]
+                perm_data[:, obs_idx] = data_all[this_order, obs_idx]
+
         perm_stat = stat_fun(*perm_data)
 
         perm_clusters, perm_cluster_stats = find_clusters(
@@ -587,12 +679,14 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
         # if any clusters were found - add max statistic
         if len(perm_cluster_stats) > 0:
             max_val = perm_cluster_stats.max()
-            min_val = perm_cluster_stats.min()
 
             if max_val > 0:
                 pos_dist[perm] = max_val
-            if min_val < 0:
-                neg_dist[perm] = min_val
+
+            if tail == 'both':
+                min_val = perm_cluster_stats.min()
+                if min_val < 0:
+                    neg_dist[perm] = min_val
 
         if progressbar:
             pbar.update(1)
@@ -601,8 +695,9 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
     cluster_p = np.array([(pos_dist > cluster_stat).mean() if cluster_stat > 0
                           else (neg_dist < cluster_stat).mean()
                           for cluster_stat in cluster_stats])
-    cluster_p *= 2  # because we use two-tail
-    cluster_p[cluster_p > 1.] = 1.  # probability has to be <= 1.
+    if tail == 'both':
+        cluster_p *= 2  # because we use two-tail
+        cluster_p[cluster_p > 1.] = 1.  # probability has to be <= 1.
 
     # sort clusters by p value
     cluster_order = np.argsort(cluster_p)
@@ -615,20 +710,116 @@ def _permutation_cluster_test_3d(data, adjacency, stat_fun, threshold=None,
         return stat, clusters, cluster_p
 
 
-def _compute_threshold(data, threshold, p_threshold, trial_level, paired,
+def _compute_threshold(data, threshold, p_threshold, paired,
                        one_sample):
     if threshold is None:
         from scipy.stats import distributions
-        len1 = len(data[0])
-        len2 = len(data[1]) if (len(data) > 1 and data[1] is not None) else 0
-        if trial_level:
-            # or maybe just use len()
-            if hasattr(data[0], 'data'):
-                df = data[0].data.shape[0] + data[1].data.shape[0] - 2
-            else:
-                df = data[0]._data.shape[0] + data[1]._data.shape[0] - 2
+        n_groups = len(data)
+        lens = [len(d) for d in data]
+
+        if n_groups < 3:
+            len1 = len(data[0])
+            len2 = len(data[1]) if (len(data) > 1 and data[1] is not None) else 0
+            df = (len1 - 1 if paired or one_sample else len1 + len2 - 2)
+            threshold = np.abs(distributions.t.ppf(p_threshold / 2., df=df))
         else:
-            df = (len1 - 1 if paired or one_sample else
-                  len1 + len2 - 2)
-        threshold = np.abs(distributions.t.ppf(p_threshold / 2., df=df))
+            # ANOVA F
+            n_obs = data[0].shape[0] if paired else sum(lens)
+            dfn = n_groups - 1
+            dfd = n_obs - n_groups
+            threshold = distributions.f.ppf(1. - p_threshold, dfn, dfd)
     return threshold
+
+
+def _find_stat_fun(n_groups, paired, tail):
+    '''Find relevant stat_fun given ``n_groups``, ``paired`` and ``tail``.'''
+    if n_groups > 2 and tail == 'both':
+        raise ValueError('Number of compared groups is > 2, but tail is set'
+                         ' to "both". If you want to use ANOVA, set tail to'
+                         ' "pos".')
+    if n_groups > 2 and not tail == 'both':
+        if paired:
+            # repeated measures ANOVA
+            return rm_anova_stat_fun
+        else:
+            from scipy.stats import f_oneway
+
+            def stat_fun(*args):
+                fval, _ = f_oneway(*args)
+                return fval
+            return stat_fun
+    else:
+        if paired:
+            from scipy.stats import ttest_rel
+
+            def stat_fun(*args):
+                tval, _ = ttest_rel(*args)
+                return tval
+            return stat_fun
+        else:
+            # TODO: always assume non-equal variance?
+            from mne.stats import ttest_ind_no_p
+            return ttest_ind_no_p
+
+
+def rm_anova_stat_fun(*args):
+    '''Stat fun that does one-way repeated measures ANOVA.'''
+    from mne.stats import f_mway_rm
+
+    data = np.stack(args, axis=1)
+    n_factors = data.shape[1]
+
+    fval, _ = f_mway_rm(data, factor_levels=[n_factors],
+                        return_pvals=False)
+
+    if data.ndim > 3:
+        fval = fval.reshape(data.shape[2:])
+    return fval
+
+
+# FIXME: streamline/simplify permutation reshaping and transposing
+# FIXME: time and see whether a different solution (numba?) is better
+# TODO: separate progressbar for threshold permutations
+def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
+                                        p_threshold, n_perm):
+    '''Assumes n_conditions x n_observations x ... data array.
+    Note that the permutations are implemented via shuffling of the condition
+    labels, not randomization of independent condition orders.'''
+    assert paired, "Unpaired permutations are not implemented."
+
+    # concatenate condition dimension if needed
+    if isinstance(data, list):
+        data = np.stack(data, axis=0)
+
+    dims = np.arange(data.ndim)
+    dims[:2] = [1, 0]
+    n_cond, n_obs = data.shape[:2]
+    data_unr = data.transpose(*dims).reshape(n_cond * n_obs,
+                                *data.shape[2:])
+    stats = np.zeros(shape=(n_perm, *data.shape[2:]))
+
+    # compute permutations of the stat
+    for perm_idx in range(n_perm):
+        rnd = (np.random.random(size=(n_cond, n_obs))).argsort(axis=0)
+        idx = (rnd + np.arange(n_obs)[None, :] * n_cond).T.ravel()
+        this_data = data_unr[idx].reshape(
+            n_obs, n_cond, *data.shape[2:]).transpose(*dims)
+        stats[perm_idx] = stat_fun(*this_data)
+
+    # now check threshold
+    if tail == 'pos':
+        percentile = 100 - p_threshold * 100
+        threshold = np.percentile(stats, percentile, axis=0)
+    elif tail == 'neg':
+        percentile = p_threshold * 100
+        threshold = np.percentile(stats, percentile, axis=0)
+    elif tail == 'both':
+        percentile_neg = p_threshold / 2 * 100
+        percentile_pos = 100 - p_threshold / 2 * 100
+        threshold = [np.percentile(stats, perc, axis=0)
+                     for perc in [percentile_pos, percentile_neg]]
+    else:
+        raise ValueError(f'Unrecognized tail "{tail}"')
+
+    return threshold
+
