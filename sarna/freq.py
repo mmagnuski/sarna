@@ -119,10 +119,10 @@ def _correct_overlap(periods):
     return periods
 
 
-def _find_high_amplitude_periods(epochs, threshold=2.5, min_period=0.1,
-                                 extend=None):
+def _find_sel_amplitude_periods(epochs, threshold=2.5, min_period=0.1,
+                                 periods='high', extend=None):
     '''
-    Find segments of high amplitude in filtered, hilbert-transformed signal.
+    Find segments of high or low amplitude in filtered, hilbert-transformed signal.
 
     Parameters
     ----------
@@ -137,6 +137,8 @@ def _find_high_amplitude_periods(epochs, threshold=2.5, min_period=0.1,
     min_period : float
         Minimum length of high amplitude period in seconds.
         Defaults to ``0.1``.
+    periods : str
+        Sepcification of perionds to find. Might be 'high' or 'low' amplitude.
     extend : float | None
         Extend each period by this many seconds on both sides (before and
         after). Defaults to ``None`` which does not extend the periods.
@@ -163,10 +165,15 @@ def _find_high_amplitude_periods(epochs, threshold=2.5, min_period=0.1,
     else:
         envelope = zscore(envelope, nan_policy='omit')
 
-    grp = group(envelope > threshold)
+    if periods == 'high':
+        grp = group(envelope > threshold)
+    elif periods == 'low':
+        grp = group(envelope < threshold)
+    else:
+        raise ValueError('Unrecognised `periods` option "{}".'.format(periods))    
 
     if len(grp) == 0:
-        raise ValueError('No high amplitude periods were found.')
+        raise ValueError('No {} amplitude periods were found.'.format(periods))
     # check if there are some segments that start at one epoch
     # and end in another
     # -> if so, they could be split, but we will ignore them for now
@@ -180,13 +187,13 @@ def _find_high_amplitude_periods(epochs, threshold=2.5, min_period=0.1,
         epoch_diff = epoch_diff[~epochs_joint]
 
     segment_len = np.diff(grp, axis=1)
-    good_length = segment_len[:, 0] * (1 / data.info['sfreq']) > min_period
+    good_length = segment_len[:, 0] * (1 / epochs.info['sfreq']) > min_period
     grp = grp[good_length, :]
     epoch_idx = np.floor(grp[:, [0]] / n_samples).astype('int')
     grp -= epoch_idx * n_samples
 
     if extend is not None:
-        extend_samples = int(np.round(extend * data.info['sfreq']))
+        extend_samples = int(np.round(extend * epochs.info['sfreq']))
         extend_samples = np.array([-extend_samples, extend_samples])
         grp += extend_samples[np.newaxis, :]
 
@@ -204,7 +211,7 @@ def _find_high_amplitude_periods(epochs, threshold=2.5, min_period=0.1,
 
 def create_amplitude_annotations(raw, freq=None, events=None, event_id=None,
                                  picks=None, tmin=-0.2, tmax=0.5,
-                                 threshold=2., min_period=0.1,
+                                 threshold=2., min_period=0.1, periods='high',
                                  extend=None):
     '''
     Parameters
@@ -237,6 +244,8 @@ def create_amplitude_annotations(raw, freq=None, events=None, event_id=None,
     min_period : float
         Minimum length of high amplitude period in seconds.
         Defaults to ``0.1``.
+    periods : str
+        Sepcification of perionds to find. Might be 'high' or 'low' amplitude.
     extend : float | None
         Extend each period by this many seconds on both sides (before and
         after). Defaults to ``None`` which does not extend the periods.
@@ -258,10 +267,10 @@ def create_amplitude_annotations(raw, freq=None, events=None, event_id=None,
 
     filt_raw_nan = filt_raw.copy()
     filt_raw_nan._data = raw.get_data(reject_by_annotation='NaN')
+
     epochs_nan = mne.Epochs(filt_raw_nan, events=events, event_id=event_id,
                             tmin=tmin, tmax=tmax, baseline=None, preload=True,
                             reject_by_annotation=False)
-
     epochs = mne.Epochs(filt_raw, events=events, event_id=event_id, tmin=tmin,
                         tmax=tmax, baseline=None, preload=True,
                         reject_by_annotation=False)
@@ -269,10 +278,10 @@ def create_amplitude_annotations(raw, freq=None, events=None, event_id=None,
     del filt_raw_nan
 
     filt_hilb_data = np.abs(epochs.copy().pick(picks).apply_hilbert()._data)
-    filt_hilb_data[np.isnan(epochs_nan._data)] = np.nan
+    filt_hilb_data[np.isnan(epochs_nan.copy().pick(picks)._data)] = np.nan
     epochs_nan._data = filt_hilb_data
 
-    hi_amp_epochs = _find_high_amplitude_periods(epochs_nan,
+    hi_amp_epochs = _find_sel_amplitude_periods(epochs_nan,
                                                  threshold=threshold,
                                                  min_period=min_period,
                                                  extend=extend)
@@ -285,10 +294,10 @@ def create_amplitude_annotations(raw, freq=None, events=None, event_id=None,
     amp_inv_annot_sec = amp_inv_samples / sfreq
 
     n_segments = amp_inv_samples.shape[0]
+    annot_name = 'BAD_{}amp'.format(periods)
     amp_annot = mne.Annotations(amp_inv_annot_sec[:, 0],
                                 amp_inv_annot_sec[:, 1],
-                                ['BAD_lowamp'] * n_segments)
-
+                                annot_name * n_segments)
     return amp_annot
 
 
