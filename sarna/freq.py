@@ -185,7 +185,7 @@ def _find_sel_amplitude_periods(epochs, threshold=2.5, min_period=0.1,
     # and end in another
     # -> if so, they could be split, but we will ignore them for now
     epoch_idx = np.floor(grp / n_samples)
-    epoch_diff = np.diff(epoch_idx, axis=0)
+    epoch_diff = np.diff(epoch_idx, axis=1)
     epochs_joint = epoch_diff > 0
     if epochs_joint.any():
         msg = ('{:d} high-amplitude segments will be ignored because'
