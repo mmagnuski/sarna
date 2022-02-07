@@ -119,15 +119,22 @@ def _correct_overlap(periods):
     return periods
 
 
+# FIXME: check out of bounds indices
+# FIXME: check if the stop indices are python-slice compliant (inclusive)
+#        or python-indexing compliant
 def _find_sel_amplitude_periods(epochs, threshold=2.5, min_period=0.1,
-                                 periods='high', extend=None):
+                                periods='high', extend=None):
     '''
-    Find segments of high or low amplitude in filtered, hilbert-transformed signal.
+    Find segments of high or low amplitude in filtered, hilbert-transformed
+    signal.
+
+    The channels are averaged, so make sure you pick channels before passing
+    the data to this function if you don't want to use all.
 
     Parameters
     ----------
     epochs : mne.Epochs
-        Epoched data. Must be filtered and hilbert-transformed.
+        Epoched data. Should be filtered and hilbert-transformed.
     threshold : float, str
         Threshold defining high amplitude periods to select: if float, it
         is interpreted as a z value threshold; if str, as percentage of
