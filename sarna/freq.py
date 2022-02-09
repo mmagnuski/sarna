@@ -179,20 +179,36 @@ def _find_sel_amplitude_periods(epochs, threshold=2.5, min_period=0.1,
 
     if len(grp) == 0:
         raise ValueError('No {} amplitude periods were found.'.format(periods))
+
     # check if there are some segments that start at one epoch
-    # and end in another
-    # -> if so, they could be split, but we will ignore them for now
-    epoch_idx = np.floor(grp / n_samples)
+    # and end in another -> if so, they will be split
+    epoch_idx = np.floor(grp / n_samples).astype('int')
     epoch_diff = np.diff(epoch_idx, axis=1)
     epochs_joint = epoch_diff > 0
     if epochs_joint.any():
-        msg = ('{:d} high-amplitude segments will be ignored because'
-               ' the developer was lazy.')
-        warn(msg.format(epochs_joint.sum()))
-        epoch_diff = epoch_diff[~epochs_joint]
+        new_grp = list()
+        fix_idx = np.where(epochs_joint)[0]
+        fix_idx = np.concatenate([[-1], fix_idx])
+        for idx in range(1, len(fix_idx)):
+            start = fix_idx[idx - 1] + 1
+            stop = fix_idx[idx] + 1
+            segment = grp[start:stop, :].copy()
+            this_epoch_idx = epoch_idx[fix_idx[idx], 0]
+            orig_stop = segment[-1, 1]
+
+            next_first_samp = (this_epoch_idx + 1) * n_samples
+            segment[-1, 1] = next_first_samp - 1
+            new_grp.append(segment)
+
+            # FIX - for extra safety could check if the segment continues for
+            #       more than one epoch
+            rest = np.array([[next_first_samp, orig_stop]])
+            new_grp.append(rest)
+        new_grp.append(grp[fix_idx[-1]:, :])
+        grp = np.concatenate(new_grp, axis=0)
 
     segment_len = np.diff(grp, axis=1)
-    good_length = segment_len[:, 0] * (1 / epochs.info['sfreq']) > min_period
+    good_length = (segment_len[:, 0] / epochs.info['sfreq']) > min_period
     grp = grp[good_length, :]
     epoch_idx = np.floor(grp[:, [0]] / n_samples).astype('int')
     grp -= epoch_idx * n_samples
