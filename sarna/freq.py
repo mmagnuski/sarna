@@ -120,13 +120,10 @@ def _correct_overlap(periods):
 
 
 # FIXME: check out of bounds indices
-# FIXME: check if the stop indices are python-slice compliant (inclusive)
-#        or python-indexing compliant
 def _find_sel_amplitude_periods(epochs, threshold=2.5, min_period=0.1,
                                 periods='high', extend=None):
     '''
-    Find segments of high or low amplitude in filtered, hilbert-transformed
-    signal.
+    Find high (/low) amplitude segment indices in epoched data.
 
     The channels are averaged, so make sure you pick channels before passing
     the data to this function if you don't want to use all.
@@ -154,8 +151,9 @@ def _find_sel_amplitude_periods(epochs, threshold=2.5, min_period=0.1,
     -------
     periods : np.ndarray
         Numpy array of (n_periods, 3) shape. The columns are: epoch index,
-        within-epoch sample index of period start, within-epoch sample index of
-        period end.
+        within-epoch sample index of period start, within-epoch sample index
+        of period end. The period ends are indices, so to use them to slice
+        the data you need to add one to the stop index: ``start:stop + 1``.
     '''
     from scipy.stats import zscore
 
