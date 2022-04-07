@@ -516,10 +516,6 @@ def permutation_cluster_ttest(data1, data2, paired=False, n_permutations=1000,
                         dimnames=['chan', 'freq', 'time'], dimcoords=dimcoords)
 
 
-<<<<<<< Updated upstream
-# TODO: tail 'pos' vs 'neg' seems to not be implemented
-=======
->>>>>>> Stashed changes
 # TODO: add condition order argument? This may require a large refactoring of
 #       the function to allow for 2-step tests (step 1 - within subjects,
 #       step 2 - across subjects)
@@ -563,11 +559,10 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
         Whether the permutations should be conducted for a one sample scenario
         (sign flipping randomization). This argument is also used to
         automatically pick a statistical test if ``stat_fun`` is ``None``.
-<<<<<<< Updated upstream
     tail : str
         Which differences to test. ``'both'`` tests positive and negative
         effects, while ``'pos'`` - only positive.
-        NEG is not implemented! 
+        NEG is not implemented!
     n_permutations : int
         Number of cluster based permutations to perform. Defaults to ``1000``.
     n_stat_permutations : int
@@ -592,22 +587,6 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
     min_adj_ch: int
         Minimum number of adjacent in-cluster channels to retain a point in
         the cluster.
-=======
-    tail : FIXME
-        FIXME
-    n_permutations : int
-        Number of cluster based permutations to perform. Defaults to ``1000``.
-    n_stat_permutations : int
-        FIXME
-    progress : FIXME
-        FIXME
-    return_distribution : FIXME
-        FIXME
-    backend : FIXME
-        FIXME
-    min_adj_ch : FIXME
-        FIXME
->>>>>>> Stashed changes
     """
 
     from .utils import progressbar
@@ -635,11 +614,8 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
 
     # compute threshold from stat, use permutation distribution if
     # n_stat_permutations > 0
-<<<<<<< Updated upstream
-=======
     # FIXME: streamline/simplify permutation reshaping and transposing
     # FIXME: time and see whether a different solution (numba?) is better
->>>>>>> Stashed changes
     if n_stat_permutations > 0:
         threshold = _compute_threshold_via_permutations(
             data, paired, tail, stat_fun, p_threshold, n_stat_permutations)
@@ -802,12 +778,9 @@ def rm_anova_stat_fun(*args):
     return fval
 
 
-<<<<<<< Updated upstream
 # FIXME: streamline/simplify permutation reshaping and transposing
 # FIXME: time and see whether a different solution (numba?) is better
 # TODO: separate progressbar for threshold permutations
-=======
->>>>>>> Stashed changes
 def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
                                         p_threshold, n_perm):
     '''Assumes n_conditions x n_observations x ... data array.
