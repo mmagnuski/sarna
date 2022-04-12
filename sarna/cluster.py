@@ -781,34 +781,52 @@ def rm_anova_stat_fun(*args):
 # FIXME: time and see whether a different solution (numba?) is better
 def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
                                         p_threshold=0.05, n_permutations=1000,
-                                        progress=True):
+                                        progress=True,
+                                        return_distribution=False):
     '''Assumes ``n_conditions x n_observations x ...`` data array.
     Note that the permutations are implemented via shuffling of the condition
     labels, not randomization of independent condition orders.'''
-    assert paired, "Unpaired permutations are not implemented."
+    from .utils import progressbar
 
-    # concatenate condition dimension if needed
-    if isinstance(data, list):
-        data = np.stack(data, axis=0)
+    if paired:
+        # concatenate condition dimension if needed
+        if isinstance(data, list):
+            data = np.stack(data, axis=0)
 
-    dims = np.arange(data.ndim)
-    dims[:2] = [1, 0]
-    n_cond, n_obs = data.shape[:2]
-    data_unr = data.transpose(*dims).reshape(n_cond * n_obs,
-                                *data.shape[2:])
-    stats = np.zeros(shape=(n_permutations, *data.shape[2:]))
+        dims = np.arange(data.ndim)
+        dims[:2] = [1, 0]
+        n_cond, n_obs = data.shape[:2]
+        data_unr = data.transpose(*dims).reshape(n_cond * n_obs,
+                                    *data.shape[2:])
+        stats = np.zeros(shape=(n_permutations, *data.shape[2:]))
 
-    # compute permutations of the stat
-    pbar = progressbar(progress, total=n_permutations)
-    for perm_idx in range(n_perm):
-        rnd = (np.random.random(size=(n_cond, n_obs))).argsort(axis=0)
-        idx = (rnd + np.arange(n_obs)[None, :] * n_cond).T.ravel()
-        this_data = data_unr[idx].reshape(
-            n_obs, n_cond, *data.shape[2:]).transpose(*dims)
-        stats[perm_idx] = stat_fun(*this_data)
+        # compute permutations of the stat
+        pbar = progressbar(progress, total=n_permutations)
+        for perm_idx in range(n_permutations):
+            rnd = (np.random.random(size=(n_cond, n_obs))).argsort(axis=0)
+            idx = (rnd + np.arange(n_obs)[None, :] * n_cond).T.ravel()
+            this_data = data_unr[idx].reshape(
+                n_obs, n_cond, *data.shape[2:]).transpose(*dims)
+            stats[perm_idx] = stat_fun(*this_data)
 
-        if progressbar:
-            pbar.update(1)
+            if progressbar:
+                pbar.update(1)
+    else:
+        n_cond = len(data)
+        condition = np.concatenate([np.ones(data[idx].shape[0]) * idx
+                                    for idx in range(n_cond)])
+        data_unr = np.concatenate(data)
+        stats = np.zeros(shape=(n_permutations, *data[0].shape[1:]))
+
+        pbar = progressbar(progress, total=n_permutations)
+        for perm_idx in range(n_permutations):
+            rnd = condition.copy()
+            np.random.shuffle(rnd)
+            this_data = [data_unr[rnd == idx] for idx in range(n_cond)]
+            stats[perm_idx] = stat_fun(*this_data)
+
+            if progressbar:
+                pbar.update(1)
 
     # now check threshold
     if tail == 'pos':
@@ -825,5 +843,8 @@ def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
     else:
         raise ValueError(f'Unrecognized tail "{tail}"')
 
-    return threshold
+    if not return_distribution:
+        return threshold
+    else:
+        return threshold, stats
 
