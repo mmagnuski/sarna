@@ -644,7 +644,6 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
             orders.append(np.roll(orders[-1], shift=-1))
         data_all = np.stack(data, axis=0)
 
-    # FIXME - use sarna progressbar
     pbar = progressbar(progress, total=n_permutations)
 
     # compute permutations
@@ -780,10 +779,10 @@ def rm_anova_stat_fun(*args):
 
 # FIXME: streamline/simplify permutation reshaping and transposing
 # FIXME: time and see whether a different solution (numba?) is better
-# TODO: separate progressbar for threshold permutations
 def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
-                                        p_threshold, n_perm):
-    '''Assumes n_conditions x n_observations x ... data array.
+                                        p_threshold=0.05, n_permutations=1000,
+                                        progress=True):
+    '''Assumes ``n_conditions x n_observations x ...`` data array.
     Note that the permutations are implemented via shuffling of the condition
     labels, not randomization of independent condition orders.'''
     assert paired, "Unpaired permutations are not implemented."
@@ -797,15 +796,19 @@ def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
     n_cond, n_obs = data.shape[:2]
     data_unr = data.transpose(*dims).reshape(n_cond * n_obs,
                                 *data.shape[2:])
-    stats = np.zeros(shape=(n_perm, *data.shape[2:]))
+    stats = np.zeros(shape=(n_permutations, *data.shape[2:]))
 
     # compute permutations of the stat
+    pbar = progressbar(progress, total=n_permutations)
     for perm_idx in range(n_perm):
         rnd = (np.random.random(size=(n_cond, n_obs))).argsort(axis=0)
         idx = (rnd + np.arange(n_obs)[None, :] * n_cond).T.ravel()
         this_data = data_unr[idx].reshape(
             n_obs, n_cond, *data.shape[2:]).transpose(*dims)
         stats[perm_idx] = stat_fun(*this_data)
+
+        if progressbar:
+            pbar.update(1)
 
     # now check threshold
     if tail == 'pos':
