@@ -596,12 +596,14 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
     if stat_fun is None:
         stat_fun = _find_stat_fun(n_groups, paired, tail)
 
-    if not paired and not one_sample or (one_sample and paired):
-        raise ValueError('Currently you have to use either one_sample=True or'
-                         ' paired=True')
+    if paired:
+        n_obs = data[0].shape[0]
+        signs_size = tuple([n_obs] + [1] * (data[0].ndim - 1))
+    else:
+        condition = np.concatenate([np.ones(data[idx].shape[0]) * idx
+                                    for idx in range(n_groups)])
+        data_unr = np.concatenate(data)
 
-    n_obs = data[0].shape[0]
-    signs_size = tuple([n_obs] + [1] * (data[0].ndim - 1))
     if one_sample:
         signs = np.array([-1, 1])
 
@@ -632,11 +634,7 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
         min_adj_ch=min_adj_ch)
 
     if not clusters:
-        print('No clusters found, permutations are not performed.')
         return stat, clusters, cluster_stats
-    else:
-        msg = 'Found {} clusters, computing permutations.'
-        print(msg.format(len(clusters)))
 
     if paired and n_groups > 2:
         orders = [np.arange(n_groups)]
@@ -669,6 +667,11 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
             for obs_idx in range(n_obs):
                 this_order = orders[ord_idx[obs_idx]]
                 perm_data[:, obs_idx] = data_all[this_order, obs_idx]
+        elif not paired:
+            this_order = condition.copy()
+            np.random.shuffle(this_order)
+            perm_data = [data_unr[this_order == idx]
+                         for idx in range(n_groups)]
 
         perm_stat = stat_fun(*perm_data)
 
@@ -683,7 +686,7 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
             if max_val > 0:
                 pos_dist[perm] = max_val
 
-            if tail == 'both':
+            if tail in ['both', 'neg']:
                 min_val = perm_cluster_stats.min()
                 if min_val < 0:
                     neg_dist[perm] = min_val
@@ -692,6 +695,7 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
             pbar.update(1)
 
     # compute permutation probability
+    # TODO - fix, when we want only 'pos' or 'neg' but use for example t test
     cluster_p = np.array([(pos_dist > cluster_stat).mean() if cluster_stat > 0
                           else (neg_dist < cluster_stat).mean()
                           for cluster_stat in cluster_stats])
@@ -715,7 +719,7 @@ def _compute_threshold(data, threshold, p_threshold, paired,
     if threshold is None:
         from scipy.stats import distributions
         n_groups = len(data)
-        lens = [len(d) for d in data]
+        n_obs = [len(x) for x in data]
 
         if n_groups < 3:
             len1 = len(data[0])
@@ -724,7 +728,7 @@ def _compute_threshold(data, threshold, p_threshold, paired,
             threshold = np.abs(distributions.t.ppf(p_threshold / 2., df=df))
         else:
             # ANOVA F
-            n_obs = data[0].shape[0] if paired else sum(lens)
+            n_obs = data[0].shape[0] if paired else sum(n_obs)
             dfn = n_groups - 1
             dfd = n_obs - n_groups
             threshold = distributions.f.ppf(1. - p_threshold, dfn, dfd)
