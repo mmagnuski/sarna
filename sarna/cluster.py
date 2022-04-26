@@ -618,7 +618,8 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
     # FIXME: time and see whether a different solution (numba?) is better
     if n_stat_permutations > 0:
         threshold = _compute_threshold_via_permutations(
-            data, paired, tail, stat_fun, p_threshold, n_stat_permutations)
+            data, paired, tail, stat_fun, p_threshold, n_stat_permutations,
+            progress=progress)
     else:
         threshold = _compute_threshold(data, threshold, p_threshold,
                                        paired, one_sample)
@@ -809,7 +810,7 @@ def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
                 n_obs, n_cond, *data.shape[2:]).transpose(*dims)
             stats[perm_idx] = stat_fun(*this_data)
 
-            if progressbar:
+            if progress:
                 pbar.update(1)
     else:
         n_cond = len(data)
@@ -825,7 +826,7 @@ def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
             this_data = [data_unr[rnd == idx] for idx in range(n_cond)]
             stats[perm_idx] = stat_fun(*this_data)
 
-            if progressbar:
+            if progress:
                 pbar.update(1)
 
     # now check threshold
