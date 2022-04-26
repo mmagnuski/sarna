@@ -119,15 +119,19 @@ def _correct_overlap(periods):
     return periods
 
 
+# FIXME: check out of bounds indices
 def _find_sel_amplitude_periods(epochs, threshold=2.5, min_period=0.1,
-                                 periods='high', extend=None):
+                                periods='high', extend=None):
     '''
-    Find segments of high or low amplitude in filtered, hilbert-transformed signal.
+    Find high (/low) amplitude segment indices in epoched data.
+
+    The channels are averaged, so make sure you pick channels before passing
+    the data to this function if you don't want to use all.
 
     Parameters
     ----------
     epochs : mne.Epochs
-        Epoched data. Must be filtered and hilbert-transformed.
+        Epoched data. Should be filtered and hilbert-transformed.
     threshold : float, str
         Threshold defining high amplitude periods to select: if float, it
         is interpreted as a z value threshold; if str, as percentage of
@@ -147,8 +151,9 @@ def _find_sel_amplitude_periods(epochs, threshold=2.5, min_period=0.1,
     -------
     periods : np.ndarray
         Numpy array of (n_periods, 3) shape. The columns are: epoch index,
-        within-epoch sample index of period start, within-epoch sample index of
-        period end.
+        within-epoch sample index of period start, within-epoch sample index
+        of period end. The period ends are indices, so to use them to slice
+        the data you need to add one to the stop index: ``start:stop + 1``.
     '''
     from scipy.stats import zscore
 
@@ -174,20 +179,36 @@ def _find_sel_amplitude_periods(epochs, threshold=2.5, min_period=0.1,
 
     if len(grp) == 0:
         raise ValueError('No {} amplitude periods were found.'.format(periods))
+
     # check if there are some segments that start at one epoch
-    # and end in another
-    # -> if so, they could be split, but we will ignore them for now
-    epoch_idx = np.floor(grp / n_samples)
-    epoch_diff = np.diff(epoch_idx, axis=0)
+    # and end in another -> if so, they will be split
+    epoch_idx = np.floor(grp / n_samples).astype('int')
+    epoch_diff = np.diff(epoch_idx, axis=1)
     epochs_joint = epoch_diff > 0
     if epochs_joint.any():
-        msg = ('{:d} high-amplitude segments will be ignored because'
-               ' the developer was lazy.')
-        warn(msg.format(epochs_joint.sum()))
-        epoch_diff = epoch_diff[~epochs_joint]
+        new_grp = list()
+        fix_idx = np.where(epochs_joint)[0]
+        fix_idx = np.concatenate([[-1], fix_idx])
+        for idx in range(1, len(fix_idx)):
+            start = fix_idx[idx - 1] + 1
+            stop = fix_idx[idx] + 1
+            segment = grp[start:stop, :].copy()
+            this_epoch_idx = epoch_idx[fix_idx[idx], 0]
+            orig_stop = segment[-1, 1]
+
+            next_first_samp = (this_epoch_idx + 1) * n_samples
+            segment[-1, 1] = next_first_samp - 1
+            new_grp.append(segment)
+
+            # FIX - for extra safety could check if the segment continues for
+            #       more than one epoch
+            rest = np.array([[next_first_samp, orig_stop]])
+            new_grp.append(rest)
+        new_grp.append(grp[fix_idx[-1]:, :])
+        grp = np.concatenate(new_grp, axis=0)
 
     segment_len = np.diff(grp, axis=1)
-    good_length = segment_len[:, 0] * (1 / epochs.info['sfreq']) > min_period
+    good_length = (segment_len[:, 0] / epochs.info['sfreq']) > min_period
     grp = grp[good_length, :]
     epoch_idx = np.floor(grp[:, [0]] / n_samples).astype('int')
     grp -= epoch_idx * n_samples
