@@ -616,8 +616,6 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
 
     # compute threshold from stat, use permutation distribution if
     # n_stat_permutations > 0
-    # FIXME: streamline/simplify permutation reshaping and transposing
-    # FIXME: time and see whether a different solution (numba?) is better
     if n_stat_permutations > 0:
         threshold = _compute_threshold_via_permutations(
             data, paired, tail, stat_fun, p_threshold, n_stat_permutations)
@@ -675,7 +673,7 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
 
         perm_stat = stat_fun(*perm_data)
 
-        perm_clusters, perm_cluster_stats = find_clusters(
+        _, perm_cluster_stats = find_clusters(
             perm_stat, threshold, adjacency=adjacency, cluster_fun=cluster_fun,
             min_adj_ch=min_adj_ch)
 
@@ -716,6 +714,7 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
 
 def _compute_threshold(data, threshold, p_threshold, paired,
                        one_sample):
+    '''Find significance threshold analytically.'''
     if threshold is None:
         from scipy.stats import distributions
         n_groups = len(data)
@@ -786,14 +785,18 @@ def rm_anova_stat_fun(*args):
 
 
 # FIXME: streamline/simplify permutation reshaping and transposing
-# FIXME: time and see whether a different solution (numba?) is better
+# FIXME: time and see whether a different solution is better
 def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
                                         p_threshold=0.05, n_permutations=1000,
                                         progress=True,
                                         return_distribution=False):
-    '''Assumes ``n_conditions x n_observations x ...`` data array.
+    '''
+    Compute significance thresholds using permutations.
+
+    Assumes ``n_conditions x n_observations x ...`` data array.
     Note that the permutations are implemented via shuffling of the condition
-    labels, not randomization of independent condition orders.'''
+    labels, not randomization of independent condition orders.
+    '''
     from .utils import progressbar
 
     if paired:
