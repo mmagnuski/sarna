@@ -542,7 +542,7 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
         Statistical function to use. It should allow as many arguments as
         conditions and should return one array of computed statistics.
     threshold : float | None
-        Cluster entry threshold for the test statistic. If ``None`` (defult)
+        Cluster entry threshold for the test statistic. If ``None`` (default)
         the ``p_threshold`` argument is used.
     p_threshold : float
         P value threshold to use in cluster entry threshold computation. For
@@ -569,8 +569,8 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
         Whether to compute ``threshold`` using permutations (this is separate
         from cluster-based permutations when the computed thresholds are used).
         If ``n_stat_permutations > 0`` then this many permutations will be used
-        to compute statistical cluster-entry thresholds. The treshold is set to
-        ``p_threshold`` of the computed permutation distribution.
+        to compute statistical cluster-entry thresholds. The threshold is set
+        to ``p_threshold`` of the computed permutation distribution.
     progress : bool | str | tqdm progressbar
         Whether to show a progressbar (if boolean) or what kind of progressbar
         to show (``'notebook'`` or ``'text'``). Alternatively a progressbar can
