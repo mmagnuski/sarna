@@ -781,7 +781,6 @@ def _find_stat_fun(n_groups, paired, tail):
                 tval, _ = ttest_rel(*args, equal_var=False)
                 return tval
             return stat_fun
-            return ttest_ind_no_p
 
 
 def rm_anova_stat_fun(*args):
