@@ -587,6 +587,20 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
     min_adj_ch: int
         Minimum number of adjacent in-cluster channels to retain a point in
         the cluster.
+
+    Returns
+    -------
+    stat : np.ndarray
+        Statistical test results in the search space (same dimensions as
+        ``data[0]``, apart from the first one representing observations).
+    clusters : list of np.ndarray
+        List of clusters. Each cluster is a boolean array of cluster
+        membership.
+    cluster_p : np.ndarray
+        P values for each cluster.
+    distribution : dict | None
+        Dictionary of cluster statistics from permutations. Only returned if
+        ``return_distribution`` is ``True``.
     """
 
     from .utils import progressbar
@@ -618,7 +632,8 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
     # n_stat_permutations > 0
     if n_stat_permutations > 0:
         threshold = _compute_threshold_via_permutations(
-            data, paired, tail, stat_fun, p_threshold, n_stat_permutations)
+            data, paired, tail, stat_fun, p_threshold, n_stat_permutations,
+            progress=progress)
     else:
         threshold = _compute_threshold(data, threshold, p_threshold,
                                        paired, one_sample)
@@ -820,7 +835,7 @@ def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
                 n_obs, n_cond, *data.shape[2:]).transpose(*dims)
             stats[perm_idx] = stat_fun(*this_data)
 
-            if progressbar:
+            if progress:
                 pbar.update(1)
     else:
         n_cond = len(data)
@@ -836,7 +851,7 @@ def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
             this_data = [data_unr[rnd == idx] for idx in range(n_cond)]
             stats[perm_idx] = stat_fun(*this_data)
 
-            if progressbar:
+            if progress:
                 pbar.update(1)
 
     # now check threshold
