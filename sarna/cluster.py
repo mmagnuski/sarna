@@ -809,7 +809,7 @@ def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
 
     if paired:
         # concatenate condition dimension if needed
-        if isinstance(data, list):
+        if isinstance(data, (list, tuple)):
             data = np.stack(data, axis=0)
 
         dims = np.arange(data.ndim)
