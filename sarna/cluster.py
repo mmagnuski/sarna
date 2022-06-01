@@ -542,7 +542,7 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
         Statistical function to use. It should allow as many arguments as
         conditions and should return one array of computed statistics.
     threshold : float | None
-        Cluster entry threshold for the test statistic. If ``None`` (defult)
+        Cluster entry threshold for the test statistic. If ``None`` (default)
         the ``p_threshold`` argument is used.
     p_threshold : float
         P value threshold to use in cluster entry threshold computation. For
@@ -569,8 +569,8 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
         Whether to compute ``threshold`` using permutations (this is separate
         from cluster-based permutations when the computed thresholds are used).
         If ``n_stat_permutations > 0`` then this many permutations will be used
-        to compute statistical cluster-entry thresholds. The treshold is set to
-        ``p_threshold`` of the computed permutation distribution.
+        to compute statistical cluster-entry thresholds. The threshold is set
+        to ``p_threshold`` of the computed permutation distribution.
     progress : bool | str | tqdm progressbar
         Whether to show a progressbar (if boolean) or what kind of progressbar
         to show (``'notebook'`` or ``'text'``). Alternatively a progressbar can
@@ -630,8 +630,6 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
 
     # compute threshold from stat, use permutation distribution if
     # n_stat_permutations > 0
-    # FIXME: streamline/simplify permutation reshaping and transposing
-    # FIXME: time and see whether a different solution (numba?) is better
     if n_stat_permutations > 0:
         threshold = _compute_threshold_via_permutations(
             data, paired, tail, stat_fun, p_threshold, n_stat_permutations,
@@ -690,7 +688,7 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
 
         perm_stat = stat_fun(*perm_data)
 
-        perm_clusters, perm_cluster_stats = find_clusters(
+        _, perm_cluster_stats = find_clusters(
             perm_stat, threshold, adjacency=adjacency, cluster_fun=cluster_fun,
             min_adj_ch=min_adj_ch)
 
@@ -731,6 +729,7 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
 
 def _compute_threshold(data, threshold, p_threshold, paired,
                        one_sample):
+    '''Find significance threshold analytically.'''
     if threshold is None:
         from scipy.stats import distributions
         n_groups = len(data)
@@ -740,7 +739,7 @@ def _compute_threshold(data, threshold, p_threshold, paired,
             len1 = len(data[0])
             len2 = len(data[1]) if (len(data) > 1 and data[1] is not None) else 0
             df = (len1 - 1 if paired or one_sample else len1 + len2 - 2)
-            threshold = np.abs(distributions.t.ppf(p_threshold / 2., df=df))
+            threshold = distributions.t.ppf(1 - p_threshold / 2., df=df)
         else:
             # ANOVA F
             n_obs = data[0].shape[0] if paired else sum(n_obs)
@@ -776,9 +775,12 @@ def _find_stat_fun(n_groups, paired, tail):
                 return tval
             return stat_fun
         else:
-            # TODO: always assume non-equal variance?
-            from mne.stats import ttest_ind_no_p
-            return ttest_ind_no_p
+            from scipy.stats import ttest_ind
+
+            def stat_fun(*args):
+                tval, _ = ttest_rel(*args, equal_var=False)
+                return tval
+            return stat_fun
 
 
 def rm_anova_stat_fun(*args):
@@ -797,14 +799,18 @@ def rm_anova_stat_fun(*args):
 
 
 # FIXME: streamline/simplify permutation reshaping and transposing
-# FIXME: time and see whether a different solution (numba?) is better
+# FIXME: time and see whether a different solution is better
 def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
                                         p_threshold=0.05, n_permutations=1000,
                                         progress=True,
                                         return_distribution=False):
-    '''Assumes ``n_conditions x n_observations x ...`` data array.
+    '''
+    Compute significance thresholds using permutations.
+
+    Assumes ``n_conditions x n_observations x ...`` data array.
     Note that the permutations are implemented via shuffling of the condition
-    labels, not randomization of independent condition orders.'''
+    labels, not randomization of independent condition orders.
+    '''
     from .utils import progressbar
 
     if paired:
