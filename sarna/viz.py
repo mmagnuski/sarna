@@ -407,3 +407,49 @@ def glassplot(x=None, y=None, data=None, x_width=0.2, zorder=4,
         ax.set_xticklabels(categories)
 
     return ax
+
+
+def connect_swarms(x=None, y=None, data=None, ax=None, color=None,
+                   alpha=None):
+    # based on the solution from stack overflow:'
+    # https://stackoverflow.com/a/63171175/2225833
+    import matplotlib as mpl
+
+    assert data is not None
+    assert ax is not None
+    x = x if x is not None else ax.get_xlabel()
+    y = y if y is not None else ax.get_ylabel()
+    color = 'black' if color is None else color
+    alpha = 0.1 if alpha is None else color
+
+    swarms = ax.findobj(mpl.collections.PathCollection)
+    dot_pos = [dots.get_offsets() for dots in swarms]
+
+    categories = data.loc[:, x].unique()
+    # categories = [label.get_text() for label in ax.get_xticklabels()]
+
+    assert len(swarms) == len(categories)
+
+    # before plotting, we need to sort so that the data points
+    # correspond to each other as they did in "set1" and "set2"
+    sortings = list()
+
+    for cat in categories:
+        msk = data.loc[:, x] == cat
+        data_sel = data.loc[msk, y].values
+        sortings.append(data_sel.argsort())
+
+    prev_pos = dot_pos[0]
+    lines = list()
+    for ix in range(1, len(swarms)):
+        # revert "ascending sort" using argsort() indices,
+        # and then sort into order corresponding with set1
+        this_pos = dot_pos[ix][sortings[ix].argsort()][sortings[0]]
+
+        x_pos = np.stack([prev_pos[:, 0], this_pos[:, 0]], axis=0)
+        y_pos = np.stack([prev_pos[:, 1], this_pos[:, 1]], axis=0)
+        lines.append(ax.plot(x_pos, y_pos, color=color, alpha=alpha))
+
+        prev_pos = this_pos
+
+    return lines
