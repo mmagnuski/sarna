@@ -392,8 +392,9 @@ def glassplot(x=None, y=None, data=None, x_width=0.2, zorder=4,
                 color=colors[idx], lw=2.5, zorder=zorder)
 
         # add CI (currently standard error of the mean)
-        data_sel = data.query(f'{x} == "{this_label}"')
-        this_sem = sem(data_sel.loc[:, y].values)
+        msk = data.loc[:, x] == this_label
+        data_sel = data.loc[msk, y]
+        this_sem = sem(data_sel.values)
         rct = plt.Rectangle((this_x - width, this_mean - this_sem),
                             width * 2, this_sem * 2, zorder=zorder - 1,
                             facecolor=colors[idx], alpha=alpha)
