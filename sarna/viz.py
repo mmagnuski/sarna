@@ -322,3 +322,87 @@ def prepare_equal_axes(fig, n_axes, space=[0.02, 0.98, 0.02, 0.98],
 
     axes = np.flipud(np.array(axes))
     return axes
+
+
+# CONSIDER: plot small images instead of rectangles and scale their alpha by
+# data density, idea similar to this matplotlib example:
+# https://matplotlib.org/3.4.3/gallery/lines_bars_and_markers/gradient_bar.html
+# https://stackoverflow.com/questions/42063542/mathplotlib-draw-triangle-with-gradient-fill
+def glassplot(x=None, y=None, data=None, x_width=0.2, zorder=4,
+              alpha=0.3, ax=None):
+    '''Plot transparent patches marking mean and standard error.
+
+    Parameters
+    ----------
+    x : str
+        Categories to plot on the x axis. Should be a valid column name of the
+        ``data`` DataFrame.
+    y : str
+        Values to plot on the y axis. Should be a valid column name of the
+        ``data`` DataFrame.
+    data : DataFrame
+        DataFrame with the data to plot.
+    x_width : float
+        Width of each of the patches as a fraction of the x axis distance
+        between adjacent categories.
+    zorder : int
+        Z-order of the lines marking the average. The patches are drawn one
+        z order below.
+    alpha : float
+        Transparency of the patches.
+    ax : matplotlib axes
+        Axes to plot on. If None, a new figure is created.
+
+    Returns
+    -------
+    ax : matplotlib axes
+        Axes with the plot.
+    '''
+    from scipy.stats import sem
+    import seaborn as sns
+
+    assert data is not None
+    assert x is not None
+    assert y is not None
+
+    new_ax = False
+    if ax is None:
+        new_ax = True
+        ax = plt.gca()
+
+    categories = data.loc[:, x].unique()
+    assert len(categories) < data.shape[0]
+
+    x_ticks = np.arange(len(categories))
+    # TODO - if axis is passed, check x labels (order)
+    # x_pos = ax.get_xticks()
+    # x_lab = [x.get_text() for x in ax.get_xticklabels()]
+
+    means = data.groupby(x).mean()
+    width = np.diff(x_ticks)[0] * x_width
+    colors = sns.utils.get_color_cycle()
+
+    if new_ax:
+        ylm = [np.inf, -np.inf]
+
+    for idx, (this_label, this_x) in enumerate(zip(categories, x_ticks)):
+        # plot mean
+        this_mean = means.loc[this_label, y]
+        ax.plot([this_x - width, this_x + width], [this_mean, this_mean],
+                color=colors[idx], lw=2.5, zorder=zorder)
+
+        # add CI (currently standard error of the mean)
+        data_sel = data.query(f'{x} == "{this_label}"')
+        this_sem = sem(data_sel.loc[:, y].values)
+        rct = plt.Rectangle((this_x - width, this_mean - this_sem),
+                            width * 2, this_sem * 2, zorder=zorder - 1,
+                            facecolor=colors[idx], alpha=alpha)
+        ax.add_patch(rct)
+
+    if new_ax:
+        ax.set_xlabel(x)
+        ax.set_ylabel(y)
+        ax.set_xticks(x_ticks)
+        ax.set_xticklabels(categories)
+
+    return ax
