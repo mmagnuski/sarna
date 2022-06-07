@@ -358,6 +358,7 @@ def glassplot(x=None, y=None, data=None, x_width=0.2, zorder=4,
     ax : matplotlib axes
         Axes with the plot.
     '''
+    import matplotlib as mpl
     from scipy.stats import sem
     import seaborn as sns
 
@@ -365,13 +366,19 @@ def glassplot(x=None, y=None, data=None, x_width=0.2, zorder=4,
     assert x is not None
     assert y is not None
 
+    categories = data.loc[:, x].unique()
+    assert len(categories) < data.shape[0]
+
     new_ax = False
+    colors = sns.utils.get_color_cycle()
     if ax is None:
         new_ax = True
         ax = plt.gca()
-
-    categories = data.loc[:, x].unique()
-    assert len(categories) < data.shape[0]
+    else:
+        swarms = ax.findobj(mpl.collections.PathCollection)
+        if len(swarms) > 0:
+            assert len(swarms) == len(categories)
+            colors = [swarm.get_facecolor()[0] for swarm in swarms]
 
     x_ticks = np.arange(len(categories))
     # TODO - if axis is passed, check x labels (order)
@@ -380,7 +387,6 @@ def glassplot(x=None, y=None, data=None, x_width=0.2, zorder=4,
 
     means = data.groupby(x).mean()
     width = np.diff(x_ticks)[0] * x_width
-    colors = sns.utils.get_color_cycle()
 
     if new_ax:
         ylm = [np.inf, -np.inf]
