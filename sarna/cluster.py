@@ -778,7 +778,7 @@ def _find_stat_fun(n_groups, paired, tail):
             from scipy.stats import ttest_ind
 
             def stat_fun(*args):
-                tval, _ = ttest_rel(*args, equal_var=False)
+                tval, _ = ttest_ind(*args, equal_var=False)
                 return tval
             return stat_fun
 
