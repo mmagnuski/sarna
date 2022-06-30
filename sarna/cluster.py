@@ -542,7 +542,7 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
         Statistical function to use. It should allow as many arguments as
         conditions and should return one array of computed statistics.
     threshold : float | None
-        Cluster entry threshold for the test statistic. If ``None`` (defult)
+        Cluster entry threshold for the test statistic. If ``None`` (default)
         the ``p_threshold`` argument is used.
     p_threshold : float
         P value threshold to use in cluster entry threshold computation. For
@@ -569,8 +569,8 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
         Whether to compute ``threshold`` using permutations (this is separate
         from cluster-based permutations when the computed thresholds are used).
         If ``n_stat_permutations > 0`` then this many permutations will be used
-        to compute statistical cluster-entry thresholds. The treshold is set to
-        ``p_threshold`` of the computed permutation distribution.
+        to compute statistical cluster-entry thresholds. The threshold is set
+        to ``p_threshold`` of the computed permutation distribution.
     progress : bool | str | tqdm progressbar
         Whether to show a progressbar (if boolean) or what kind of progressbar
         to show (``'notebook'`` or ``'text'``). Alternatively a progressbar can
@@ -587,6 +587,20 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
     min_adj_ch: int
         Minimum number of adjacent in-cluster channels to retain a point in
         the cluster.
+
+    Returns
+    -------
+    stat : np.ndarray
+        Statistical test results in the search space (same dimensions as
+        ``data[0]``, apart from the first one representing observations).
+    clusters : list of np.ndarray
+        List of clusters. Each cluster is a boolean array of cluster
+        membership.
+    cluster_p : np.ndarray
+        P values for each cluster.
+    distribution : dict | None
+        Dictionary of cluster statistics from permutations. Only returned if
+        ``return_distribution`` is ``True``.
     """
 
     from .utils import progressbar
@@ -596,12 +610,14 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
     if stat_fun is None:
         stat_fun = _find_stat_fun(n_groups, paired, tail)
 
-    if not paired and not one_sample or (one_sample and paired):
-        raise ValueError('Currently you have to use either one_sample=True or'
-                         ' paired=True')
+    if paired:
+        n_obs = data[0].shape[0]
+        signs_size = tuple([n_obs] + [1] * (data[0].ndim - 1))
+    else:
+        condition = np.concatenate([np.ones(data[idx].shape[0]) * idx
+                                    for idx in range(n_groups)])
+        data_unr = np.concatenate(data)
 
-    n_obs = data[0].shape[0]
-    signs_size = tuple([n_obs] + [1] * (data[0].ndim - 1))
     if one_sample:
         signs = np.array([-1, 1])
 
@@ -614,11 +630,10 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
 
     # compute threshold from stat, use permutation distribution if
     # n_stat_permutations > 0
-    # FIXME: streamline/simplify permutation reshaping and transposing
-    # FIXME: time and see whether a different solution (numba?) is better
     if n_stat_permutations > 0:
         threshold = _compute_threshold_via_permutations(
-            data, paired, tail, stat_fun, p_threshold, n_stat_permutations)
+            data, paired, tail, stat_fun, p_threshold, n_stat_permutations,
+            progress=progress)
     else:
         threshold = _compute_threshold(data, threshold, p_threshold,
                                        paired, one_sample)
@@ -632,11 +647,7 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
         min_adj_ch=min_adj_ch)
 
     if not clusters:
-        print('No clusters found, permutations are not performed.')
         return stat, clusters, cluster_stats
-    else:
-        msg = 'Found {} clusters, computing permutations.'
-        print(msg.format(len(clusters)))
 
     if paired and n_groups > 2:
         orders = [np.arange(n_groups)]
@@ -644,7 +655,6 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
             orders.append(np.roll(orders[-1], shift=-1))
         data_all = np.stack(data, axis=0)
 
-    # FIXME - use sarna progressbar
     pbar = progressbar(progress, total=n_permutations)
 
     # compute permutations
@@ -670,10 +680,15 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
             for obs_idx in range(n_obs):
                 this_order = orders[ord_idx[obs_idx]]
                 perm_data[:, obs_idx] = data_all[this_order, obs_idx]
+        elif not paired:
+            this_order = condition.copy()
+            np.random.shuffle(this_order)
+            perm_data = [data_unr[this_order == idx]
+                         for idx in range(n_groups)]
 
         perm_stat = stat_fun(*perm_data)
 
-        perm_clusters, perm_cluster_stats = find_clusters(
+        _, perm_cluster_stats = find_clusters(
             perm_stat, threshold, adjacency=adjacency, cluster_fun=cluster_fun,
             min_adj_ch=min_adj_ch)
 
@@ -684,7 +699,7 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
             if max_val > 0:
                 pos_dist[perm] = max_val
 
-            if tail == 'both':
+            if tail in ['both', 'neg']:
                 min_val = perm_cluster_stats.min()
                 if min_val < 0:
                     neg_dist[perm] = min_val
@@ -693,6 +708,7 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
             pbar.update(1)
 
     # compute permutation probability
+    # TODO - fix, when we want only 'pos' or 'neg' but use for example t test
     cluster_p = np.array([(pos_dist > cluster_stat).mean() if cluster_stat > 0
                           else (neg_dist < cluster_stat).mean()
                           for cluster_stat in cluster_stats])
@@ -713,19 +729,20 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
 
 def _compute_threshold(data, threshold, p_threshold, paired,
                        one_sample):
+    '''Find significance threshold analytically.'''
     if threshold is None:
         from scipy.stats import distributions
         n_groups = len(data)
-        lens = [len(d) for d in data]
+        n_obs = [len(x) for x in data]
 
         if n_groups < 3:
             len1 = len(data[0])
             len2 = len(data[1]) if (len(data) > 1 and data[1] is not None) else 0
             df = (len1 - 1 if paired or one_sample else len1 + len2 - 2)
-            threshold = np.abs(distributions.t.ppf(p_threshold / 2., df=df))
+            threshold = distributions.t.ppf(1 - p_threshold / 2., df=df)
         else:
             # ANOVA F
-            n_obs = data[0].shape[0] if paired else sum(lens)
+            n_obs = data[0].shape[0] if paired else sum(n_obs)
             dfn = n_groups - 1
             dfd = n_obs - n_groups
             threshold = distributions.f.ppf(1. - p_threshold, dfn, dfd)
@@ -758,9 +775,12 @@ def _find_stat_fun(n_groups, paired, tail):
                 return tval
             return stat_fun
         else:
-            # TODO: always assume non-equal variance?
-            from mne.stats import ttest_ind_no_p
-            return ttest_ind_no_p
+            from scipy.stats import ttest_ind
+
+            def stat_fun(*args):
+                tval, _ = ttest_ind(*args, equal_var=False)
+                return tval
+            return stat_fun
 
 
 def rm_anova_stat_fun(*args):
@@ -779,33 +799,59 @@ def rm_anova_stat_fun(*args):
 
 
 # FIXME: streamline/simplify permutation reshaping and transposing
-# FIXME: time and see whether a different solution (numba?) is better
-# TODO: separate progressbar for threshold permutations
+# FIXME: time and see whether a different solution is better
 def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
-                                        p_threshold, n_perm):
-    '''Assumes n_conditions x n_observations x ... data array.
+                                        p_threshold=0.05, n_permutations=1000,
+                                        progress=True,
+                                        return_distribution=False):
+    '''
+    Compute significance thresholds using permutations.
+
+    Assumes ``n_conditions x n_observations x ...`` data array.
     Note that the permutations are implemented via shuffling of the condition
-    labels, not randomization of independent condition orders.'''
-    assert paired, "Unpaired permutations are not implemented."
+    labels, not randomization of independent condition orders.
+    '''
+    from .utils import progressbar
 
-    # concatenate condition dimension if needed
-    if isinstance(data, list):
-        data = np.stack(data, axis=0)
+    if paired:
+        # concatenate condition dimension if needed
+        if isinstance(data, (list, tuple)):
+            data = np.stack(data, axis=0)
 
-    dims = np.arange(data.ndim)
-    dims[:2] = [1, 0]
-    n_cond, n_obs = data.shape[:2]
-    data_unr = data.transpose(*dims).reshape(n_cond * n_obs,
-                                *data.shape[2:])
-    stats = np.zeros(shape=(n_perm, *data.shape[2:]))
+        dims = np.arange(data.ndim)
+        dims[:2] = [1, 0]
+        n_cond, n_obs = data.shape[:2]
+        data_unr = data.transpose(*dims).reshape(n_cond * n_obs,
+                                    *data.shape[2:])
+        stats = np.zeros(shape=(n_permutations, *data.shape[2:]))
 
-    # compute permutations of the stat
-    for perm_idx in range(n_perm):
-        rnd = (np.random.random(size=(n_cond, n_obs))).argsort(axis=0)
-        idx = (rnd + np.arange(n_obs)[None, :] * n_cond).T.ravel()
-        this_data = data_unr[idx].reshape(
-            n_obs, n_cond, *data.shape[2:]).transpose(*dims)
-        stats[perm_idx] = stat_fun(*this_data)
+        # compute permutations of the stat
+        pbar = progressbar(progress, total=n_permutations)
+        for perm_idx in range(n_permutations):
+            rnd = (np.random.random(size=(n_cond, n_obs))).argsort(axis=0)
+            idx = (rnd + np.arange(n_obs)[None, :] * n_cond).T.ravel()
+            this_data = data_unr[idx].reshape(
+                n_obs, n_cond, *data.shape[2:]).transpose(*dims)
+            stats[perm_idx] = stat_fun(*this_data)
+
+            if progress:
+                pbar.update(1)
+    else:
+        n_cond = len(data)
+        condition = np.concatenate([np.ones(data[idx].shape[0]) * idx
+                                    for idx in range(n_cond)])
+        data_unr = np.concatenate(data)
+        stats = np.zeros(shape=(n_permutations, *data[0].shape[1:]))
+
+        pbar = progressbar(progress, total=n_permutations)
+        for perm_idx in range(n_permutations):
+            rnd = condition.copy()
+            np.random.shuffle(rnd)
+            this_data = [data_unr[rnd == idx] for idx in range(n_cond)]
+            stats[perm_idx] = stat_fun(*this_data)
+
+            if progress:
+                pbar.update(1)
 
     # now check threshold
     if tail == 'pos':
@@ -822,5 +868,8 @@ def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
     else:
         raise ValueError(f'Unrecognized tail "{tail}"')
 
-    return threshold
+    if not return_distribution:
+        return threshold
+    else:
+        return threshold, stats
 
