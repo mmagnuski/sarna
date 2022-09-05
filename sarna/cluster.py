@@ -800,10 +800,13 @@ def rm_anova_stat_fun(*args):
 
 # FIXME: streamline/simplify permutation reshaping and transposing
 # FIXME: time and see whether a different solution is better
+# FIXME: splitting across jobs could be smarter (chunks of permutations, not
+# one by one)
 def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
                                         p_threshold=0.05, n_permutations=1000,
                                         progress=True,
-                                        return_distribution=False):
+                                        return_distribution=False,
+                                        n_jobs=1):
     '''
     Compute significance thresholds using permutations.
 
@@ -823,35 +826,42 @@ def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
         n_cond, n_obs = data.shape[:2]
         data_unr = data.transpose(*dims).reshape(n_cond * n_obs,
                                     *data.shape[2:])
-        stats = np.zeros(shape=(n_permutations, *data.shape[2:]))
 
         # compute permutations of the stat
-        pbar = progressbar(progress, total=n_permutations)
-        for perm_idx in range(n_permutations):
-            rnd = (np.random.random(size=(n_cond, n_obs))).argsort(axis=0)
-            idx = (rnd + np.arange(n_obs)[None, :] * n_cond).T.ravel()
-            this_data = data_unr[idx].reshape(
-                n_obs, n_cond, *data.shape[2:]).transpose(*dims)
-            stats[perm_idx] = stat_fun(*this_data)
-
-            if progress:
-                pbar.update(1)
+        if n_jobs == 1:
+            stats = np.zeros(shape=(n_permutations, *data.shape[2:]))
+            pbar = progressbar(progress, total=n_permutations)
+            for perm_idx in range(n_permutations):
+                stats[perm_idx] = _paired_perm(
+                    data_unr, stat_fun, n_cond, n_obs, dims, pbar=pbar
+                )
+        else:
+            from joblib import Parallel, delayed
+            stats = Parallel(n_jobs=n_jobs)(
+                delayed(_paired_perm)(data_unr, stat_fun, n_cond, n_obs, dims)
+                for perm_idx in range(n_permutations)
+            )
+            stats = np.stack(stats, axis=0)
     else:
         n_cond = len(data)
         condition = np.concatenate([np.ones(data[idx].shape[0]) * idx
                                     for idx in range(n_cond)])
         data_unr = np.concatenate(data)
-        stats = np.zeros(shape=(n_permutations, *data[0].shape[1:]))
 
-        pbar = progressbar(progress, total=n_permutations)
-        for perm_idx in range(n_permutations):
-            rnd = condition.copy()
-            np.random.shuffle(rnd)
-            this_data = [data_unr[rnd == idx] for idx in range(n_cond)]
-            stats[perm_idx] = stat_fun(*this_data)
-
-            if progress:
-                pbar.update(1)
+        if n_jobs == 1:
+            stats = np.zeros(shape=(n_permutations, *data[0].shape[1:]))
+            pbar = progressbar(progress, total=n_permutations)
+            for perm_idx in range(n_permutations):
+                stats[perm_idx] = _unpaired_perm(
+                    data_unr, stat_fun, condition, n_cond, pbar=pbar
+                )
+        else:
+            from joblib import Parallel, delayed
+            stats = Parallel(n_jobs=n_jobs)(
+                delayed(_unpaired_perm)(data_unr, stat_fun, condition, n_cond)
+                for perm_idx in range(n_permutations)
+            )
+            stats = np.stack(stats, axis=0)
 
     # now check threshold
     if tail == 'pos':
@@ -873,3 +883,27 @@ def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
     else:
         return threshold, stats
 
+
+def _paired_perm(data_unr, stat_fun, n_cond, n_obs, dims, pbar=None):
+    rnd = (np.random.random(size=(n_cond, n_obs))).argsort(axis=0)
+    idx = (rnd + np.arange(n_obs)[None, :] * n_cond).T.ravel()
+    this_data = data_unr[idx].reshape(
+        n_obs, n_cond, *dims[2:]).transpose(*dims[:2])
+    stat = stat_fun(*this_data)
+
+    if pbar is not None:
+        pbar.update(1)
+
+    return stat
+
+
+def _unpaired_perm(data_unr, stat_fun, condition, n_cond, pbar=None):
+    rnd = condition.copy()
+    np.random.shuffle(rnd)
+    this_data = [data_unr[rnd == idx] for idx in range(n_cond)]
+    stat = stat_fun(*this_data)
+
+    if pbar is not None:
+        pbar.update(1)
+
+    return stat
