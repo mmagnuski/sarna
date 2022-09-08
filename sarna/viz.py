@@ -329,7 +329,7 @@ def prepare_equal_axes(fig, n_axes, space=[0.02, 0.98, 0.02, 0.98],
 # https://matplotlib.org/3.4.3/gallery/lines_bars_and_markers/gradient_bar.html
 # https://stackoverflow.com/questions/42063542/mathplotlib-draw-triangle-with-gradient-fill
 def glassplot(x=None, y=None, data=None, x_width=0.2, zorder=4,
-              alpha=0.3, ax=None):
+              alpha=0.3, linewidth=2.5, ax=None):
     '''Plot transparent patches marking mean and standard error.
 
     Parameters
@@ -350,6 +350,8 @@ def glassplot(x=None, y=None, data=None, x_width=0.2, zorder=4,
         z order below.
     alpha : float
         Transparency of the patches.
+    linewidth : float
+        Width of the lines marking the average.
     ax : matplotlib axes
         Axes to plot on. If None, a new figure is created.
 
@@ -379,6 +381,7 @@ def glassplot(x=None, y=None, data=None, x_width=0.2, zorder=4,
         if len(swarms) > 0:
             assert len(swarms) == len(categories)
             colors = [swarm.get_facecolor()[0] for swarm in swarms]
+            colors = [color[:3] for color in colors]  # ignore alpha
 
     x_ticks = np.arange(len(categories))
     # TODO - if axis is passed, check x labels (order)
@@ -395,7 +398,7 @@ def glassplot(x=None, y=None, data=None, x_width=0.2, zorder=4,
         # plot mean
         this_mean = means.loc[this_label, y]
         ax.plot([this_x - width, this_x + width], [this_mean, this_mean],
-                color=colors[idx], lw=2.5, zorder=zorder)
+                color=colors[idx], lw=linewidth, zorder=zorder)
 
         # add CI (currently standard error of the mean)
         msk = data.loc[:, x] == this_label
