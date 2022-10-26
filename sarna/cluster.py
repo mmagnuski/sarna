@@ -610,7 +610,7 @@ def permutation_cluster_test_array(data, adjacency, stat_fun=None,
     if stat_fun is None:
         stat_fun = _find_stat_fun(n_groups, paired, tail)
 
-    if paired:
+    if paired or one_sample:
         n_obs = data[0].shape[0]
         signs_size = tuple([n_obs] + [1] * (data[0].ndim - 1))
     else:
