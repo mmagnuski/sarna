@@ -86,12 +86,12 @@ def find_google_drive(all=True):
     return google_drives
 
 
-def find_shared_folder(project_name, as_path=False):
+def find_shared_folder(folder_name, as_path=False):
     '''Find shared folder on google drive.
 
     Parameters
     ----------
-    project_name : str
+    folder_name : str
         Name of the shared directory.
     as_path : bool
         If True, return the path as a ``pathlib.Path`` object. Defaults to
@@ -112,17 +112,16 @@ def find_shared_folder(project_name, as_path=False):
         subdirs = os.listdir(drive_dir)
 
         # there can be many linking subdirectories in .shortcut-targets-by-id
-        # google drive folder, we find the one containing switchorder directory:
+        # google drive folder, we find the one containing the target directory:
         for subdir in subdirs:
             pth = op.join(drive_dir, subdir)
             if op.isdir(pth):
                 contents = os.listdir(pth)
-                if project_name in contents:
-                    pth = op.join(pth, project_name)
+                if folder_name in contents:
+                    pth = op.join(pth, folder_name)
                     pth = Path(pth) if as_path else pth
                     return pth
-    raise ValueError(f'Could not find {project_name} folder.')
-
+    raise ValueError(f'Could not find {folder_name} folder.')
 
 
 # TODO: return_files also returns directories (check!)
