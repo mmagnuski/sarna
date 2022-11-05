@@ -432,7 +432,7 @@ def _invert_selection(raw, selection):
     return amp_inv_samples
 
 
-def fix_channel_pos(inst):
+def fix_channel_pos(inst, project_to_radius=0.095):
     '''Scale channel positions to default mne head radius.
     FIXME - add docs'''
     import borsar
@@ -441,15 +441,13 @@ def fix_channel_pos(inst):
     # get channel positions matrix
     pos = borsar.channels.get_ch_pos(inst)
 
-    # remove channels without positions
+    # ignore channels without positions
     no_pos = np.isnan(pos).any(axis=1) | (pos == 0).any(axis=1)
     pos = pos[~no_pos, :]
 
     # fit sphere to channel positions
     radius, origin = _fit_sphere(pos)
-
-    default_sphere = 0.095
-    scale = radius / default_sphere
+    scale = radius / project_to_radius
 
     info = get_info(inst)
     for idx, chs in enumerate(info['chs']):
