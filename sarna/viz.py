@@ -14,6 +14,7 @@ def get_spatial_colors(inst):
     x, y, z = get_ch_pos(inst).T
     return _rgb(x, y, z)
 
+
 def get_color_cycle():
     return plt.rcParams['axes.prop_cycle'].by_key()['color']
 
@@ -273,6 +274,10 @@ def plot_topomap_raw(raw, times=None):
     return fig
 
 
+# CHECK - if this is needed? One can use the gridspec_kw argument or call
+#         GridSpec directly
+#         The difference is that the axes are x - y equal (square) which works
+#         well for topomap plots
 def prepare_equal_axes(fig, n_axes, space=[0.02, 0.98, 0.02, 0.98],
                        w_dist=0.025, h_dist=0.025):
     '''Prepare equal axes spanning given figure space. FIXME docs'''

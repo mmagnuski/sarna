@@ -96,7 +96,7 @@ def mne_types():
 
 
 # TODO
-# - [ ] move to borsar?
+# CHECK and COMPARE: it might actually be better to use Xarray than this
 # - [ ] more input validation
 #       validate dim_names, dim_values
 # - [x] groups could be any of following
@@ -119,7 +119,7 @@ def array2df(arr, dim_names=None, groups=None, value_name='value'):
         Names of consecutive array dimensions - used as column names of the
         resulting DataFrame.
     groups : list of dicts or dict of dicts
-        FIXME - here more datailed explanation
+        FIXME - here more detailed explanation
     value_name : ...
         ...
 
@@ -237,7 +237,7 @@ def epochs_to_ft(epochs, fname, var_name='data', trialinfo=None):
     ----------
     epochs : mne.Epochs
         Instance of mne epochs object. The epochs data to save to
-        the .mat file in fieldtrip represetnation.
+        the .mat file in fieldtrip representation.
     fname : str
         Name (or full path) of the file to save data to.
     var_name : str, optional
@@ -460,6 +460,7 @@ def fix_channel_pos(inst):
     return inst
 
 
+# - [ ] CHECK: this seems to already be present in mne with sphere='eeglab'
 def create_eeglab_sphere(inst):
     '''Create sphere settings (x, y, z, radius) that produce eeglab-like
     topomap projection. The projection places Oz channel at the head outline
