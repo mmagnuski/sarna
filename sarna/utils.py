@@ -85,24 +85,13 @@ def group(vec, diff=False, return_slice=False):
         return grp
 
 
-# TODO: add evoked (for completeness)
-# - [ ] check: mne now has _validate_type ...
 def mne_types():
-    import mne
+    from mne import Evoked
     from mne.io.meas_info import Info
-    types = dict()
-    try:
-        from mne.io import _BaseRaw
-        from mne.epochs import _BaseEpochs
-        types['raw'] = _BaseRaw
-        types['epochs'] = _BaseEpochs
-    except ImportError:
-        from mne.io import BaseRaw
-        from mne.epochs import BaseEpochs
-        types['raw'] = BaseRaw
-        types['epochs'] = BaseEpochs
-    types['info'] = Info
-    types['evoked'] = mne.Evoked
+    from mne.io import BaseRaw
+    from mne.epochs import BaseEpochs
+
+    types = dict(raw=BaseRaw, epochs=BaseEpochs, info=Info, evoked=Evoked)
     return types
 
 
