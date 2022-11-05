@@ -207,23 +207,6 @@ def significance_bar(start, end, height, displaystring, lw=0.1,
     # plt.text((x0+x1)*.4, y+h, "ns", ha='center', va='bottom', color=col)
 
 
-# - [ ] remove and add heatmap options to borsar.Cluster.plot()
-def plot_cluster_heatmap(values, mask=None, axis=None, x_axis=None,
-                         y_axis=None, outlines=False, colorbar=True,
-                         line_kwargs=dict(), ch_names=None, freq=None):
-    n_channels = values.shape[0]
-    if x_axis is None and freq is not None:
-        x_axis = freq
-
-    heatmap(values, mask=mask, axis=axis, x_axis=x_axis, y_axis=y_axis,
-            outlines=outlines, colorbar=True, line_kwargs=dict())
-
-    if ch_names is not None:
-        plt.yticks(np.arange(len(ch_names)) + 0.5, ch_names);
-        for tick in plt.gca().yaxis.get_major_ticks():
-            tick.label.set_fontsize(8)
-
-
 def plot_topomap_raw(raw, times=None):
     '''``plot_topomap`` for mne ``Raw`` objects.
 
