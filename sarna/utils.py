@@ -7,14 +7,6 @@ import numpy as np
 from borsar.utils import get_info, find_index, find_range
 
 
-def find_files(directory, ends=None):
-    '''FIXME - add docs.'''
-    files = os.listdir(directory)
-    if ends is not None:
-        files = [f for f in files if f.endswith(ends)]
-    return files
-
-
 def extend_slice(slc, val, maxval, minval=0):
     '''Extend slice `slc` by `val` in both directions but not exceeding
     `minval` or `maxval`.
