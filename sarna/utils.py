@@ -7,14 +7,6 @@ import numpy as np
 from borsar.utils import get_info, find_index, find_range
 
 
-def find_files(directory, ends=None):
-    '''FIXME - add docs.'''
-    files = os.listdir(directory)
-    if ends is not None:
-        files = [f for f in files if f.endswith(ends)]
-    return files
-
-
 def extend_slice(slc, val, maxval, minval=0):
     '''Extend slice `slc` by `val` in both directions but not exceeding
     `minval` or `maxval`.
@@ -85,156 +77,14 @@ def group(vec, diff=False, return_slice=False):
         return grp
 
 
-# TODO: add evoked (for completeness)
-# - [ ] check: mne now has _validate_type ...
 def mne_types():
-    import mne
+    from mne import Evoked
     from mne.io.meas_info import Info
-    types = dict()
-    try:
-        from mne.io import _BaseRaw
-        from mne.epochs import _BaseEpochs
-        types['raw'] = _BaseRaw
-        types['epochs'] = _BaseEpochs
-    except ImportError:
-        from mne.io import BaseRaw
-        from mne.epochs import BaseEpochs
-        types['raw'] = BaseRaw
-        types['epochs'] = BaseEpochs
-    types['info'] = Info
-    types['evoked'] = mne.Evoked
+    from mne.io import BaseRaw
+    from mne.epochs import BaseEpochs
+
+    types = dict(raw=BaseRaw, epochs=BaseEpochs, info=Info, evoked=Evoked)
     return types
-
-
-# TODO
-# - [ ] move to borsar?
-# - [ ] more input validation
-#       validate dim_names, dim_values
-# - [x] groups could be any of following
-#   * dict of int -> (dict of int -> str)
-#   * instead of int -> str there could be tuple -> str
-#   * or str -> list mapping
-# - [x] support list of lists for groups as well
-def array2df(arr, dim_names=None, groups=None, value_name='value'):
-    '''
-    Melt array into a pandas DataFrame.
-
-    The resulting DataFrame has one row per array value and additionally
-    one column per array dimension.
-
-    Parameters
-    ----------
-    arr : numpy array
-        Array to be transformed to DataFrame.
-    dim_names : list of str or dict of int to str mappings
-        Names of consecutive array dimensions - used as column names of the
-        resulting DataFrame.
-    groups : list of dicts or dict of dicts
-        FIXME - here more datailed explanation
-    value_name : ...
-        ...
-
-    Returns
-    -------
-    df : pandas DataFrame
-        ...
-
-    Examples
-    --------
-    >> arr = np.arange(4).reshape((2, 2))
-    >> array2df(arr)
-
-      value dim_i dim_j
-    0     0    i0    j0
-    1     1    i0    j1
-    2     2    i1    j0
-    3     3    i1    j1
-
-    >> arr = np.arange(12).reshape((4, 3))
-    >> array2df(arr, dim_names=['first', 'second'], value_name='array_value',
-    >>          groups=[{'A': [0, 2], 'B': [1, 3]},
-    >>                  {(0, 2): 'abc', (1,): 'd'}])
-
-       array_value first second
-    0            0     A    abc
-    1            1     A      d
-    2            2     A    abc
-    3            3     B    abc
-    4            4     B      d
-    5            5     B    abc
-    6            6     A    abc
-    7            7     A      d
-    8            8     A    abc
-    9            9     B    abc
-    10          10     B      d
-    11          11     B    abc
-    '''
-    import pandas as pd
-    n_dim = arr.ndim
-    shape = arr.shape
-
-    dim_letters = list('ijklmnop')[:n_dim]
-    if dim_names is None:
-        dim_names = {dim: 'dim_{}'.format(l)
-                     for dim, l in enumerate(dim_letters)}
-    if groups is None:
-        groups = {dim: {i: dim_letters[dim] + str(i)
-                        for i in range(shape[dim])} for dim in range(n_dim)}
-    else:
-        if isinstance(groups, dict):
-            groups = {dim: _check_dict(groups[dim], shape[dim])
-                      for dim in groups.keys()}
-        elif isinstance(groups, list):
-            groups = [_check_dict(groups[dim], shape[dim])
-                      for dim in range(len(groups))]
-
-    # initialize DataFrame
-    col_names = [value_name] + [dim_names[i] for i in range(n_dim)]
-    df = pd.DataFrame(columns=col_names, index=np.arange(arr.size))
-
-    # iterate through dimensions producing tuples of relevant dims...
-    for idx, adr in enumerate(product(*map(range, shape))):
-        df.loc[idx, value_name] = arr[adr]  # this could be vectorized easily
-        # add relevant values to dim columns
-        for dim_idx, dim_adr in enumerate(adr):
-            df.loc[idx, dim_names[dim_idx]] = groups[dim_idx][dim_adr]
-
-    # column dtype inference
-    df = df.infer_objects()
-    return df
-
-
-# utility function used by array2df (what does it do?)
-# FIXME - better docs, comments, assert fail message
-def _check_dict(dct, dim_len):
-    if isinstance(dct, dict):
-        str_keys = all(isinstance(k, str) for k in dct.keys())
-        if not str_keys:
-            tuple_keys = all(isinstance(k, tuple) for k in dct.keys())
-
-        if str_keys:
-            vals_set = set()
-            new_dct = dict()
-            for k in dct.keys():
-                for val in dct[k]:
-                    new_dct[val] = k
-                    vals_set.add(val)
-            assert len(vals_set) == dim_len
-        elif tuple_keys:
-            new_dct = dict()
-            i_set = set()
-            for k, val in dct.items():
-                for i in k:
-                    new_dct[i] = val
-                    i_set.add(i)
-            assert len(i_set) == dim_len
-        else:
-            new_dct = dct
-    else:
-        # validate if equal to num dims
-        assert len(dct) == dim_len
-        new_dct = dct
-    return new_dct
 
 
 # - [ ] add round-trip test
@@ -248,7 +98,7 @@ def epochs_to_ft(epochs, fname, var_name='data', trialinfo=None):
     ----------
     epochs : mne.Epochs
         Instance of mne epochs object. The epochs data to save to
-        the .mat file in fieldtrip represetnation.
+        the .mat file in fieldtrip representation.
     fname : str
         Name (or full path) of the file to save data to.
     var_name : str, optional
@@ -443,7 +293,7 @@ def _invert_selection(raw, selection):
     return amp_inv_samples
 
 
-def fix_channel_pos(inst):
+def fix_channel_pos(inst, project_to_radius=0.095):
     '''Scale channel positions to default mne head radius.
     FIXME - add docs'''
     import borsar
@@ -452,15 +302,13 @@ def fix_channel_pos(inst):
     # get channel positions matrix
     pos = borsar.channels.get_ch_pos(inst)
 
-    # remove channels without positions
+    # ignore channels without positions
     no_pos = np.isnan(pos).any(axis=1) | (pos == 0).any(axis=1)
     pos = pos[~no_pos, :]
 
     # fit sphere to channel positions
     radius, origin = _fit_sphere(pos)
-
-    default_sphere = 0.095
-    scale = radius / default_sphere
+    scale = radius / project_to_radius
 
     info = get_info(inst)
     for idx, chs in enumerate(info['chs']):
@@ -471,6 +319,7 @@ def fix_channel_pos(inst):
     return inst
 
 
+# - [ ] CHECK: this seems to already be present in mne with sphere='eeglab'
 def create_eeglab_sphere(inst):
     '''Create sphere settings (x, y, z, radius) that produce eeglab-like
     topomap projection. The projection places Oz channel at the head outline

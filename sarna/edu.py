@@ -82,16 +82,16 @@ def plot_matrix(matrix, colors=False, bgcolor=None, fmt='.2g'):
 
     # set default parameters
     longest = max(matrix.shape)
-    base_fonsize = 16 if matrix.dtype == 'int' else 14
-    fontsize = (base_fonsize if longest <= 8 else
-                max(round(base_fonsize - (longest - 8) / 2), 2))
-    fontprops = {'fontsize': fontsize}
+    base_fontsize = 16 if matrix.dtype == 'int' else 14
+    fontsize = (base_fontsize if longest <= 8 else
+                max(round(base_fontsize - (longest - 8) / 2), 2))
+    font_props = {'fontsize': fontsize}
     if not colors:
-        fontprops['color'] = 'k'
+        font_props['color'] = 'k'
     bgcolor = [[0.9, 0.9, 0.6]] if bgcolor is None else [bgcolor]
 
     # use seaborn to plot the heatmap
-    ax = sns.heatmap(matrix, annot=True, annot_kws=fontprops, cbar=colors,
+    ax = sns.heatmap(matrix, annot=True, annot_kws=font_props, cbar=colors,
                      linewidths=1, xticklabels=[], yticklabels=[], fmt=fmt)
 
     # modify seaborn plot to have uniform background color
@@ -112,7 +112,7 @@ def plot_matrix(matrix, colors=False, bgcolor=None, fmt='.2g'):
 
 def spectral_reconstruction(raw, ch_name='Oz', tmin=5., tmax=None):
     """Simple interface showing how adding sinusoids with frequency and
-    phase taken from the fft of the signal leads to reconstructiong the
+    phase taken from the fft of the signal leads to reconstructing the
     original signal in the time domain.
 
     Parameters
@@ -121,7 +121,7 @@ def spectral_reconstruction(raw, ch_name='Oz', tmin=5., tmax=None):
         Mne instance of Raw object. The signal to use in plotting and
         reconstruction.
     ch_name : str
-        Name of the channel chosen to visualise.
+        Name of the channel chosen to visualize.
     tmin : int | float
         Start of the time segment to investigate in seconds.
     tmax : int | float | None
