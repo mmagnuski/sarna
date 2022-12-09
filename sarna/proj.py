@@ -27,6 +27,35 @@ def find_dropbox():
         raise ValueError('Could not find Dropbox directory.')
 
 
+def find_onedrive(kind='auto'):
+    '''Find OneDrive directory.
+
+    Parameters
+    ----------
+    kind : str
+        One of ``'auto'``, ``'personal'``, ``'business'``. Defaults to
+        ``'auto'``. If ``'auto'``, the function will try to find the business
+        OneDrive first, and if it fails, it will try to find the personal.
+
+    Returns
+    -------
+    onedrive_path : str
+        Full path to OneDrive directory.
+    '''
+    if kind == 'auto':
+        try:
+            return find_onedrive(kind='business')
+        except ValueError:
+            return find_onedrive(kind='personal')
+
+    var_name = ('OneDriveConsumer' if kind == 'personal'
+                else 'OneDriveCommercial')
+    onedrive_path = os.getenv(var_name)
+    if onedrive_path is None:
+        raise ValueError(f'Could not find {kind} OneDrive.')
+    return onedrive_path
+
+
 def get_valid_path(pth_list):
     '''
     Select the first path that exists on current machine.
