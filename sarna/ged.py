@@ -6,6 +6,7 @@ from borsar.viz import Topo
 
 
 # TODO: add plot_eig for plotting eigenvalues
+# TODO: split ged computation and object construction
 # TODO: we use eig.real - maybe a warning should be added if we get complex
 #       values?
 class GED(object):
@@ -15,8 +16,8 @@ class GED(object):
         Compute Generalized Eigendecomposition (GED) of two covariance
         matrices.
 
-        Prameters
-        ---------
+        Parameters
+        ----------
         cov_S : mne Covariance | array
             Covariance matrix for the signal of interest.
         cov_R : mne Covariance | array
