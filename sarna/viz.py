@@ -498,3 +498,163 @@ def connect_swarms(x=None, y=None, data=None, ax=None, color=None,
         prev_pos = this_pos
 
     return lines
+
+
+# layout functions
+# ----------------
+
+# - [ ] TODO: add wrt (with respect to) and align (top/bottom etc)
+#       so that change_position(axs[:3], xby=0.1, wrt=axs[3:])
+#       would position the first 3 axes 0.1 above the next 3 axes
+def change_axis_position(axs, x=None, y=None, xby=None, yby=None):
+    '''Change axis position.
+
+    Parameters
+    ----------
+    axs : list of axes
+        Axes to change position of.
+    x : float
+        New x position of axes.
+    y : float
+        New y position of axes.
+    xby : float
+        Change x position by this value.
+    yby : float
+        Change y position by this value.
+    '''
+    pos = [ax.get_position().bounds for ax in axs]
+
+    for ax, ps in zip(axs, pos):
+        ps = list(ps)
+        if x is not None:
+            ps[0] = x
+        if y is not None:
+            ps[1] = y
+        if xby is not None:
+            ps[0] += xby
+        if yby is not None:
+            ps[1] += yby
+        ax.set_position(ps)
+
+
+def _get_pos_dist(axs):
+    positions = [axs.get_position().bounds for ax in axs]
+
+    distances = list()
+    distances.append(positions[0][0])
+    for ix in range(len(positions) - 1):
+        pos = positions[ix]
+        next_pos = positions[ix + 1]
+        dist = next_pos[0] - (pos[0] + pos[2])
+        distances.append(dist)
+
+    # TODO: not clear why this is necessary...
+    last_pos = positions[-1]
+    distances.append(1 - (last_pos[0] + last_pos[2]))
+
+    return positions, distances
+
+
+def _align_along_x(axs, left=0, right=0):
+    positions, distances = _get_pos_dist(axs)
+    distances[-1] += left - right
+    avg_dist = np.array(distances[1:]).mean()
+
+    last = distances[0] - left
+    for ax, pos in zip(axs, positions):
+        pos = list(pos)
+        pos[0] = last
+        ax.set_position(pos)
+        last += avg_dist + pos[2]
+
+
+def rescale_axis(axs, x=None, y=None, xto='center', yto='center'):
+    '''Shrink axes in x and/or y dimension by specific value / percent.
+    Shrinking by a negative value extends the axis.
+
+    Parameters
+    ----------
+    axs : list-like of axes
+        Matplotlib axes to shrink.
+    x : int | float | str
+        Value to change the axis width by. Can also be a percent string
+        for example ``'-25%'`` (which shrinks by 25% of current width).
+    xto : str
+        FIXME
+    y : int | float | str
+        Value to change the axis height by. Can also be a percent string
+        for example ``'-25%'`` (which shrinks by 25% of current height).
+    yto : str
+        FIXME
+    '''
+    if x is None and y is None:
+        # nothing to do
+        return
+
+    positions = [ax.get_position().bounds for ax in axs]
+    scale_x, x_perc = _parse_perc(x) if x is not None else None
+    scale_y, y_perc = _parse_perc(y) if y is not None else None
+
+    for ax, pos in zip(axs, positions):
+        if x is not None:
+            pos = _scale_ax(pos, 0, scale_x, x_perc, xto)
+        if y is not None:
+            pos = _scale_ax(pos, 1, scale_y, y_perc, yto)
+        ax.set_position(pos)
+
+
+# TODO - refactor with borsar % parsing?
+def _parse_perc(val):
+    is_perc = False
+    if isinstance(val, str) and '%' in val:
+        val = float(val.replace('%', '')) / 100
+        is_perc = True
+    return val, is_perc
+
+
+def _scale_ax(pos, ix, scale, is_perc, align_to):
+    '''ix = 0 for x, 1 for y'''
+    width = pos[2 + ix]
+    change = scale * width if is_perc else scale
+    new_width = width + change
+    new_pos = (pos[0 + ix] if align_to == 'left' else
+               pos[0 + ix] - change if align_to == 'right' else
+               pos[0 + ix] - change / 2)
+
+    pos = pos.copy()
+    pos[0 + ix] = new_pos
+    pos[2 + ix] = new_width
+
+    return pos
+
+
+def _unify_lims(axs, xlim=False, ylim=False):
+    lims = {'x': [np.inf, -np.inf], 'y': [np.inf, -np.inf]}
+    for ax in axs:
+        if xlim:
+            xlm = ax.get_xlim()
+            if xlm[0] < lims['x'][0]:
+                lims['x'][0] = xlm[0]
+            if xlm[1] > lims['x'][1]:
+                lims['x'][1] = xlm[1]
+        if ylim:
+            ylm = ax.get_ylim()
+            if ylm[0] < lims['y'][0]:
+                lims['y'][0] = ylm[0]
+            if ylm[1] > lims['y'][1]:
+                lims['y'][1] = ylm[1]
+    for ax in axs:
+        if xlim:
+            ax.set_xlim(lims['x'])
+        if ylim:
+            ax.set_ylim(lims['y'])
+
+
+def _align_x_center(ax, source):
+    pos = [x.get_position().bounds for x in [ax, source]]
+    mids = [p[0] + p[2] * 0.5 for p in pos]
+    mid_diff = mids[1] - mids[0]
+    if not mid_diff == 0:
+        axpos = list(pos[0])
+        axpos[0] += mid_diff
+        ax.set_position(axpos)
