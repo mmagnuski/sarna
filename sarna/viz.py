@@ -257,19 +257,39 @@ def plot_topomap_raw(raw, times=None):
     return fig
 
 
-# CHECK - if this is needed? One can use the gridspec_kw argument or call
-#         GridSpec directly
-#         The difference is that the axes are x - y equal (square) which works
-#         well for topomap plots
+# TODO - n_axes as total int and then optimal layout is chosen?
+# FIXME - change space to be [x0, y0, w, h]
+# ``h_dist`` and ``w_dist`` auto?
 def prepare_equal_axes(fig, n_axes, space=[0.02, 0.98, 0.02, 0.98],
                        w_dist=0.025, h_dist=0.025):
-    '''Prepare equal axes spanning given figure space. FIXME docs'''
+    '''Prepare equal axes spanning given figure space.
+
+    Very useful for creating a grid for topographic maps.
+
+    Parameters
+    ----------
+    fig : matplotlib figure
+        Figure to create grid of axes in.
+    n_axes : tuple of ints
+        Number of axes in each dimension.
+    space : list of floats
+        Space to use for axes. Should be in the form of
+        ``[left, right, bottom, top]``.
+    w_dist : float
+        Distance between axes in the horizontal (width) direction.
+    h_dist : float
+        Distance between axes in the vertical (height) direction.
+
+    Returns
+    -------
+    axes : numpy array of axes
+        Array of axes handles.
+    '''
 
     # transforms
     trans = fig.transFigure
     trans_inv = fig.transFigure.inverted()
 
-    # FIXME - change space to be [x0, y0, w, h]
     axes_space = np.array(space).reshape((2, 2)).T
     axes_space_disp_units = trans.transform(axes_space)
     space_h = np.diff(axes_space_disp_units[:, 1])[0]
@@ -310,6 +330,34 @@ def prepare_equal_axes(fig, n_axes, space=[0.02, 0.98, 0.02, 0.98],
 
     axes = np.flipud(np.array(axes))
     return axes
+
+
+def equal_axes_grid(fig, n_axes, space=[0.02, 0.98, 0.02, 0.98],
+                    w_dist=0.025, h_dist=0.025):
+    '''Prepare equal axes spanning given figure space.
+
+    Very useful for creating a grid for topographic maps.
+
+    Parameters
+    ----------
+    fig : matplotlib figure
+        Figure to create grid of axes in.
+    n_axes : tuple of ints
+        Number of axes in each dimension.
+    space : list of floats
+        Space to use for axes. Should be in the form of
+        ``[left, right, bottom, top]``.
+    w_dist : float
+        Distance between axes in the horizontal (width) direction.
+    h_dist : float
+        Distance between axes in the vertical (height) direction.
+
+    Returns
+    -------
+    axes : numpy array of axes
+        Array of axes handles.
+    '''
+    return prepare_equal_axes(fig, n_axes, space, w_dist, h_dist)
 
 
 # CONSIDER: plot small images instead of rectangles and scale their alpha by
