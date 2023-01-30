@@ -115,10 +115,11 @@ def imscatter(x, y, images, ax=None, zoom=1, selection='random'):
     return artists
 
 
-# - [ ] support list/tuple of slices for highlight?
+# - [x] support list/tuple of slices for highlight?
 # - [ ] `level` / `height` could allow for highlight that takes only a fraction
 #       of the axis
 #       kind='patch', level=0.04, height=0.03 ?
+#       or maybe even level='5%' ?
 def highlight(x_values, highlight, color=None, alpha=1., bottom_bar=False,
               bottom_extend=True, axis=None):
     '''Highlight ranges along x axis.
@@ -127,15 +128,22 @@ def highlight(x_values, highlight, color=None, alpha=1., bottom_bar=False,
     ----------
     x_values : numpy array
         Values specifying x axis points along which highlight operates.
-    highlight : slice | numpy array
+    highlight : slice | list of slices | numpy array | list of numpy arrays
         Slice or boolean numpy array defining which values in ``x_values``
-        should be highlighted.
+        should be highlighted. If list of slices or numpy arrays is provided
+        each list element will be used to create a separate highlight.
     color : str | list | numpy array, optional
-        Color in format understood by matplotlib. The default is 'orange'.
+        Highlight patch color in format understood by matplotlib. The default
+        is ``'orange'``.
     alpha : float
         Highlight patch transparency. 0.3 by default.
     bottom_bar : bool
-        Whether to place a highlight bar at the bottom of the figure.
+        Whether to place an opaque highlight bar at the bottom of the figure.
+    bar_color : str | list | numpy array, optional
+        Bottom bar color in format understood by matplotlib. The default
+        is ``'black'``.
+    bottom_extend : bool
+        Whether to extend the bottom of the axis before adding the bottom bar.
     axis : matplotlib Axes | None
         Highlight on an already present axis. Default is ``None`` which creates
         a new figure with one axis.
@@ -158,6 +166,9 @@ def highlight(x_values, highlight, color=None, alpha=1., bottom_bar=False,
         grp = group(highlight, return_slice=True)
     elif isinstance(highlight, slice):
         grp = [highlight]
+    else:
+        raise TypeError('highlight must be slice, list of slices, '
+                        'numpy array or list of numpy arrays')
 
     args = dict(lw=0, facecolor=color, alpha=alpha)
     if alpha == 1.:
@@ -180,7 +191,7 @@ def highlight(x_values, highlight, color=None, alpha=1., bottom_bar=False,
 
         if bottom_bar:
             patch = Rectangle((start, bar_low), length, bar_h, lw=0,
-                             facecolor='k', alpha=1.)
+                              facecolor='k', alpha=1.)
             axis.add_patch(patch)
 
     if bottom_bar and bottom_extend:
