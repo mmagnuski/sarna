@@ -592,8 +592,8 @@ def rescale_axis(axs, x=None, y=None, xto='center', yto='center'):
         return
 
     positions = [ax.get_position().bounds for ax in axs]
-    scale_x, x_perc = _parse_perc(x) if x is not None else None
-    scale_y, y_perc = _parse_perc(y) if y is not None else None
+    scale_x, x_perc = _parse_perc(x) if x is not None else (None, None)
+    scale_y, y_perc = _parse_perc(y) if y is not None else (None, None)
 
     for ax, pos in zip(axs, positions):
         if x is not None:
@@ -621,7 +621,7 @@ def _scale_ax(pos, ix, scale, is_perc, align_to):
                pos[0 + ix] - change if align_to == 'right' else
                pos[0 + ix] - change / 2)
 
-    pos = pos.copy()
+    pos = list(pos)
     pos[0 + ix] = new_pos
     pos[2 + ix] = new_width
 
