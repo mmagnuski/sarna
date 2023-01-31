@@ -116,12 +116,8 @@ def imscatter(x, y, images, ax=None, zoom=1, selection='random'):
 
 
 # - [x] support list/tuple of slices for highlight?
-# - [ ] `level` / `height` could allow for highlight that takes only a fraction
-#       of the axis
-#       kind='patch', level=0.04, height=0.03 ?
-#       or maybe even level='5%' ?
 def highlight(x_values, highlight, color=None, alpha=1., bottom_bar=False,
-              bottom_extend=True, axis=None):
+              bar_color='black', bottom_extend=True, axis=None):
     '''Highlight ranges along x axis.
 
     Parameters
@@ -148,15 +144,33 @@ def highlight(x_values, highlight, color=None, alpha=1., bottom_bar=False,
         Highlight on an already present axis. Default is ``None`` which creates
         a new figure with one axis.
     '''
-    from matplotlib.patches import Rectangle
 
-    color = [0.95] * 3 if color is None else color
     axis = plt.gca() if axis is None else axis
 
     ylims = axis.get_ylim()
     y_rng = np.diff(ylims)[0]
-    hlf_dist = np.diff(x_values).mean() / 2
 
+    grp = _check_highlight_var(highlight)
+
+    patch_low = ylims[0]
+    if bottom_bar:
+        bar_h = y_rng * 0.05
+        bar_low = (ylims[0] - bar_h / 2 if bottom_extend
+                   else ylims[0] + bar_h / 2)
+        patch_low = bar_low + bar_h / 2
+
+    highlight_bar(x_values, grp, level=patch_low, height=None, color=color,
+                  alpha=alpha, axis=axis)
+
+    if bottom_bar:
+        highlight_bar(x_values, grp, level=bar_low, height=bar_h,
+                      color=bar_color, alpha=1., axis=axis)
+
+    if bottom_bar and bottom_extend:
+        axis.set_ylim((ylims[0] - bar_h, ylims[1]))
+
+
+def _check_highlight_var(highlight):
     if isinstance(highlight, list):
         if all([isinstance(x, slice) for x in highlight]):
             grp = highlight
@@ -168,34 +182,39 @@ def highlight(x_values, highlight, color=None, alpha=1., bottom_bar=False,
         grp = [highlight]
     else:
         raise TypeError('highlight must be slice, list of slices, '
-                        'numpy array or list of numpy arrays')
+                        'numpy boolean array or list of numpy boolean arrays')
 
+    return grp
+
+
+def highlight_bar(x_values, highlight, level=None, height=None, color=None,
+                  alpha=1., axis=None):
+    from matplotlib.patches import Rectangle
+
+    # prepare path args
+    color = [0.95] * 3 if color is None else color
     args = dict(lw=0, facecolor=color, alpha=alpha)
     if alpha == 1.:
         args['zorder'] = 0
 
-    patch_low = ylims[0]
-    if bottom_bar:
-        bar_h = y_rng * 0.05
-        bar_low = (ylims[0] - bar_h / 2 if bottom_extend
-                   else ylims[0] + bar_h / 2)
-        patch_low = bar_low + bar_h / 2
+    axis = plt.gca() if axis is None else axis
+    grp = _check_highlight_var(highlight)
+
+    # TODO: handle level and height in % of axis
+    ylims = axis.get_ylim()
+    y_rng = np.diff(ylims)[0]
+    x_half_step = np.diff(x_values).mean() / 2
+
+    level = ylims[0] if level is None else level
+    height = y_rng - (ylims[0] - level) if height is None else height
 
     for slc in grp:
         this_x = x_values[slc]
-        start = this_x[0] - hlf_dist
-        length = np.diff(this_x[[0, -1]])[0] + hlf_dist * 2
+        start = this_x[0] - x_half_step
+        length = np.diff(this_x[[0, -1]])[0] + x_half_step * 2
 
-        patch = Rectangle((start, patch_low), length, y_rng, **args)
+        patch = Rectangle((start, level), length, height, **args)
         axis.add_patch(patch)
-
-        if bottom_bar:
-            patch = Rectangle((start, bar_low), length, bar_h, lw=0,
-                              facecolor='k', alpha=1.)
-            axis.add_patch(patch)
-
-    if bottom_bar and bottom_extend:
-        axis.set_ylim((ylims[0] - bar_h, ylims[1]))
 
 
 # - [ ] test a little and change the API and options
