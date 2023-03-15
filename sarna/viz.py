@@ -143,6 +143,13 @@ def highlight(x_values, highlight, color=None, alpha=1., bottom_bar=False,
     axis : matplotlib Axes | None
         Highlight on an already present axis. Default is ``None`` which creates
         a new figure with one axis.
+
+    Returns
+    -------
+    patches : list of matplotlib.patches.Patch
+        List of highlight patches. If ``bottom_bar`` is ``True`` then each
+        element of the list is a tuple of two patches: the first is the
+        highlight patch and the second is the bottom bar patch.
     '''
 
     axis = plt.gca() if axis is None else axis
@@ -159,15 +166,23 @@ def highlight(x_values, highlight, color=None, alpha=1., bottom_bar=False,
                    else ylims[0] + bar_h / 2)
         patch_low = bar_low + bar_h / 2
 
-    highlight_bar(x_values, grp, level=patch_low, height=None, color=color,
-                  alpha=alpha, axis=axis)
+    patches = highlight_bar(
+        x_values, grp, level=patch_low, height=None, color=color,
+        alpha=alpha, axis=axis
+    )
 
     if bottom_bar:
-        highlight_bar(x_values, grp, level=bar_low, height=bar_h,
-                      color=bar_color, alpha=1., axis=axis)
+        bottom_patches = highlight_bar(
+            x_values, grp, level=bar_low, height=bar_h,
+            color=bar_color, alpha=1., axis=axis
+        )
+        patches = [(main, bottom) for main, bottom in
+                    zip(patches, bottom_patches)]
 
     if bottom_bar and bottom_extend:
         axis.set_ylim((ylims[0] - bar_h, ylims[1]))
+
+    return patches
 
 
 def _check_highlight_var(highlight):
@@ -205,6 +220,7 @@ def highlight_bar(x_values, highlight, level=None, height=None, color=None,
     y_rng = np.diff(ylims)[0]
     x_half_step = np.diff(x_values).mean() / 2
 
+    patches = list()
     level = ylims[0] if level is None else level
     height = y_rng - (ylims[0] - level) if height is None else height
 
@@ -215,6 +231,9 @@ def highlight_bar(x_values, highlight, level=None, height=None, color=None,
 
         patch = Rectangle((start, level), length, height, **args)
         axis.add_patch(patch)
+        patches.append(patch)
+
+    return patches
 
 
 # - [ ] test a little and change the API and options
