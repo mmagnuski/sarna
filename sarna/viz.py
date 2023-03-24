@@ -204,6 +204,36 @@ def _check_highlight_var(highlight):
 
 def highlight_bar(x_values, highlight, level=None, height=None, color=None,
                   alpha=1., axis=None):
+    '''Highlight ranges along x axis.
+
+    Parameters
+    ----------
+    x_values : numpy array
+        Values specifying x axis points along which highlight operates.
+    highlight : slice | list of slices | numpy array | list of numpy arrays
+        Slice or boolean numpy array defining which values in ``x_values``
+        should be highlighted. If list of slices or numpy arrays is provided
+        each list element will be used to create a separate highlight.
+    level : float | None
+        Level at which to place the highlight. If ``None`` then the highlight
+        will be placed at the bottom of the axis.
+    height : float | None
+        Height of the highlight. If ``None`` then the highlight will extend to
+        the top of the axis.
+    color : str | list | numpy array, optional
+        Highlight patch color in format understood by matplotlib. The default
+        is ``'orange'``.
+    alpha : float
+        Highlight patch transparency. 0.3 by default.
+    axis : matplotlib Axes | None
+        Highlight on an already present axis. Default is ``None`` which creates
+        a new figure with one axis.
+
+    Returns
+    -------
+    patches : list of matplotlib.patches.Patch
+        List of highlight patches.
+    '''
     from matplotlib.patches import Rectangle
 
     # prepare path args
