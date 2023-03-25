@@ -116,8 +116,8 @@ def imscatter(x, y, images, ax=None, zoom=1, selection='random'):
 
 
 # - [x] support list/tuple of slices for highlight?
-def highlight(x_values, highlight, color=None, alpha=1., bottom_bar=False,
-              bar_color='black', bottom_extend=True, axis=None):
+def highlight(x_values=None, highlight=None, color=None, alpha=1., bottom_bar=False,
+              bar_color='black', bottom_extend=True, ax=None):
     '''Highlight ranges along x axis.
 
     Parameters
@@ -140,7 +140,7 @@ def highlight(x_values, highlight, color=None, alpha=1., bottom_bar=False,
         is ``'black'``.
     bottom_extend : bool
         Whether to extend the bottom of the axis before adding the bottom bar.
-    axis : matplotlib Axes | None
+    ax : matplotlib Axes | None
         Highlight on an already present axis. Default is ``None`` which creates
         a new figure with one axis.
 
@@ -152,9 +152,10 @@ def highlight(x_values, highlight, color=None, alpha=1., bottom_bar=False,
         highlight patch and the second is the bottom bar patch.
     '''
 
-    axis = plt.gca() if axis is None else axis
+    ax = plt.gca() if ax is None else ax
+    x_values = _handle_x_values(ax, x_values)
 
-    ylims = axis.get_ylim()
+    ylims = ax.get_ylim()
     y_rng = np.diff(ylims)[0]
 
     grp = _check_highlight_var(highlight)
@@ -168,19 +169,19 @@ def highlight(x_values, highlight, color=None, alpha=1., bottom_bar=False,
 
     patches = highlight_bar(
         x_values, grp, level=patch_low, height=None, color=color,
-        alpha=alpha, axis=axis
+        alpha=alpha, ax=ax
     )
 
     if bottom_bar:
         bottom_patches = highlight_bar(
             x_values, grp, level=bar_low, height=bar_h,
-            color=bar_color, alpha=1., axis=axis
+            color=bar_color, alpha=1., ax=ax
         )
         patches = [(main, bottom) for main, bottom in
                     zip(patches, bottom_patches)]
 
     if bottom_bar and bottom_extend:
-        axis.set_ylim((ylims[0] - bar_h, ylims[1]))
+        ax.set_ylim((ylims[0] - bar_h, ylims[1]))
 
     return patches
 
@@ -202,8 +203,30 @@ def _check_highlight_var(highlight):
     return grp
 
 
+def _get_x_values_from_axis(ax):
+    ax_lines = ax.findobj(plt.Line2D)
+
+    if len(ax_lines) > 0:
+        x_values = ax_lines[0].get_xdata()
+    else:
+        x_values = None
+
+    return x_values
+
+
+def _handle_x_values(ax, x_values):
+    if x_values is None:
+        x_values = _get_x_values_from_axis(ax)
+
+    if x_values is None:
+        raise ValueError('x_values must be provided if axis does not contain '
+                         'any lines')
+
+    return x_values
+
+
 def highlight_bar(x_values, highlight, level=None, height=None, color=None,
-                  alpha=1., axis=None):
+                  alpha=1., ax=None):
     '''Highlight ranges along x axis.
 
     Parameters
@@ -225,7 +248,7 @@ def highlight_bar(x_values, highlight, level=None, height=None, color=None,
         is ``'orange'``.
     alpha : float
         Highlight patch transparency. 0.3 by default.
-    axis : matplotlib Axes | None
+    ax : matplotlib Axes | None
         Highlight on an already present axis. Default is ``None`` which creates
         a new figure with one axis.
 
@@ -242,11 +265,11 @@ def highlight_bar(x_values, highlight, level=None, height=None, color=None,
     if alpha == 1.:
         args['zorder'] = 0
 
-    axis = plt.gca() if axis is None else axis
+    ax = plt.gca() if ax is None else ax
     grp = _check_highlight_var(highlight)
 
     # TODO: handle level and height in % of axis
-    ylims = axis.get_ylim()
+    ylims = ax.get_ylim()
     y_rng = np.diff(ylims)[0]
     x_half_step = np.diff(x_values).mean() / 2
 
@@ -260,7 +283,7 @@ def highlight_bar(x_values, highlight, level=None, height=None, color=None,
         length = np.diff(this_x[[0, -1]])[0] + x_half_step * 2
 
         patch = Rectangle((start, level), length, height, **args)
-        axis.add_patch(patch)
+        ax.add_patch(patch)
         patches.append(patch)
 
     return patches
