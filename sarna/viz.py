@@ -115,7 +115,6 @@ def imscatter(x, y, images, ax=None, zoom=1, selection='random'):
     return artists
 
 
-# - [x] support list/tuple of slices for highlight?
 def highlight(x_values=None, highlight=None, color=None, alpha=1., bottom_bar=False,
               bar_color='black', bottom_extend=True, ax=None):
     '''Highlight ranges along x axis.
@@ -225,8 +224,8 @@ def _handle_x_values(ax, x_values):
     return x_values
 
 
-def highlight_bar(x_values, highlight, level=None, height=None, color=None,
-                  alpha=1., ax=None):
+def highlight_bar(x_values=None, highlight=None, level=None, height=None,
+                  color=None, alpha=1., ax=None):
     '''Highlight ranges along x axis.
 
     Parameters
@@ -258,6 +257,8 @@ def highlight_bar(x_values, highlight, level=None, height=None, color=None,
         List of highlight patches.
     '''
     from matplotlib.patches import Rectangle
+
+    x_values = _handle_x_values(ax, x_values)
 
     # prepare path args
     color = [0.95] * 3 if color is None else color
