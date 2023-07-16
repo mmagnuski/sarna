@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
+from scipy import signal
 
 from sarna.viz import highlight
 
@@ -70,3 +71,41 @@ def test_highlight():
         rect_color = rectangles[idx].get_facecolor()[:3]
         assert (rect_color == np.array([col] * 3)).all()
     plt.close(ax.figure)
+
+
+def test_highlight2():
+    # create random smoothed data
+    x = np.linspace(-0.5, 2.5, num=1000)
+    y = np.random.rand(1000)
+
+    gauss = signal.windows.gaussian(75, 12)
+    smooth_y = signal.correlate(y, gauss, mode='same')
+
+    lines = plt.plot(x, smooth_y)
+    ax = lines[0].axes
+
+    maxval = smooth_y.max()
+    mark = smooth_y > maxval * 0.9
+
+    # highlight with bottom_bar
+    highlight(highlight=mark, ax= ax, bottom_bar=True)
+
+    # make sure there is equal number of higher and shorter bars
+    rectangles = ax.findobj(plt.Rectangle)[::-1]
+    heights = np.array([r.get_height() for r in rectangles])
+    shorter, higher = min(heights), max(heights)
+
+    which_shorter = heights == shorter
+    n_shorter = (which_shorter).sum()
+    which_longer = heights == higher
+    n_longer = (which_longer).sum()
+    assert n_shorter == n_longer
+
+    # make sure the colors agree and match the longer / higher bars correctly
+    colors = np.stack([r.get_facecolor() for r in rectangles],
+                      axis=0)[:, :3]
+
+    light_gray = np.array([0.95, 0.95, 0.95])[None, :]
+    black = np.array([0., 0., 0.])[None, :]
+    assert ((colors == light_gray).all(axis=1) == which_longer).all()
+    assert ((colors == black).all(axis=1) == which_shorter).all()
