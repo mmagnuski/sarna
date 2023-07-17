@@ -678,12 +678,14 @@ def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
             pbar = progressbar(progress, total=n_permutations)
             for perm_idx in range(n_permutations):
                 stats[perm_idx] = _paired_perm(
-                    data_unr, stat_fun, n_cond, n_obs, dims, pbar=pbar
+                    data_unr, stat_fun, n_cond, n_obs, dim_shape, dims,
+                    pbar=pbar
                 )
         else:
             from joblib import Parallel, delayed
             stats = Parallel(n_jobs=n_jobs)(
-                delayed(_paired_perm)(data_unr, stat_fun, n_cond, n_obs, dims)
+                delayed(_paired_perm)(data_unr, stat_fun, n_cond, n_obs,
+                                      dim_shape, dims)
                 for perm_idx in range(n_permutations)
             )
             stats = np.stack(stats, axis=0)
@@ -729,11 +731,11 @@ def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
         return threshold, stats
 
 
-def _paired_perm(data_unr, stat_fun, n_cond, n_obs, dims, pbar=None):
+def _paired_perm(data_unr, stat_fun, n_cond, n_obs, dim_shape, dims, pbar=None):
     rnd = (np.random.random(size=(n_cond, n_obs))).argsort(axis=0)
     idx = (rnd + np.arange(n_obs)[None, :] * n_cond).T.ravel()
     this_data = data_unr[idx].reshape(
-        n_obs, n_cond, *dims[2:]).transpose(*dims[:2])
+        n_obs, n_cond, *dim_shape[2:]).transpose(*dims)
     stat = stat_fun(*this_data)
 
     if pbar is not None:
