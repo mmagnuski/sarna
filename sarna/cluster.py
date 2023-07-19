@@ -668,7 +668,8 @@ def _compute_threshold_via_permutations(data, paired, tail, stat_fun,
 
         dims = np.arange(data.ndim)
         dims[:2] = [1, 0]
-        n_cond, n_obs = data.shape[:2]
+        dim_shape = data.shape
+        n_cond, n_obs = dim_shape[:2]
         data_unr = data.transpose(*dims).reshape(n_cond * n_obs,
                                     *data.shape[2:])
 

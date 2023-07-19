@@ -15,15 +15,13 @@ import matplotlib.pyplot as plt
 from scipy.io import loadmat, savemat
 from scipy import stats, signal
 
+try:
+    import xarray as xr
+except ImportError:
+    print('Could not import xarray')
+
 # from scipy.stats import distributions as dist
 # from scipy import fftpack
 # import seaborn as sns?
 
-try:
-    from showit import image
-except ImportError:
-    pass
-
-
 from .utils import find_index, find_range
-from .freq import dB
