@@ -50,6 +50,7 @@ class GED(object):
             # compute GED and sort by eigenvalue
             eig, filters = scipy.linalg.eig(cov_S, cov_R)
             eig = eig.real
+            filters = filters.real
             srt = np.argsort(eig)[::-1]
             eig, filters = eig[srt], filters[:, srt]
 
@@ -90,26 +91,8 @@ class GED(object):
         return Topo(ptr, info, axes=axes, **args)
 
     def apply(self, inst, comp_idx):
-        comp_idx = _deal_with_idx(comp_idx)
-        inst_copy = inst.copy()
+        return _apply_filters(inst, self.filters, comp_idx)
 
-        # extract component time-courses
-        if isinstance(inst, mne.io.BaseRaw):
-            comp_data = self.filters[:, comp_idx].T @ inst._data
-        elif isinstance(inst, mne.BaseEpochs):
-            comp_data = [self.filters[:, comp_idx].T @ inst._data[idx]
-                         for idx in range(inst._data.shape[0])]
-            comp_data = np.stack(comp_data, axis=0)
-
-        # return Raw / Epochs object
-        ch_renames = {ch_name: 'comp_{:02d}'.format(ch_idx + 1)
-                      for ch_idx, ch_name in enumerate(inst_copy.ch_names)}
-        inst_copy.rename_channels(ch_renames)
-        ch_picks = ['comp_{:02d}'.format(idx + 1) for idx in comp_idx]
-        inst_copy.pick_channels(ch_picks)
-        inst_copy._data = comp_data
-
-        return inst_copy
 
     def save(self, fname, overwrite=False):
         '''Save to fitted GED object to hdf5 file.
@@ -155,13 +138,37 @@ def read_ged(fname):
 
 def _get_patterns(vec, cov):
     '''Turn filters to patterns.'''
-    n_signals = vec.shape[0]
-    patterns = np.zeros((n_signals, n_signals))
+    n_weights, n_comps = vec.shape
+    patterns = np.zeros((n_comps, n_weights))
 
-    for idx in range(n_signals):
+    for idx in range(n_comps):
         patterns[idx, :] = vec[:, [idx]].T @ cov.data
 
     return patterns
+
+
+def _apply_filters(inst, filters, comp_idx):
+    '''Apply filters to data.'''
+    comp_idx = _deal_with_idx(comp_idx)
+    inst_copy = inst.copy()
+
+    # extract component time-courses
+    if isinstance(inst, mne.io.BaseRaw):
+        comp_data = filters[:, comp_idx].T @ inst._data
+    elif isinstance(inst, mne.BaseEpochs):
+        comp_data = [filters[:, comp_idx].T @ inst._data[idx]
+                     for idx in range(inst._data.shape[0])]
+        comp_data = np.stack(comp_data, axis=0)
+
+    # return Raw / Epochs object
+    ch_renames = {ch_name: 'comp_{:02d}'.format(ch_idx + 1)
+                  for ch_idx, ch_name in enumerate(inst_copy.ch_names)}
+    inst_copy.rename_channels(ch_renames)
+    ch_picks = ['comp_{:02d}'.format(idx + 1) for idx in comp_idx]
+    inst_copy.pick_channels(ch_picks)
+    inst_copy._data = comp_data
+
+    return inst_copy
 
 
 def _deal_with_idx(idx):
