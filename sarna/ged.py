@@ -105,7 +105,10 @@ class GED(object):
             Whether to overwrite the file if it exists.
         '''
 
-        from mne.externals import h5io
+        try:
+            from mne.externals import h5io
+        except ModuleNotFoundError:
+            import h5io
 
         data_dict = {'eig': self.eig, 'filters': self.filters,
                      'patterns': self.patterns,
@@ -126,7 +129,10 @@ def read_ged(fname):
     ged : sarna.ged.GED
         Read GED object.
     '''
-    from mne.externals import h5io
+    try:
+        from mne.externals import h5io
+    except ModuleNotFoundError:
+        import h5io
 
     data_dict = h5io.read_hdf5(fname)
     ged = GED(
@@ -165,7 +171,7 @@ def _apply_filters(inst, filters, comp_idx):
                   for ch_idx, ch_name in enumerate(inst_copy.ch_names)}
     inst_copy.rename_channels(ch_renames)
     ch_picks = ['comp_{:02d}'.format(idx + 1) for idx in comp_idx]
-    inst_copy.pick_channels(ch_picks)
+    inst_copy.pick(ch_picks)
     inst_copy._data = comp_data
 
     return inst_copy
