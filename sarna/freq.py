@@ -32,8 +32,6 @@ def transform_spectrum(spectrum, dB=False, normalize=False, detrend=False):
 
 
 # - [ ] consider moving to utils
-# - [x] warn if sfreq not given and some values are float
-# - [x] treat floats as time and int as samples
 # - [ ] maybe a smarter API or a class...
 def window_steps(window_length, window_step, signal_len, sfreq=None):
     is_float = [isinstance(x, float)
@@ -136,13 +134,13 @@ def _find_sel_amplitude_periods(epochs, threshold=2.5, min_period=0.1,
         Threshold defining high amplitude periods to select: if float, it
         is interpreted as a z value threshold; if str, as percentage of
         fragments with in the highest amplitude in form of ``'xx%'``
-        (for example with ``'25%'`` 25% of singal with highest amplitude will
+        (for example with ``'25%'`` 25% of signal with highest amplitude will
         be selected ). Defaults to ``2.5``.
     min_period : float
         Minimum length of high amplitude period in seconds.
         Defaults to ``0.1``.
     periods : str
-        Sepcification of perionds to find. Might be 'high' or 'low' amplitude.
+        Specification of periods to find. Might be 'high' or 'low' amplitude.
     extend : float | None
         Extend each period by this many seconds on both sides (before and
         after). Defaults to ``None`` which does not extend the periods.
@@ -175,7 +173,7 @@ def _find_sel_amplitude_periods(epochs, threshold=2.5, min_period=0.1,
     elif periods == 'low':
         grp = group(envelope < threshold)
     else:
-        raise ValueError('Unrecognised `periods` option "{}".'.format(periods))    
+        raise ValueError('Unrecognised `periods` option "{}".'.format(periods))
 
     if len(grp) == 0:
         raise ValueError('No {} amplitude periods were found.'.format(periods))
@@ -260,13 +258,13 @@ def create_amplitude_annotations(raw, freq=None, events=None, event_id=None,
         Threshold defining high amplitude periods to select: if float, it
         is interpreted as a z value threshold; if str, as percentage of
         fragments with in the highest amplitude in form of ``'xx%'``
-        (for example with ``'25%'`` 25% of singal with highest amplitude will
+        (for example with ``'25%'`` 25% of signal with highest amplitude will
         be selected ). Defaults to ``2.5``.
     min_period : float
         Minimum length of high amplitude period in seconds.
         Defaults to ``0.1``.
     periods : str
-        Sepcification of perionds to find. Might be 'high' or 'low' amplitude.
+        Specification of periods to find. Might be 'high' or 'low' amplitude.
     extend : float | None
         Extend each period by this many seconds on both sides (before and
         after). Defaults to ``None`` which does not extend the periods.
@@ -284,28 +282,26 @@ def create_amplitude_annotations(raw, freq=None, events=None, event_id=None,
     if event_id is None:
         event_id = np.unique(events[:, 2]).tolist()
 
-    filt_raw = raw.copy().filter(freq[0], freq[1])
+    filtered_raw = raw.copy().filter(freq[0], freq[1])
 
-    filt_raw_nan = filt_raw.copy()
-    filt_raw_nan._data = raw.get_data(reject_by_annotation='NaN')
+    filtered_raw_nan = filtered_raw.copy()
+    filtered_raw_nan._data = raw.get_data(reject_by_annotation='NaN')
 
-    epochs_nan = mne.Epochs(filt_raw_nan, events=events, event_id=event_id,
+    epochs_nan = mne.Epochs(filtered_raw_nan, events=events, event_id=event_id,
                             tmin=tmin, tmax=tmax, baseline=None, preload=True,
                             reject_by_annotation=False)
-    epochs = mne.Epochs(filt_raw, events=events, event_id=event_id, tmin=tmin,
-                        tmax=tmax, baseline=None, preload=True,
+    epochs = mne.Epochs(filtered_raw, events=events, event_id=event_id,
+                        tmin=tmin, tmax=tmax, baseline=None, preload=True,
                         reject_by_annotation=False)
 
-    del filt_raw_nan
+    del filtered_raw_nan
 
-    filt_hilb_data = np.abs(epochs.copy().pick(picks).apply_hilbert()._data)
-    filt_hilb_data[np.isnan(epochs_nan.copy().pick(picks)._data)] = np.nan
-    epochs_nan._data = filt_hilb_data
+    filtered_hilbert_data = np.abs(epochs.copy().pick(picks).apply_hilbert()._data)
+    filtered_hilbert_data[np.isnan(epochs_nan.copy().pick(picks)._data)] = np.nan
+    epochs_nan._data = filtered_hilbert_data
 
-    hi_amp_epochs = _find_sel_amplitude_periods(epochs_nan,
-                                                 threshold=threshold,
-                                                 min_period=min_period,
-                                                 extend=extend)
+    hi_amp_epochs = _find_sel_amplitude_periods(
+        epochs_nan, threshold=threshold, min_period=min_period, extend=extend)
 
     hi_amp_raw = _transfer_selection_to_raw(epochs, raw,
                                             selection=hi_amp_epochs)
@@ -363,7 +359,7 @@ def grand_average_psd(psd_list):
 
     # kopiujemy wybrane psd z listy
     grand_psd = this_psd.copy()
-    # i wypełniamy wartościamy średniej po osobach
+    # i wypełniamy wartościami średniej po osobach
     grand_psd._data = all_psds
 
     return grand_psd
