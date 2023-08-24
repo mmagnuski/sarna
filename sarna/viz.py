@@ -162,9 +162,11 @@ def highlight(x_values=None, highlight=None, color=None, alpha=1., bottom_bar=Fa
     patch_low = ylims[0]
     if bottom_bar:
         bar_h = y_rng * 0.05
-        bar_low = (ylims[0] - bar_h / 2 if bottom_extend
-                   else ylims[0] + bar_h / 2)
-        patch_low = bar_low + bar_h / 2
+        if bottom_extend:
+            bar_low = ylims[0] - bar_h
+        else:
+            bar_low = ylims[0] + bar_h / 2
+        patch_low = bar_low + bar_h
 
     patches = highlight_bar(
         x_values, grp, level=patch_low, height=None, color=color,
@@ -180,7 +182,7 @@ def highlight(x_values=None, highlight=None, color=None, alpha=1., bottom_bar=Fa
                     zip(patches, bottom_patches)]
 
     if bottom_bar and bottom_extend:
-        ax.set_ylim((ylims[0] - bar_h, ylims[1]))
+        ax.set_ylim((ylims[0] - bar_h * 1.5, ylims[1]))
 
     return patches
 
