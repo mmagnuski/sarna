@@ -104,8 +104,8 @@ class GED(object):
         overwrite : bool
             Whether to overwrite the file if it exists.
         '''
-
-        from mne.externals import h5io
+        import h5io
+        # from mne.externals import h5io
 
         data_dict = {'eig': self.eig, 'filters': self.filters,
                      'patterns': self.patterns,
@@ -126,7 +126,8 @@ def read_ged(fname):
     ged : sarna.ged.GED
         Read GED object.
     '''
-    from mne.externals import h5io
+    import h5io
+    # from mne.externals import h5io
 
     data_dict = h5io.read_hdf5(fname)
     ged = GED(
