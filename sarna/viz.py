@@ -131,7 +131,7 @@ def highlight(x_values=None, highlight=None, color=None, alpha=1., bottom_bar=Fa
         Highlight patch color in format understood by matplotlib. The default
         is ``'orange'``.
     alpha : float
-        Highlight patch transparency. 0.3 by default.
+        Highlight patch transparency. ``1.`` (opaque) by default.
     bottom_bar : bool
         Whether to place an opaque highlight bar at the bottom of the figure.
     bar_color : str | list | numpy array, optional
