@@ -3,8 +3,7 @@ import scipy
 from scipy import stats
 from scipy.stats import ttest_ind, ttest_rel, levene
 from borsar.stats import compute_regression_t
-
-from .utils import progressbar as progressbar_function
+from borsar.utils import progressbar as progressbar_function
 
 
 # TODO:

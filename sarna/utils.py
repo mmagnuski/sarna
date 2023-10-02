@@ -157,32 +157,6 @@ def epochs_to_ft(epochs, fname, var_name='data', trialinfo=None):
     savemat(fname, data)
 
 
-# - [ ] move to borsar, try using autonotebook if not str
-# - [ ] later allow for tqdm progressbar as first arg
-def progressbar(progressbar, total=None):
-    # progressbar=True should give text progressbar
-    if isinstance(progressbar, bool) and progressbar:
-        progressbar = 'text'
-
-    if progressbar == 'notebook':
-        from tqdm import tqdm_notebook
-        pbar = tqdm_notebook(total=total)
-    elif progressbar == 'text':
-        from tqdm import tqdm
-        pbar = tqdm(total=total)
-    else:
-        pbar = EmptyProgressbar(total=total)
-    return pbar
-
-
-class EmptyProgressbar(object):
-    def __init__(self, total=None):
-        self.total = total
-
-    def update(self, val):
-        pass
-
-
 def _transfer_selection_to_raw(epochs, raw, selection):
     '''
     Translate epoch-level selections back to raw signal.
