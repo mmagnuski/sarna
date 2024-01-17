@@ -344,7 +344,9 @@ def glassplot(x=None, y=None, data=None, x_width=0.2, zorder=4,
     else:
         swarms = ax.findobj(mpl.collections.PathCollection)
         if len(swarms) > 0:
-            assert len(swarms) == len(categories)
+            good_groups = len(swarms) == len(categories)
+            if not good_groups:
+                swarms = swarms[:len(categories)]
             colors = [swarm.get_facecolor()[0] for swarm in swarms]
             colors = [color[:3] for color in colors]  # ignore alpha
 
