@@ -231,12 +231,12 @@ def prepare_equal_axes(fig, n_axes, space=[0.02, 0.98, 0.02, 0.98],
 
     # if too much width or height space of each axes - increase spacing
     # FIXME, ADD: other spacing options (for example align to top)
-    if w > h:
+    if w > h and n_axes[1] > 1:
         w_diff = w - h
         additional_w_dist = w_diff * n_axes[1] / (n_axes[1] - 1)
         w_dist += additional_w_dist
         w = h
-    elif h > w:
+    elif h > w and n_axes[0] > 1:
         h_diff = h - w
         additional_h_dist = h_diff * n_axes[0] / (n_axes[0] - 1)
         h_dist += additional_h_dist
