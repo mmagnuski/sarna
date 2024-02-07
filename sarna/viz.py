@@ -500,27 +500,34 @@ def _align_along_x(axs, left=0, right=0):
 
 
 def rescale_axis(axs, x=None, y=None, xto='center', yto='center'):
-    '''Shrink axes in x and/or y dimension by specific value / percent.
-    Shrinking by a negative value extends the axis.
+    '''Rescale axes in x and/or y dimension by specific value / percent.
+
+    Rescaling by a positive value / percent extends the axis, while rescaling
+    by a negative value / percent shrinks the axis.
 
     Parameters
     ----------
-    axs : list-like of axes
+    axs : matplotlib.Axes | list-like of axes
         Matplotlib axes to shrink.
     x : int | float | str
-        Value to change the axis width by. Can also be a percent string
-        for example ``'-25%'`` (which shrinks by 25% of current width).
+        Value to change the axis width by. Can also be a percent string,
+        for example ``'-25%'``, which shrinks by 25% of current width.
     xto : str
-        FIXME
+        How to align the x axis after rescaling. Can be ``'left'``, ``'right'``,
+        or ``'center'``.
     y : int | float | str
         Value to change the axis height by. Can also be a percent string
         for example ``'-25%'`` (which shrinks by 25% of current height).
     yto : str
-        FIXME
+        How to align the y axis after rescaling. Can be ``'left'``, ``'right'``,
+        or ``'center'``.
     '''
     if x is None and y is None:
         # nothing to do
         return
+
+    if isinstance(axs, plt.Axes):
+        axs = [axs]
 
     positions = [ax.get_position().bounds for ax in axs]
     scale_x, x_perc = _parse_perc(x) if x is not None else (None, None)
