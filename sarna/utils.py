@@ -290,3 +290,34 @@ def create_eeglab_sphere(inst):
     radius = np.mean([radius1, radius2])
 
     return (x, y, z, radius)
+
+
+def epochs_to_xarray(epochs):
+    import xarray as xr
+    import pylabianca as pln
+
+    n_tri, n_chan, n_samples = epochs._data.shape
+    coords = {'trial': np.arange(n_tri), 'chan': epochs.ch_names,
+              'time': epochs.times}
+    coords = pln.utils._inherit_metadata(coords, epochs.metadata, 'trial')
+
+    epochs_xarray = xr.DataArray(
+        epochs._data, dims=['trial', 'chan', 'time'],
+        coords=coords, name='amplitude')
+    return epochs_xarray
+
+
+def tfr_valid_mask(tfr, n_cycles):
+    freq = tfr.freqs
+    t_window = (1 / freq) * n_cycles
+    ht_window = t_window / 2
+
+    tfr_mask = np.tile(tfr.times, [len(freq), 1])
+    tfr_mask = (
+        ((tfr_mask - tfr_mask.min()) > ht_window[:, None])
+        & (np.abs(tfr_mask - tfr_mask.max()) > ht_window[:, None])
+    )
+
+    tfr_masked = tfr.copy()
+    tfr_masked.data[..., ~tfr_mask] = np.nan
+    return tfr_masked
