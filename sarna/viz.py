@@ -596,3 +596,13 @@ def _align_x_center(ax, source):
         axpos = list(pos[0])
         axpos[0] += mid_diff
         ax.set_position(axpos)
+
+
+def color_sensors(brain, color_rgb):
+    actors = brain.plotter.actors
+    keys = list(actors.keys())
+    this_key = keys[-1]
+
+    # print(this_key)
+    prop = actors[this_key].GetProperty()
+    prop.SetColor(*color_rgb[:3])

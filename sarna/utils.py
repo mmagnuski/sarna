@@ -307,7 +307,23 @@ def epochs_to_xarray(epochs):
     return epochs_xarray
 
 
+def tfr_to_xarray(tfr):
+    import xarray as xr
+    import pylabianca as pln
+
+    n_trials, n_chan, n_freq, n_times = tfr.data.shape
+    coords = {'trial': np.arange(n_trials), 'chan': tfr.ch_names,
+              'freq': tfr.freqs, 'time': tfr.times}
+    coords = pln.utils._inherit_metadata(coords, tfr.metadata, 'trial')
+
+    tfr_xarray = xr.DataArray(
+        tfr.data, dims=['trial', 'chan', 'freq', 'time'],
+        coords=coords, name='power')
+    return tfr_xarray
+
+
 def tfr_valid_mask(tfr, n_cycles):
+    """Mask time-frequency values where analysis window exceeds the data."""
     freq = tfr.freqs
     t_window = (1 / freq) * n_cycles
     ht_window = t_window / 2
@@ -321,3 +337,9 @@ def tfr_valid_mask(tfr, n_cycles):
     tfr_masked = tfr.copy()
     tfr_masked.data[..., ~tfr_mask] = np.nan
     return tfr_masked
+
+
+def tqdm_clear():
+    from tqdm import tqdm
+    tqdm._instances.clear()
+
