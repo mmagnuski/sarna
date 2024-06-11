@@ -159,3 +159,30 @@ def confidence_interval(arr, ci):
     from scipy import stats
     mean, sigma = arr.mean(axis=0), stats.sem(arr, axis=0)
     return stats.t.interval(ci, loc=mean, scale=sigma, df=arr.shape[0])
+
+
+def iterative_cleaning(data, sd_threshold=3, min_retain=10, verbose=True):
+    n_tri = data.shape[0]
+    retain = np.ones(n_tri, dtype=bool)
+
+    got_bad = True
+    n_good = n_tri
+
+    step_idx = 0
+    while got_bad and n_good > min_retain:
+        step_idx += 1
+        current_idx = np.where(retain)[0]
+        data_z = stats.zscore(data[current_idx], axis=0)
+        bad = data_z > sd_threshold
+
+        got_bad = bad.any()
+        if got_bad:
+            retain[current_idx[bad]] = False
+            n_good = retain.sum()
+            if verbose:
+                print(f'Step {step_idx}: removed {bad.sum()} observations.')
+        elif verbose:
+            print(f'Step {step_idx}: no more to remove.\nRemoved '
+                    f'{(~retain).sum()} observations in total.')
+
+    return retain
