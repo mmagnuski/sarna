@@ -170,6 +170,33 @@ def _apply_filters(inst, filters, comp_idx):
     return inst_copy
 
 
+def _apply_filters_xarray(xarr, filters, comp_idx):
+    '''Apply filters to data.'''
+    comp_idx = _deal_with_idx(comp_idx)
+    xarr_copy = xarr.copy()
+
+    # extract component time-courses
+    ndim = xarr_copy.ndim
+    if ndim == 2:
+        comp_data = filters[:, comp_idx].T @ xarr.data
+    elif ndim == 3:
+        comp_data = [filters[:, comp_idx].T @ xarr.data[idx]
+                     for idx in range(xarr.shape[0])]
+        comp_data = np.stack(comp_data, axis=0)
+
+    # return xarray object
+    spat_dim_idx = 0 if ndim == 2 else 1
+    spat_dim = xarr.dims[spat_dim_idx]
+    n_channels = xarr.shape[spat_dim_idx]
+
+    xarr_copy = xarr_copy.assign_coords({spat_dim: np.arange(n_channels)})
+    xarr_copy = xarr_copy.rename({spat_dim: 'comp'})
+    xarr_copy = xarr_copy.sel(comp=comp_idx)
+    xarr_copy.data = comp_data
+
+    return xarr_copy
+
+
 def _deal_with_idx(idx):
     '''Helper function to deal with various ways in which indices can be
     passed. Lists and arrays are passed unchanged, but ranges are turned
