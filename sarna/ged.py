@@ -3,7 +3,7 @@ import scipy
 
 import mne
 from borsar.viz import Topo
-from borsar.utils import import_hdf5
+
 
 # TODO: add plot_eig for plotting eigenvalues
 # TODO: split ged computation and object construction
@@ -104,7 +104,7 @@ class GED(object):
         overwrite : bool
             Whether to overwrite the file if it exists.
         '''
-        h5io = import_hdf5()
+        import h5io
 
         data_dict = {'eig': self.eig, 'filters': self.filters,
                      'patterns': self.patterns,
@@ -125,7 +125,7 @@ def read_ged(fname):
     ged : sarna.ged.GED
         Read GED object.
     '''
-    h5io = import_hdf5()
+    import h5io
 
     data_dict = h5io.read_hdf5(fname)
     ged = GED(
