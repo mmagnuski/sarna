@@ -169,7 +169,13 @@ def read_rej(fname, sfreq, bad_types=['reject']):
 	from mne import Annotations
 
 	rej = pd.read_table(fname)
-	rej.loc[:, ['start', 'end']] = rej.loc[:, ['start', 'end']] / sfreq
+
+	# to avoid pandas FutureWarning
+	# "... please explicitly cast to a compatible dtype first"
+	# we turn start and end columns to float first and then divide by sfreq
+	rej[['start', 'end']] = rej[['start', 'end']].astype(float)
+	rej[['start', 'end']] = rej[['start', 'end']] / sfreq
+
 	onset, duration = rej.start.values, (rej.end - rej.start).values
 	description = ['BAD ' + val if val in bad_types else val
 				   for val in rej.type.tolist()]
