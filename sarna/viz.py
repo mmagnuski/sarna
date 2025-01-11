@@ -355,7 +355,7 @@ def glassplot(x=None, y=None, data=None, x_width=0.2, zorder=4,
     # x_pos = ax.get_xticks()
     # x_lab = [x.get_text() for x in ax.get_xticklabels()]
 
-    means = data.groupby(x).mean()
+    means = data.groupby(x)[y].mean()
     width = np.diff(x_ticks)[0] * x_width
 
     if new_ax:
@@ -363,7 +363,7 @@ def glassplot(x=None, y=None, data=None, x_width=0.2, zorder=4,
 
     for idx, (this_label, this_x) in enumerate(zip(categories, x_ticks)):
         # plot mean
-        this_mean = means.loc[this_label, y]
+        this_mean = means.loc[this_label]
         ax.plot([this_x - width, this_x + width], [this_mean, this_mean],
                 color=colors[idx], lw=linewidth, zorder=zorder)
 
