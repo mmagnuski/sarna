@@ -555,8 +555,8 @@ def _scale_ax(pos, ix, scale, is_perc, align_to):
     width = pos[2 + ix]
     change = scale * width if is_perc else scale
     new_width = width + change
-    new_pos = (pos[0 + ix] if align_to == 'left' else
-               pos[0 + ix] - change if align_to == 'right' else
+    new_pos = (pos[0 + ix] if align_to in ['left', 'bottom'] else
+               pos[0 + ix] - change if align_to in ['right', 'top'] else
                pos[0 + ix] - change / 2)
 
     pos = list(pos)
