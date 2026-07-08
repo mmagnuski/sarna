@@ -519,7 +519,7 @@ def rescale_axis(axs, x=None, y=None, xto='center', yto='center'):
         Value to change the axis height by. Can also be a percent string
         for example ``'-25%'`` (which shrinks by 25% of current height).
     yto : str
-        How to align the y axis after rescaling. Can be ``'left'``, ``'right'``,
+        How to align the y axis after rescaling. Can be ``'bottom'``, ``'top'``,
         or ``'center'``.
     '''
     if x is None and y is None:
@@ -533,6 +533,7 @@ def rescale_axis(axs, x=None, y=None, xto='center', yto='center'):
     scale_x, x_perc = _parse_perc(x) if x is not None else (None, None)
     scale_y, y_perc = _parse_perc(y) if y is not None else (None, None)
 
+    yto = {'top': 'right', 'bottom': 'left'}.get(yto, yto)
     for ax, pos in zip(axs, positions):
         if x is not None:
             pos = _scale_ax(pos, 0, scale_x, x_perc, xto)
