@@ -13,18 +13,28 @@ def find_dropbox():
     dropbox_path : str
         Full path to main Dropbox directory.
     '''
-    if any([platform == plt for plt in ["linux", "linux2", "darwin"]]):
+    if platform in ["linux", "linux2", "darwin"]:
         config_pth = op.expanduser('~/.dropbox')
     elif platform == "win32":
         appdata = Path(os.getenv('APPDATA')).parent
         config_pth = op.join(appdata, 'Local', 'Dropbox')
-    if op.exists(config_pth):
-        json_path = op.join(config_pth, 'info.json')
-        with open(json_path) as f:
-            info = json.load(f)
-        return info['personal']['path']
     else:
         raise ValueError('Could not find Dropbox directory.')
+
+    json_path = op.join(config_pth, 'info.json')
+    if op.exists(json_path):
+        with open(json_path) as f:
+            return json.load(f)['personal']['path']
+
+    event_store = Path(config_pth) / "events" / "store"
+    if event_store.exists():
+        import re
+        text = event_store.read_bytes().decode("utf-8", errors="ignore")
+        match = re.search(r"dropbox_root.*?(/[^\0\r\n]+)", text, re.S)
+        if match and op.isdir(match.group(1)):
+            return match.group(1)
+
+    raise ValueError('Could not find Dropbox directory.')
 
 
 def find_onedrive(kind='auto'):
