@@ -2,6 +2,7 @@ import os
 import os.path as op
 from pathlib import Path
 import json
+import base64
 from sys import platform
 
 
@@ -13,18 +14,31 @@ def find_dropbox():
     dropbox_path : str
         Full path to main Dropbox directory.
     '''
-    if any([platform == plt for plt in ["linux", "linux2", "darwin"]]):
+
+    if platform in ["linux", "linux2", "darwin"]:
         config_pth = op.expanduser('~/.dropbox')
     elif platform == "win32":
-        appdata = Path(os.getenv('APPDATA')).parent
+        appdata = os.getenv("APPDATA")
+        if appdata is None:
+            raise ValueError("APPDATA is not set.")
+        appdata = Path(appdata).parent
         config_pth = op.join(appdata, 'Local', 'Dropbox')
-    if op.exists(config_pth):
-        json_path = op.join(config_pth, 'info.json')
-        with open(json_path) as f:
-            info = json.load(f)
-        return info['personal']['path']
     else:
         raise ValueError('Could not find Dropbox directory.')
+
+    json_path = op.join(config_pth, 'info.json')
+    if op.exists(json_path):
+        with open(json_path) as f:
+            return json.load(f)['personal']['path']
+
+    host_dbx = Path(op.join(config_pth, "host.dbx"))
+    if host_dbx.exists():
+        encoded_path = host_dbx.read_text().splitlines()[1]
+        dropbox_path = base64.b64decode(encoded_path).decode()
+        if op.isdir(dropbox_path):
+            return dropbox_path
+
+    raise ValueError('Could not find Dropbox directory.')
 
 
 def find_onedrive(kind='auto'):
