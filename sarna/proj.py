@@ -117,7 +117,7 @@ def find_google_drive(all=True):
     # but drive letter can be changed
     google_drives = list()
     for drive in drive_letters:
-        check_dir = f'{drive}:\.shortcut-targets-by-id'
+        check_dir = fr'{drive}:\.shortcut-targets-by-id'
         if op.exists(check_dir):
             google_drives.append(check_dir)
 
@@ -168,7 +168,7 @@ def find_shared_folder(folder_name, as_path=False):
 
 
 # TODO: return_files also returns directories (check!)
-def find_subjects(directory, pattern='sub-\w+',
+def find_subjects(directory, pattern=r'sub-\w+',
                   return_files=False, remove_prefix=True):
     '''Find files / subdirectories matching a pattern in given directory.
 
